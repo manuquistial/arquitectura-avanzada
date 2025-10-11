@@ -1,9 +1,9 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
 # Install poetry
-RUN pip install poetry==1.7.1
+RUN pip install poetry==2.2.1
 
 # Copy dependency files
 COPY pyproject.toml poetry.lock* ./
