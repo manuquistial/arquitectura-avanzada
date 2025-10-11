@@ -72,17 +72,28 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
+      - name: Verify Poetry installation
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry --version
+      
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}
-        run: poetry install
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry install
       
       - name: Lint
         working-directory: services/${{ matrix.service }}
-        run: poetry run ruff check . || true
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run ruff check . || true
       
       - name: Run tests
         working-directory: services/${{ matrix.service }}
-        run: poetry run pytest tests/ || true
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run pytest tests/ || true
 
   # Build and Push Docker Images to Docker Hub (Gratis)
   build-and-push:
