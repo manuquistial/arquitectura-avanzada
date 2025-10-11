@@ -1,26 +1,33 @@
-# AWS Configuration
-aws_region  = "us-east-1"
-environment = "dev"
+# Azure Configuration
+azure_region = "eastus"
+environment  = "dev"
 
-# VPC Configuration
-vpc_cidr           = "10.0.0.0/16"
-availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
-private_subnets    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-public_subnets     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+# VNet Configuration
+vnet_cidr = "10.0.0.0/16"
+subnet_cidrs = {
+  aks = "10.0.1.0/24"
+  db  = "10.0.2.0/24"
+}
 
-# EKS Configuration
-eks_cluster_version     = "1.28"
-eks_node_instance_types = ["t3.medium"]
-eks_desired_size        = 3
-eks_min_size            = 2
-eks_max_size            = 10
+# AKS Configuration (Free tier optimized)
+aks_node_count = 1
+aks_vm_size    = "Standard_B1s"  # $3.80/mes - Free tier optimizado
 
-# RDS Configuration
-db_username          = "carpeta_admin"
-db_instance_class    = "db.t3.medium"
-db_allocated_storage = 100
+# PostgreSQL Configuration
+db_admin_username = "psqladmin"
+db_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"
+db_sku_name       = "B_Standard_B1ms"  # $13.87/mes - Free tier optimizado
+db_storage_mb     = 32768              # 32GB
 
-# OpenSearch Configuration
-opensearch_instance_type  = "t3.medium.search"
-opensearch_instance_count = 2
+# Cognitive Search
+search_sku = "basic"  # $75/mes - O usa "free" si está disponible
+
+# Service Bus
+servicebus_sku = "Basic"  # $0.05/mes
+
+# Azure AD B2C
+adb2c_domain_name = "carpetaciudadana"
+
+# Container Registry
+acr_sku = "Basic"  # $5/mes - O no crear si usas Docker Hub
 

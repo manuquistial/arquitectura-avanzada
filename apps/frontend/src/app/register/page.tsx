@@ -23,7 +23,7 @@ export default function RegisterPage() {
 
     try {
       // Register citizen
-      await api.post('/api/citizen/register', {
+      await api.post('/api/citizens/register', {
         id: parseInt(formData.id),
         name: formData.name,
         address: formData.address,

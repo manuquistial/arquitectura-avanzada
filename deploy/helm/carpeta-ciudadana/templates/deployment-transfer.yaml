@@ -1,0 +1,87 @@
+{{- if .Values.transfer.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer
+  labels:
+    app: transfer
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.transfer.replicaCount }}
+  selector:
+    matchLabels:
+      app: transfer
+  template:
+    metadata:
+      labels:
+        app: transfer
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: transfer
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.transfer.image.repository }}:{{ .Values.transfer.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: {{ .Values.global.environment }}
+        - name: DATABASE_URL
+          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+        resources:
+          {{- toYaml .Values.transfer.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer
+  labels:
+    app: transfer
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.transfer.service.type }}
+  ports:
+  - port: {{ .Values.transfer.service.port }}
+    targetPort: 8000
+    name: http
+  selector:
+    app: transfer
+---
+{{- if .Values.transfer.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer
+  labels:
+    app: transfer
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "carpeta-ciudadana.fullname" . }}-transfer
+  minReplicas: {{ .Values.transfer.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.transfer.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.transfer.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+

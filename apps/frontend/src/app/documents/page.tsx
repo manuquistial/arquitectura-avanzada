@@ -35,34 +35,13 @@ export default function DocumentsPage() {
 
   const loadDocuments = async () => {
     try {
-      // TODO: Implement actual API call
-      // const response = await api.get(`/api/metadata/documents?citizen_id=${user?.id}`);
-      // setDocuments(response.data);
-      
-      // Mock data for now
-      setDocuments([
-        {
-          id: '1',
-          title: 'Diploma de Grado',
-          description: 'Universidad Nacional',
-          filename: 'diploma.pdf',
-          content_type: 'application/pdf',
-          size: 1024000,
-          status: 'authenticated',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          title: 'Cédula de Ciudadanía',
-          filename: 'cedula.pdf',
-          content_type: 'application/pdf',
-          size: 512000,
-          status: 'uploaded',
-          created_at: new Date().toISOString(),
-        },
-      ]);
-    } catch (err) {
+      // Call metadata service to get citizen's documents
+      const response = await api.get(`/api/metadata/documents?citizen_id=${user?.id}`);
+      setDocuments(response.data.documents || []);
+    } catch (err: any) {
+      console.error('Error loading documents:', err);
       setError('Error al cargar documentos');
+      setDocuments([]);
     } finally {
       setLoading(false);
     }
@@ -70,10 +49,16 @@ export default function DocumentsPage() {
 
   const handleDownload = async (documentId: string) => {
     try {
-      // TODO: Get presigned GET URL and download
-      alert('Descarga en desarrollo');
+      // Get presigned download URL
+      const response = await api.post('/api/documents/download-url', {
+        document_id: documentId,
+      });
+      
+      // Open download URL in new tab
+      window.open(response.data.download_url, '_blank');
     } catch (err) {
       alert('Error al descargar documento');
+      console.error('Download error:', err);
     }
   };
 
@@ -87,10 +72,12 @@ export default function DocumentsPage() {
     }
 
     try {
-      // TODO: Implement delete
-      alert('Eliminación en desarrollo');
+      await api.delete(`/api/metadata/documents/${documentId}`);
+      // Reload documents after deletion
+      await loadDocuments();
     } catch (err) {
       alert('Error al eliminar documento');
+      console.error('Delete error:', err);
     }
   };
 

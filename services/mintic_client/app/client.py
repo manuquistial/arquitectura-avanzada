@@ -33,12 +33,11 @@ class MinTICClient:
         self.settings = settings
         self.base_url = settings.mintic_base_url
 
-        # Configure mTLS
+        # Configure HTTP client (no mTLS required for GovCarpeta)
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
-            cert=(settings.mtls_cert_path, settings.mtls_key_path),
-            verify=settings.ca_bundle_path,
             timeout=settings.request_timeout,
+            follow_redirects=True,
         )
 
     async def close(self) -> None:

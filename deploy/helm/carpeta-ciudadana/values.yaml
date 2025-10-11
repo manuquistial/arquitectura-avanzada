@@ -2,8 +2,7 @@
 
 global:
   environment: development
-  awsRegion: us-east-1
-  imageRegistry: YOUR_ECR_REGISTRY
+  imageRegistry: manuelquistial
   imagePullPolicy: IfNotPresent
 
 # Frontend

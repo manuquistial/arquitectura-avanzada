@@ -3,13 +3,17 @@
 import logging
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.database import get_db
 from app.models import Citizen
 from app.schemas import CitizenCreate, CitizenResponse, CitizenUnregister
+
+settings = Settings()
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -47,8 +51,29 @@ async def register_citizen(
     await db.commit()
     await db.refresh(citizen)
 
-    # TODO: Publish event to SQS/SNS
-    # TODO: Register in MinTIC Hub
+    # Register citizen in MinTIC Hub (async, non-blocking)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                f"{settings.mintic_client_url}/apis/registerCitizen",
+                json={
+                    "id": citizen.id,
+                    "name": citizen.name,
+                    "address": citizen.address,
+                    "email": citizen.email,
+                    "operatorId": citizen.operator_id,
+                    "operatorName": citizen.operator_name,
+                }
+            )
+            if response.status_code == 201:
+                logger.info(f"Citizen {citizen.id} registered in MinTIC Hub")
+            else:
+                logger.warning(f"Failed to register in MinTIC Hub: {response.text}")
+    except Exception as e:
+        # Don't fail citizen registration if MinTIC sync fails
+        logger.error(f"Error calling MinTIC client: {e}")
+    
+    # TODO: Publish event to Service Bus/SQS for async processing
 
     return citizen
 
@@ -75,8 +100,25 @@ async def unregister_citizen(
     citizen.is_active = False
     await db.commit()
 
-    # TODO: Publish event to SQS/SNS
-    # TODO: Unregister from MinTIC Hub
+    # Unregister from MinTIC Hub (async, non-blocking)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.delete(
+                f"{settings.mintic_client_url}/apis/unregisterCitizen",
+                json={
+                    "id": citizen.id,
+                    "operatorId": citizen.operator_id,
+                    "operatorName": citizen.operator_name,
+                }
+            )
+            if response.status_code == 200:
+                logger.info(f"Citizen {citizen.id} unregistered from MinTIC Hub")
+            else:
+                logger.warning(f"Failed to unregister from MinTIC Hub: {response.text}")
+    except Exception as e:
+        logger.error(f"Error calling MinTIC client: {e}")
+    
+    # TODO: Publish event to Service Bus/SQS for async processing
 
     return {"message": f"Citizen {data.id} unregistered successfully"}
 

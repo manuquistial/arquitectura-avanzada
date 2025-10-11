@@ -29,22 +29,10 @@ export default function SearchPage() {
     setSearched(true);
 
     try {
-      // TODO: Implement OpenSearch integration
-      // const response = await api.get(`/api/metadata/search?q=${encodeURIComponent(query)}`);
-      // setResults(response.data.results);
-
-      // Mock data for now
-      setResults([
-        {
-          id: '1',
-          title: 'Diploma de Grado',
-          description: 'Universidad Nacional de Colombia',
-          filename: 'diploma.pdf',
-          created_at: new Date().toISOString(),
-          score: 0.95,
-        },
-      ]);
-    } catch (err) {
+      // Call metadata service for search
+      const response = await api.get(`/api/metadata/search?q=${encodeURIComponent(query)}`);
+      setResults(response.data.results || []);
+    } catch (err: any) {
       console.error('Search error:', err);
       setResults([]);
     } finally {

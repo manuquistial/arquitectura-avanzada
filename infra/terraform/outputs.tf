@@ -1,56 +1,97 @@
-output "eks_cluster_name" {
-  description = "EKS cluster name"
-  value       = module.eks.cluster_name
+output "resource_group_name" {
+  description = "Resource group name"
+  value       = azurerm_resource_group.main.name
 }
 
-output "eks_cluster_endpoint" {
-  description = "EKS cluster endpoint"
-  value       = module.eks.cluster_endpoint
+output "aks_cluster_name" {
+  description = "AKS cluster name"
+  value       = module.aks.cluster_name
 }
 
-output "rds_endpoint" {
-  description = "RDS endpoint"
-  value       = module.rds.endpoint
+output "aks_cluster_id" {
+  description = "AKS cluster ID"
+  value       = module.aks.cluster_id
+}
+
+output "aks_kube_config" {
+  description = "AKS kubeconfig"
+  value       = module.aks.kube_config
   sensitive   = true
 }
 
-output "s3_bucket_name" {
-  description = "S3 bucket name"
-  value       = module.s3.bucket_name
+output "postgresql_fqdn" {
+  description = "PostgreSQL FQDN"
+  value       = module.postgresql.fqdn
 }
 
-output "opensearch_endpoint" {
-  description = "OpenSearch endpoint"
-  value       = module.opensearch.endpoint
+output "postgresql_admin_username" {
+  description = "PostgreSQL admin username"
+  value       = module.postgresql.admin_username
+  sensitive   = true
 }
 
-output "cognito_user_pool_id" {
-  description = "Cognito user pool ID"
-  value       = module.cognito.user_pool_id
+output "storage_account_name" {
+  description = "Storage account name"
+  value       = module.storage.storage_account_name
 }
 
-output "cognito_client_id" {
-  description = "Cognito client ID"
-  value       = module.cognito.client_id
+output "storage_container_name" {
+  description = "Storage container name"
+  value       = module.storage.container_name
 }
 
-output "sqs_queue_url" {
-  description = "SQS queue URL"
-  value       = module.messaging.queue_url
+output "storage_primary_connection_string" {
+  description = "Storage primary connection string"
+  value       = module.storage.primary_connection_string
+  sensitive   = true
 }
 
-output "sns_topic_arn" {
-  description = "SNS topic ARN"
-  value       = module.messaging.topic_arn
+# output "search_endpoint" {
+#   description = "Azure Cognitive Search endpoint"
+#   value       = module.search.endpoint
+# }
+
+# output "search_primary_key" {
+#   description = "Azure Cognitive Search primary key"
+#   value       = module.search.primary_key
+#   sensitive   = true
+# }
+
+output "servicebus_connection_string" {
+  description = "Service Bus connection string"
+  value       = module.servicebus.connection_string
+  sensitive   = true
 }
 
-output "acm_pca_arn" {
-  description = "ACM Private CA ARN"
-  value       = module.acm_pca.ca_arn
+output "servicebus_queue_name" {
+  description = "Service Bus queue name"
+  value       = module.servicebus.queue_name
 }
 
-output "ecr_repositories" {
-  description = "ECR repository URLs"
-  value       = module.ecr.repository_urls
+# output "acr_login_server" {
+#   description = "ACR login server"
+#   value       = module.acr.login_server
+# }
+
+# output "acr_admin_username" {
+#   description = "ACR admin username"
+#   value       = module.acr.admin_username
+#   sensitive   = true
+# }
+
+# output "acr_admin_password" {
+#   description = "ACR admin password"
+#   value       = module.acr.admin_password
+#   sensitive   = true
+# }
+
+# output "keyvault_uri" {
+#   description = "Key Vault URI"
+#   value       = module.keyvault.vault_uri
+# }
+
+output "managed_identity_client_id" {
+  description = "Managed Identity Client ID"
+  value       = azurerm_user_assigned_identity.aks_identity.client_id
 }
 

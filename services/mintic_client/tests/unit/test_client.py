@@ -21,9 +21,6 @@ def settings():
         mintic_base_url="https://test.mintic.gov.co",
         mintic_operator_id="test-operator",
         mintic_operator_name="Test Operator",
-        mtls_cert_path="/tmp/test.crt",
-        mtls_key_path="/tmp/test.key",
-        ca_bundle_path="/tmp/ca.crt",
     )
 
 

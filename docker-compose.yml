@@ -1,6 +1,18 @@
 version: '3.9'
 
+# Profiles:
+# - infra: Solo infraestructura (default)
+# - app: Aplicación completa (infra + servicios)
+#
+# Uso:
+#   docker-compose up -d                    # Solo infra
+#   docker-compose --profile app up -d      # Stack completo
+
 services:
+  # ═══════════════════════════════════════════════════════════
+  # INFRAESTRUCTURA (siempre activa)
+  # ═══════════════════════════════════════════════════════════
+  
   postgres:
     image: postgres:15-alpine
     environment:
@@ -29,19 +41,6 @@ services:
     volumes:
       - opensearch_data:/usr/share/opensearch/data
 
-  # localstack:
-  #   image: localstack/localstack:latest
-  #   environment:
-  #     - SERVICES=s3,sqs,sns,cognito-idp
-  #     - DEBUG=1
-  #     - DATA_DIR=/tmp/localstack/data
-  #   ports:
-  #     - "4566:4566"
-  #   volumes:
-  #     - localstack_data:/tmp/localstack
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  # Comentado: usando Azure real en lugar de LocalStack
-
   redis:
     image: redis:7-alpine
     ports:
@@ -58,9 +57,92 @@ services:
       - "4317:4317"
       - "4318:4318"
 
+  # ═══════════════════════════════════════════════════════════
+  # APLICACIÓN (profile: app)
+  # ═══════════════════════════════════════════════════════════
+
+  frontend:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/frontend:${TAG:-local}
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_OPERATOR_ID=operator-demo
+      - NEXT_PUBLIC_OPERATOR_NAME=Carpeta Demo
+
+  gateway:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/gateway:${TAG:-local}
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CITIZEN_SERVICE_URL=http://citizen:8000
+      - INGESTION_SERVICE_URL=http://ingestion:8000
+      - METADATA_SERVICE_URL=http://metadata:8000
+      - TRANSFER_SERVICE_URL=http://transfer:8000
+      - MINTIC_CLIENT_URL=http://mintic-client:8000
+    depends_on:
+      - redis
+
+  citizen:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/citizen:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - MINTIC_CLIENT_URL=http://mintic-client:8000
+    depends_on:
+      - postgres
+
+  ingestion:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/ingestion:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - CLOUD_PROVIDER=azure
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
+      - AZURE_STORAGE_ACCOUNT_KEY=${AZURE_STORAGE_ACCOUNT_KEY}
+      - AZURE_STORAGE_CONTAINER_NAME=documents
+    depends_on:
+      - postgres
+
+  metadata:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/metadata:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+    depends_on:
+      - postgres
+      - opensearch
+
+  transfer:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/transfer:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+    depends_on:
+      - postgres
+
+  mintic-client:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/mintic_client:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+      - MINTIC_OPERATOR_ID=operator-demo
+      - MINTIC_OPERATOR_NAME=Carpeta Ciudadana Demo
+
 volumes:
   postgres_data:
   opensearch_data:
-  # localstack_data:  # Comentado: LocalStack deshabilitado
   redis_data:
 

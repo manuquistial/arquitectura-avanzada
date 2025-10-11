@@ -13,7 +13,14 @@ from app.config import Settings
 logger = logging.getLogger(__name__)
 
 # Public routes that don't require authentication
-PUBLIC_ROUTES = ["/health", "/docs", "/openapi.json"]
+PUBLIC_ROUTES = [
+    "/health",
+    "/docs",
+    "/openapi.json",
+    "/api/citizens/register",
+    "/api/auth/login",
+    "/api/auth/token",
+]
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -26,6 +33,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request."""
+        # Allow OPTIONS requests for CORS preflight
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
         # Skip auth for public routes
         if any(request.url.path.startswith(route) for route in PUBLIC_ROUTES):
             return await call_next(request)

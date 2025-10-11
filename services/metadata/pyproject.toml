@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "citizen-service"
+name = "metadata-service"
 version = "0.1.0"
-description = "Citizen management service"
+description = "Metadata and search service"
 authors = ["Carpeta Ciudadana Team"]
 
 [tool.poetry.dependencies]
@@ -10,10 +10,10 @@ fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.23"}
 asyncpg = "^0.30.0"
-alembic = "^1.13.0"
-pydantic = {extras = ["email"], version = "^2.5.0"}
+pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
 httpx = ">=0.26.0,<0.27.0"
+opensearch-py = "^2.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

@@ -9,17 +9,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    # MinTIC Hub
-    mintic_base_url: str = Field(default="https://hub.mintic.gov.co")
-    mintic_operator_id: str = Field(default="")
-    mintic_operator_name: str = Field(default="")
-    mintic_client_id: str = Field(default="")
-    mintic_client_secret: str = Field(default="")
-
-    # mTLS Certificates
-    mtls_cert_path: str = Field(default="/etc/ssl/certs/client.crt")
-    mtls_key_path: str = Field(default="/etc/ssl/private/client.key")
-    ca_bundle_path: str = Field(default="/etc/ssl/certs/ca-bundle.crt")
+    # MinTIC Hub (GovCarpeta APIs - public API, no auth required)
+    mintic_base_url: str = Field(default="https://govcarpeta-apis-4905ff3c005b.herokuapp.com")
+    mintic_operator_id: str = Field(default="operator-demo")
+    mintic_operator_name: str = Field(default="Carpeta Ciudadana Demo")
 
     # Retry configuration
     max_retries: int = Field(default=3)

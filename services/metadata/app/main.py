@@ -1,4 +1,4 @@
-"""Ingestion Service - Main application."""
+"""Metadata Service - Main application."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, init_db
-from app.routers import documents
+from app.routers import metadata
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,18 +17,18 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
-    logger.info("Starting Ingestion Service...")
+    logger.info("Starting Metadata Service...")
     await init_db()
     yield
     await engine.dispose()
-    logger.info("Shutting down Ingestion Service...")
+    logger.info("Shutting down Metadata Service...")
 
 
 def create_app() -> FastAPI:
     """Create FastAPI application."""
     app = FastAPI(
-        title="Ingestion Service",
-        description="Document ingestion service with S3 presigned URLs",
+        title="Metadata Service",
+        description="Document metadata and search service",
         version="0.1.0",
         lifespan=lifespan,
     )
@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
+    app.include_router(metadata.router, prefix="/api/metadata", tags=["metadata"])
 
     @app.get("/health")
     async def health() -> dict[str, str]:
