@@ -6,10 +6,12 @@ on:
   pull_request:
     branches: [master, develop]
 
-# Permisos necesarios para federated credentials
+# Permisos necesarios para federated credentials y security scanning
 permissions:
   id-token: write
   contents: read
+  security-events: write
+  actions: read
 
 env:
   AZURE_REGION: northcentralus
@@ -161,6 +163,9 @@ jobs:
   # Security Scan
   security-scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       
@@ -177,4 +182,5 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
 
