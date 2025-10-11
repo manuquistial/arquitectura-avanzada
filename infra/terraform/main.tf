@@ -2,182 +2,158 @@ terraform {
   required_version = ">= 1.6"
   
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.24"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.12"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.80"
     }
   }
-
-  backend "s3" {
-    bucket         = "carpeta-ciudadana-terraform-state"
-    key            = "terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-lock"
-  }
+  
+  # Backend configurado en backend-config.tf
 }
 
-provider "aws" {
-  region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = "CarpetaCiudadana"
-      Environment = var.environment
-      ManagedBy   = "Terraform"
+provider "azurerm" {
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
     }
   }
 }
 
-data "aws_eks_cluster" "cluster" {
-  name = module.eks.cluster_name
+# Resource Group principal
+resource "azurerm_resource_group" "main" {
+  name     = "${var.project_name}-${var.environment}-rg"
+  location = var.azure_region
 
-  depends_on = [module.eks]
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_name
-
-  depends_on = [module.eks]
-}
-
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = data.aws_eks_cluster.cluster.endpoint
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-    token                  = data.aws_eks_cluster_auth.cluster.token
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
   }
 }
 
-# VPC
-module "vpc" {
-  source = "./modules/vpc"
+# Virtual Network
+module "vnet" {
+  source = "./modules/vnet"
 
   environment         = var.environment
-  vpc_cidr            = var.vpc_cidr
-  availability_zones  = var.availability_zones
-  private_subnets     = var.private_subnets
-  public_subnets      = var.public_subnets
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  vnet_cidr           = var.vnet_cidr
+  subnet_cidrs        = var.subnet_cidrs
 }
 
-# EKS
-module "eks" {
-  source = "./modules/eks"
+# AKS (Kubernetes)
+module "aks" {
+  source = "./modules/aks"
 
   environment         = var.environment
   cluster_name        = "${var.project_name}-${var.environment}"
-  cluster_version     = var.eks_cluster_version
-  vpc_id              = module.vpc.vpc_id
-  private_subnet_ids  = module.vpc.private_subnet_ids
-  node_instance_types = var.eks_node_instance_types
-  desired_size        = var.eks_desired_size
-  min_size            = var.eks_min_size
-  max_size            = var.eks_max_size
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = module.vnet.aks_subnet_id
+  node_count          = var.aks_node_count
+  vm_size             = var.aks_vm_size
 }
 
-# RDS PostgreSQL
-module "rds" {
-  source = "./modules/rds"
+# PostgreSQL Flexible Server
+module "postgresql" {
+  source = "./modules/postgresql"
 
   environment         = var.environment
-  db_name             = "carpeta_ciudadana"
-  db_username         = var.db_username
-  db_instance_class   = var.db_instance_class
-  allocated_storage   = var.db_allocated_storage
-  vpc_id              = module.vpc.vpc_id
-  private_subnet_ids  = module.vpc.private_subnet_ids
-  allowed_cidr_blocks = module.vpc.private_subnet_cidrs
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = module.vnet.db_subnet_id
+  admin_username      = var.db_admin_username
+  admin_password      = var.db_admin_password
+  sku_name            = var.db_sku_name
+  storage_mb          = var.db_storage_mb
 }
 
-# S3
-module "s3" {
-  source = "./modules/s3"
+# Blob Storage
+module "storage" {
+  source = "./modules/storage"
 
-  environment = var.environment
-  bucket_name = "${var.project_name}-documents-${var.environment}"
+  environment         = var.environment
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
 }
 
-# OpenSearch
-module "opensearch" {
-  source = "./modules/opensearch"
+# Azure Cognitive Search (equivalente a OpenSearch)
+# Comentado para ahorrar costos ($75/mes)
+# Usaremos Elasticsearch self-hosted en AKS
+# module "search" {
+#   source = "./modules/search"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   location            = azurerm_resource_group.main.location
+#   sku                 = var.search_sku
+# }
 
-  environment        = var.environment
-  domain_name        = "${var.project_name}-${var.environment}"
-  instance_type      = var.opensearch_instance_type
-  instance_count     = var.opensearch_instance_count
-  vpc_id             = module.vpc.vpc_id
-  subnet_ids         = module.vpc.private_subnet_ids
-  security_group_ids = [module.vpc.default_security_group_id]
+# Service Bus (equivalente a SQS/SNS)
+module "servicebus" {
+  source = "./modules/servicebus"
+
+  environment         = var.environment
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  sku                 = var.servicebus_sku
 }
 
-# Cognito
-module "cognito" {
-  source = "./modules/cognito"
+# Azure AD B2C (equivalente a Cognito)
+# Comentado - Requiere permisos especiales en Azure for Students
+# Usaremos autenticación simple por ahora
+# module "adb2c" {
+#   source = "./modules/adb2c"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   domain_name         = var.adb2c_domain_name
+# }
 
-  environment = var.environment
-  pool_name   = "${var.project_name}-users-${var.environment}"
-  domain      = "${var.project_name}-${var.environment}"
+# Container Registry (ACR - equivalente a ECR)
+# Comentado para ahorrar $5/mes - Usaremos Docker Hub (gratis)
+# module "acr" {
+#   source = "./modules/acr"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   location            = azurerm_resource_group.main.location
+#   sku                 = var.acr_sku
+# }
+
+# Key Vault (para certificados mTLS)
+# Comentado - Requiere permisos adicionales
+# Usaremos certificados self-signed por ahora
+# module "keyvault" {
+#   source = "./modules/keyvault"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   location            = azurerm_resource_group.main.location
+#   tenant_id           = data.azurerm_client_config.current.tenant_id
+# }
+
+# Managed Identity para AKS
+resource "azurerm_user_assigned_identity" "aks_identity" {
+  name                = "${var.project_name}-${var.environment}-aks-identity"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
 }
 
-# SQS/SNS
-module "messaging" {
-  source = "./modules/messaging"
+# Role assignments para Managed Identity
+# resource "azurerm_role_assignment" "aks_to_acr" {
+#   scope                = module.acr.acr_id
+#   role_definition_name = "AcrPull"
+#   principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
+# }
 
-  environment = var.environment
-  queue_name  = "${var.project_name}-events-${var.environment}"
-  topic_name  = "${var.project_name}-notifications-${var.environment}"
+resource "azurerm_role_assignment" "aks_to_storage" {
+  scope                = module.storage.storage_account_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
 }
 
-# ACM Private CA
-module "acm_pca" {
-  source = "./modules/acm_pca"
-
-  environment = var.environment
-  ca_name     = "${var.project_name}-ca-${var.environment}"
-}
-
-# ECR
-module "ecr" {
-  source = "./modules/ecr"
-
-  environment = var.environment
-  repositories = [
-    "frontend",
-    "gateway",
-    "citizen",
-    "ingestion",
-    "signature",
-    "metadata",
-    "transfer",
-    "sharing",
-    "notification",
-    "mintic-client"
-  ]
-}
-
-# IAM Roles for Services
-module "iam" {
-  source = "./modules/iam"
-
-  environment      = var.environment
-  eks_cluster_name = module.eks.cluster_name
-  oidc_provider    = module.eks.oidc_provider
-  s3_bucket_arn    = module.s3.bucket_arn
-  sqs_queue_arn    = module.messaging.queue_arn
-  sns_topic_arn    = module.messaging.topic_arn
-}
+# Data sources
+data "azurerm_client_config" "current" {}
 

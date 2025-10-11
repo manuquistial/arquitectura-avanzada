@@ -16,14 +16,12 @@ class Settings(BaseSettings):
     redis_host: str = Field(default="localhost")
     redis_port: int = Field(default=6379)
 
-    # JWT
+    # JWT (preparado para Azure AD B2C o Cognito)
     jwt_secret: str = Field(default="change-me-in-production")
     jwt_algorithm: str = Field(default="RS256")
 
-    # Cognito
-    cognito_region: str = Field(default="us-east-1")
-    cognito_user_pool_id: str = Field(default="")
-    cognito_client_id: str = Field(default="")
+    # Auth (TODO: implementar Azure AD B2C)
+    auth_provider: str = Field(default="mock")  # mock, azure-ad-b2c, cognito
 
     # Backend services
     citizen_service_url: str = Field(default="http://citizen:8000")

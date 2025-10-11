@@ -1,0 +1,89 @@
+{{- if .Values.citizen.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-citizen
+  labels:
+    app: citizen
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.citizen.replicaCount }}
+  selector:
+    matchLabels:
+      app: citizen
+  template:
+    metadata:
+      labels:
+        app: citizen
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: citizen
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.citizen.image.repository }}:{{ .Values.citizen.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: {{ .Values.global.environment }}
+        - name: DATABASE_URL
+          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+        - name: MINTIC_CLIENT_URL
+          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
+        resources:
+          {{- toYaml .Values.citizen.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-citizen
+  labels:
+    app: citizen
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.citizen.service.type }}
+  ports:
+  - port: {{ .Values.citizen.service.port }}
+    targetPort: 8000
+    name: http
+  selector:
+    app: citizen
+---
+{{- if .Values.citizen.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-citizen
+  labels:
+    app: citizen
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "carpeta-ciudadana.fullname" . }}-citizen
+  minReplicas: {{ .Values.citizen.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.citizen.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.citizen.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+

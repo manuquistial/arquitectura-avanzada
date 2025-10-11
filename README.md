@@ -1,23 +1,41 @@
-# Carpeta Ciudadana - Operador AWS
+# 🗂️ Carpeta Ciudadana - Sistema de Microservicios
 
-Sistema de Carpeta Ciudadana implementado como operador en AWS con arquitectura de microservicios event-driven siguiendo patrones CQRS.
+> Sistema de Carpeta Ciudadana con arquitectura de microservicios event-driven  
+> **Cloud:** Azure (AKS) | **Python** 3.13 | **Node.js** 22 | **FastAPI** + **Next.js**
 
-## Arquitectura
+📖 **[Ver Guía Completa](./GUIA_COMPLETA.md)** - Documentación detallada del proyecto
 
-- **Frontend**: Next.js 14+ (App Router) con Node.js 22
-- **Backend**: FastAPI microservicios
-- **Autenticación**: 
-  - Usuarios: AWS Cognito OIDC (Authorization Code + PKCE)
-  - B2B: OAuth 2.1 client_credentials + mTLS (ACM PCA)
-- **Infraestructura AWS**:
-  - EKS (Kubernetes)
-  - RDS PostgreSQL (metadatos)
-  - S3 (documentos)
-  - OpenSearch (búsqueda)
-  - SQS/SNS (eventos)
-  - ACM PCA (mTLS)
-  - Cognito (autenticación)
-- **Observabilidad**: OpenTelemetry (trazas, métricas, logs)
+## 🚀 Quick Start
+
+```bash
+# Desarrollo local (venv - más rápido)
+docker-compose up -d           # Infraestructura
+./start-services.sh            # Servicios
+open http://localhost:3000
+
+# Stack completo en Docker (simula producción)
+./build-all.sh                 # Build imágenes
+make dev-docker                # Levanta todo
+open http://localhost:3000
+
+# Detener
+./stop-services.sh
+docker-compose down
+```
+
+## 📚 Documentación
+
+- **[GUIA_COMPLETA.md](./GUIA_COMPLETA.md)** ⭐ - Documento maestro con todo lo necesario
+- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitectura técnica detallada
+
+## 🏗️ Arquitectura
+
+- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind
+- **Backend**: 6 microservicios FastAPI (Python 3.13)
+- **Infraestructura**: Azure (AKS, PostgreSQL, Blob Storage, Service Bus)
+- **CI/CD**: GitHub Actions con Federated Credentials
+- **Deploy**: Kubernetes (Helm charts)
+- **Integración**: GovCarpeta APIs (hub MinTIC)
 
 ## Estructura del Proyecto
 

@@ -2,9 +2,13 @@
 
 import logging
 import os
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
+from app.models import DocumentMetadata
 from app.schemas import (
     DownloadURLRequest,
     DownloadURLResponse,
@@ -28,7 +32,8 @@ if CLOUD_PROVIDER == "azure":
         connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
     )
 else:
-    # AWS S3 (legacy)
+    # AWS S3 (legacy/fallback - not actively used)
+    logger.warning("Using AWS S3 client (legacy mode)")
     from app.s3_client import S3DocumentClient
     
     storage_client = S3DocumentClient(
@@ -38,7 +43,10 @@ else:
 
 
 @router.post("/upload-url", response_model=UploadURLResponse)
-async def get_upload_url(request: UploadURLRequest) -> UploadURLResponse:
+async def get_upload_url(
+    request: UploadURLRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> UploadURLResponse:
     """Get presigned URL for uploading a document.
 
     The frontend will use this URL to upload directly to storage using PUT.
@@ -57,13 +65,29 @@ async def get_upload_url(request: UploadURLRequest) -> UploadURLResponse:
             expires_in=3600,
         )
 
-        # TODO: Store metadata in database
-        # TODO: Publish event to Service Bus/SQS
-
+        # Store metadata in database
         if CLOUD_PROVIDER == "azure":
             key = result["blob_name"]
         else:
             key = result["s3_key"]
+        
+        metadata = DocumentMetadata(
+            id=result["document_id"],
+            citizen_id=request.citizen_id,
+            filename=request.filename,
+            content_type=request.content_type,
+            blob_name=key,
+            storage_provider=CLOUD_PROVIDER,
+            status="pending",
+        )
+        
+        db.add(metadata)
+        await db.commit()
+        await db.refresh(metadata)
+        
+        logger.info(f"Document metadata stored: {metadata.id}")
+        
+        # TODO: Publish event to Service Bus/SQS for async processing
 
         return UploadURLResponse(
             upload_url=result["upload_url"],
@@ -81,7 +105,10 @@ async def get_upload_url(request: UploadURLRequest) -> UploadURLResponse:
 
 
 @router.post("/download-url", response_model=DownloadURLResponse)
-async def get_download_url(request: DownloadURLRequest) -> DownloadURLResponse:
+async def get_download_url(
+    request: DownloadURLRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> DownloadURLResponse:
     """Get presigned URL for downloading a document."""
     logger.info(
         f"Generating download URL for document {request.document_id} "
@@ -89,19 +116,32 @@ async def get_download_url(request: DownloadURLRequest) -> DownloadURLResponse:
     )
 
     try:
-        # TODO: Get blob_name/s3_key from database using document_id
-        # For now, using placeholder
-        if CLOUD_PROVIDER == "azure":
-            key = f"documents/{request.document_id}"
-        else:
-            key = f"documents/{request.document_id}"
+        # Get blob_name/s3_key from database using document_id
+        from sqlalchemy import select
+        result = await db.execute(
+            select(DocumentMetadata).where(DocumentMetadata.id == request.document_id)
+        )
+        metadata = result.scalar_one_or_none()
+        
+        if not metadata:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {request.document_id} not found"
+            )
+        
+        if metadata.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=f"Document {request.document_id} has been deleted"
+            )
 
         download_url = storage_client.generate_presigned_get(
-            key,
+            metadata.blob_name,
             expires_in=3600,
         )
 
         # TODO: Log access in audit trail
+        logger.info(f"Generated download URL for document {request.document_id}")
 
         return DownloadURLResponse(
             download_url=download_url,
@@ -120,6 +160,7 @@ async def get_download_url(request: DownloadURLRequest) -> DownloadURLResponse:
 async def confirm_upload(
     document_id: str,
     sha256: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, str]:
     """Confirm document upload and verify integrity.
 
@@ -128,14 +169,36 @@ async def confirm_upload(
     logger.info(f"Confirming upload for document {document_id}")
 
     try:
-        # TODO: Get document metadata from database
-        # TODO: Verify SHA-256 hash
-        # TODO: Update document status
-        # TODO: Publish event to Service Bus/SQS
+        # Get document metadata from database
+        from sqlalchemy import select
+        result = await db.execute(
+            select(DocumentMetadata).where(DocumentMetadata.id == document_id)
+        )
+        metadata = result.scalar_one_or_none()
+        
+        if not metadata:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_id} not found"
+            )
+        
+        # Update document status and hash
+        metadata.sha256_hash = sha256
+        metadata.status = "uploaded"
+        
+        await db.commit()
+        await db.refresh(metadata)
+        
+        logger.info(f"Document {document_id} confirmed with hash {sha256[:16]}...")
+        
+        # TODO: Verify SHA-256 hash against actual blob/file
+        # TODO: Publish event to Service Bus/SQS for async processing
         # TODO: Trigger indexing in Search service
 
         return {"message": "Upload confirmed", "document_id": document_id}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error confirming upload: {e}")
         raise HTTPException(

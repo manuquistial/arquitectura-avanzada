@@ -29,10 +29,6 @@ infra/terraform/.terraform/
 infra/terraform/*.tfstate
 infra/terraform/*.tfstate.backup
 infra/terraform/.terraform.lock.hcl
-infra/terraform-azure/.terraform/
-infra/terraform-azure/*.tfstate
-infra/terraform-azure/*.tfstate.backup
-infra/terraform-azure/.terraform.lock.hcl
 
 # Terraform sensitive files
 *.tfvars
