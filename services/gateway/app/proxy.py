@@ -19,8 +19,8 @@ class ProxyService:
         """Initialize proxy."""
         self.settings = settings
         self.service_map = {
-            "citizen": settings.citizen_service_url,
-            "ingestion": settings.ingestion_service_url,
+            "citizens": settings.citizen_service_url,  # Plural (match API path)
+            "documents": settings.ingestion_service_url,  # documents endpoint
             "metadata": settings.metadata_service_url,
             "signature": settings.signature_service_url,
             "transfer": settings.transfer_service_url,

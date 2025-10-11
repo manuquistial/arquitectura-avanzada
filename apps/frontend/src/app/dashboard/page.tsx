@@ -9,11 +9,17 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, user, logout } = useAuthStore();
-  const [stats, setStats] = useState({
+  const [stats] = useState({
     documents: 0,
     shared: 0,
     transfers: 0,
   });
+  
+  // TODO: Load actual stats from API
+  // const loadStats = async () => {
+  //   const response = await api.get(`/api/metadata/stats?citizen_id=${user?.id}`);
+  //   setStats(response.data);
+  // };
 
   useEffect(() => {
     if (!isAuthenticated) {

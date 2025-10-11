@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
@@ -24,6 +24,20 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const loadDocuments = useCallback(async () => {
+    try {
+      // Call metadata service to get citizen's documents
+      const response = await api.get(`/api/metadata/documents?citizen_id=${user?.id}`);
+      setDocuments(response.data.documents || []);
+    } catch (err) {
+      console.error('Error loading documents:', err);
+      setError('Error al cargar documentos');
+      setDocuments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
@@ -31,21 +45,7 @@ export default function DocumentsPage() {
     }
 
     loadDocuments();
-  }, [isAuthenticated, router]);
-
-  const loadDocuments = async () => {
-    try {
-      // Call metadata service to get citizen's documents
-      const response = await api.get(`/api/metadata/documents?citizen_id=${user?.id}`);
-      setDocuments(response.data.documents || []);
-    } catch (err: any) {
-      console.error('Error loading documents:', err);
-      setError('Error al cargar documentos');
-      setDocuments([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isAuthenticated, router, loadDocuments]);
 
   const handleDownload = async (documentId: string) => {
     try {

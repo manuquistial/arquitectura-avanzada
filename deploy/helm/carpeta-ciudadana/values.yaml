@@ -10,7 +10,7 @@ frontend:
   enabled: true
   replicaCount: 2
   image:
-    repository: carpeta-ciudadana/frontend
+    repository: carpeta-frontend
     tag: latest
   service:
     type: LoadBalancer
@@ -35,7 +35,7 @@ gateway:
   enabled: true
   replicaCount: 3
   image:
-    repository: carpeta-ciudadana/gateway
+    repository: carpeta-gateway
     tag: latest
   service:
     type: ClusterIP
@@ -58,7 +58,7 @@ citizen:
   enabled: true
   replicaCount: 2
   image:
-    repository: carpeta-ciudadana/citizen
+    repository: carpeta-citizen
     tag: latest
   service:
     type: ClusterIP
@@ -81,7 +81,7 @@ ingestion:
   enabled: true
   replicaCount: 2
   image:
-    repository: carpeta-ciudadana/ingestion
+    repository: carpeta-ingestion
     tag: latest
   service:
     type: ClusterIP
@@ -127,7 +127,7 @@ metadata:
   enabled: true
   replicaCount: 2
   image:
-    repository: carpeta-ciudadana/metadata
+    repository: carpeta-metadata
     tag: latest
   service:
     type: ClusterIP
@@ -150,7 +150,7 @@ transfer:
   enabled: true
   replicaCount: 2
   image:
-    repository: carpeta-ciudadana/transfer
+    repository: carpeta-transfer
     tag: latest
   service:
     type: LoadBalancer
@@ -215,11 +215,11 @@ notification:
     targetCPUUtilizationPercentage: 70
 
 # MinTIC Client Service
-minticsClient:
+minticClient:
   enabled: true
   replicaCount: 2
   image:
-    repository: carpeta-ciudadana/mintic-client
+    repository: carpeta-mintic_client
     tag: latest
   service:
     type: ClusterIP

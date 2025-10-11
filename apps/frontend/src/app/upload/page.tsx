@@ -55,7 +55,7 @@ export default function UploadPage() {
         description,
       });
 
-      const { upload_url, document_id, s3_key } = urlResponse.data;
+      const { upload_url, document_id } = urlResponse.data;
       setProgress(30);
 
       // Step 2: Upload directly to S3 using presigned PUT URL
@@ -87,9 +87,10 @@ export default function UploadPage() {
       setTimeout(() => {
         router.push('/documents');
       }, 1000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Upload error:', err);
-      setError(err.response?.data?.detail || 'Error al subir el documento');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Error al subir el documento');
       setProgress(0);
     } finally {
       setUploading(false);

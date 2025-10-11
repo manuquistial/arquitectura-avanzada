@@ -27,14 +27,14 @@ async def register_citizen(
     """Register a new citizen."""
     logger.info(f"Registering citizen: {citizen_data.id}")
 
-    # Check if citizen already exists
+    # Check if citizen already exists in local database
     result = await db.execute(select(Citizen).where(Citizen.id == citizen_data.id))
     existing = result.scalar_one_or_none()
 
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Citizen {citizen_data.id} already registered",
+            detail=f"El ciudadano con ID {citizen_data.id} ya se encuentra registrado en la Carpeta Ciudadana",
         )
 
     # Create citizen
@@ -48,16 +48,15 @@ async def register_citizen(
     )
 
     db.add(citizen)
-    await db.commit()
-    await db.refresh(citizen)
+    await db.flush()  # Flush but don't commit yet
 
-    # Register citizen in MinTIC Hub (async, non-blocking)
+    # Register citizen in MinTIC Hub (BLOCKING - must succeed)
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"{settings.mintic_client_url}/apis/registerCitizen",
                 json={
-                    "id": citizen.id,
+                    "id": str(citizen.id),  # Send as string for 10-digit validation
                     "name": citizen.name,
                     "address": citizen.address,
                     "email": citizen.email,
@@ -67,11 +66,43 @@ async def register_citizen(
             )
             if response.status_code == 201:
                 logger.info(f"Citizen {citizen.id} registered in MinTIC Hub")
+            elif response.status_code == 400:
+                # Rollback local registration
+                await db.rollback()
+                error_text = response.text
+                
+                # Check if it's a duplicate ID error
+                if "ya se encuentra registrado" in error_text.lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"El ciudadano con ID {citizen.id} ya se encuentra registrado en la Carpeta Ciudadana del Hub MinTIC",
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Error de validación del Hub MinTIC: {error_text}",
+                    )
             else:
-                logger.warning(f"Failed to register in MinTIC Hub: {response.text}")
+                # Rollback local registration on any other error
+                await db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Error al registrar en el Hub MinTIC. Status: {response.status_code}",
+                )
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
     except Exception as e:
-        # Don't fail citizen registration if MinTIC sync fails
+        # Rollback on any unexpected error
+        await db.rollback()
         logger.error(f"Error calling MinTIC client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Error al comunicarse con el Hub MinTIC: {str(e)}",
+        )
+    
+    # Only commit if MinTIC registration succeeded
+    await db.commit()
+    await db.refresh(citizen)
     
     # TODO: Publish event to Service Bus/SQS for async processing
 
