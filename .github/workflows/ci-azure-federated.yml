@@ -81,7 +81,7 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          poetry install
+          poetry install --no-root
       
       - name: Lint
         working-directory: services/${{ matrix.service }}
