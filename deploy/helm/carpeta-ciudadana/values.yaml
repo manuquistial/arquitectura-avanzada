@@ -1,0 +1,310 @@
+# Default values for carpeta-ciudadana
+
+global:
+  environment: development
+  awsRegion: us-east-1
+  imageRegistry: YOUR_ECR_REGISTRY
+  imagePullPolicy: IfNotPresent
+
+# Frontend
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/frontend
+    tag: latest
+  service:
+    type: LoadBalancer
+    port: 80
+    targetPort: 3000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Gateway Service
+gateway:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana/gateway
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+# Citizen Service
+citizen:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/citizen
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Ingestion Service
+ingestion:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/ingestion
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 70
+
+# Signature Service
+signature:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/signature
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Metadata Service
+metadata:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/metadata
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Transfer Service
+transfer:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/transfer
+    tag: latest
+  service:
+    type: LoadBalancer
+    port: 8000
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Sharing Service
+sharing:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/sharing
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Notification Service
+notification:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/notification
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# MinTIC Client Service
+minticsClient:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana/mintic-client
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Configuration
+config:
+  database:
+    host: YOUR_RDS_ENDPOINT
+    port: 5432
+    name: carpeta_ciudadana
+    username: carpeta_admin
+  s3:
+    bucket: YOUR_S3_BUCKET
+  opensearch:
+    host: YOUR_OPENSEARCH_ENDPOINT
+    port: 443
+  cognito:
+    region: us-east-1
+    userPoolId: YOUR_USER_POOL_ID
+    clientId: YOUR_CLIENT_ID
+  sqs:
+    queueUrl: YOUR_SQS_QUEUE_URL
+  sns:
+    topicArn: YOUR_SNS_TOPIC_ARN
+  mintic:
+    baseUrl: https://hub.mintic.gov.co
+    operatorId: YOUR_OPERATOR_ID
+    operatorName: YOUR_OPERATOR_NAME
+  otel:
+    enabled: true
+    endpoint: http://jaeger-collector:4317
+
+# Service Account (for IRSA)
+serviceAccount:
+  create: true
+  annotations: {}
+  name: carpeta-ciudadana-sa
+
+# Ingress
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: YOUR_ACM_CERT_ARN
+  hosts:
+    - host: carpeta-ciudadana.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: frontend
+              port: 80
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: gateway
+              port: 8000
+
+# OpenTelemetry Collector
+otel:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+

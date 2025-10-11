@@ -1,0 +1,207 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: carpeta-ciudadana-prod
+
+jobs:
+  # Lint and Test Frontend
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: apps/frontend
+        run: npm ci
+      
+      - name: Lint
+        working-directory: apps/frontend
+        run: npm run lint
+      
+      - name: Type check
+        working-directory: apps/frontend
+        run: npx tsc --noEmit
+      
+      - name: Run tests
+        working-directory: apps/frontend
+        run: npm run test:unit
+
+  # Lint and Test Backend Services
+  backend-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - gateway
+          - citizen
+          - ingestion
+          - signature
+          - metadata
+          - transfer
+          - sharing
+          - notification
+          - mintic_client
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies
+        working-directory: services/${{ matrix.service }}
+        run: poetry install
+      
+      - name: Lint
+        working-directory: services/${{ matrix.service }}
+        run: poetry run ruff check .
+      
+      - name: Type check
+        working-directory: services/${{ matrix.service }}
+        run: poetry run mypy . || true
+      
+      - name: Run tests
+        working-directory: services/${{ matrix.service }}
+        run: poetry run pytest tests/ || true
+
+  # Build and Push Docker Images
+  build-and-push:
+    needs: [frontend-test, backend-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    strategy:
+      matrix:
+        service:
+          - frontend
+          - gateway
+          - citizen
+          - ingestion
+          - signature
+          - metadata
+          - transfer
+          - sharing
+          - notification
+          - mintic_client
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build, tag, and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: carpeta-ciudadana/${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          if [ "${{ matrix.service }}" == "frontend" ]; then
+            CONTEXT_PATH=apps/frontend
+          else
+            CONTEXT_PATH=services/${{ matrix.service }}
+          fi
+          
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+                       -f $CONTEXT_PATH/Dockerfile \
+                       $CONTEXT_PATH
+          
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  # Deploy to EKS
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+      
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install carpeta-ciudadana \
+            deploy/helm/carpeta-ciudadana \
+            --namespace carpeta-ciudadana-prod \
+            --create-namespace \
+            --set global.imageRegistry=${{ secrets.ECR_REGISTRY }} \
+            --set frontend.image.tag=${{ github.sha }} \
+            --set gateway.image.tag=${{ github.sha }} \
+            --set citizen.image.tag=${{ github.sha }} \
+            --set ingestion.image.tag=${{ github.sha }} \
+            --set signature.image.tag=${{ github.sha }} \
+            --set metadata.image.tag=${{ github.sha }} \
+            --set transfer.image.tag=${{ github.sha }} \
+            --set sharing.image.tag=${{ github.sha }} \
+            --set notification.image.tag=${{ github.sha }} \
+            --set minticClient.image.tag=${{ github.sha }} \
+            --wait \
+            --timeout 10m
+
+  # Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+

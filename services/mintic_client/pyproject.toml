@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "mintic-client"
+version = "0.1.0"
+description = "MinTIC Hub client service"
+authors = ["Carpeta Ciudadana Team"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+httpx = "^0.26.0"
+pydantic = "^2.5.0"
+python-jose = "^3.3.0"
+cryptography = "^41.0.7"
+tenacity = "^8.2.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.23.2"
+pytest-httpx = "^0.29.0"
+ruff = "^0.1.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
