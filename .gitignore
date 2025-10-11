@@ -29,12 +29,24 @@ infra/terraform/.terraform/
 infra/terraform/*.tfstate
 infra/terraform/*.tfstate.backup
 infra/terraform/.terraform.lock.hcl
+infra/terraform-azure/.terraform/
+infra/terraform-azure/*.tfstate
+infra/terraform-azure/*.tfstate.backup
+infra/terraform-azure/.terraform.lock.hcl
+
+# Terraform sensitive files
+*.tfvars
+!*.tfvars.example
+tfplan
+*.tfplan
 
 # Azure
 *.tfstate
 *.tfstate.backup
 .terraform/
 azure-config.json
+azure-outputs.json
+azure-federated-credentials.txt
 
 # IDE
 .vscode/
@@ -61,8 +73,14 @@ htmlcov/
 # Secrets
 secrets/
 *.secret
+*-credentials.txt
+*-credentials.json
+
+# Setup scripts (después de ejecutar)
+setup-*.sh
 
 # Temporary files
 tmp/
 temp/
+*.bak
 

@@ -14,8 +14,8 @@ output "queue_name" {
   value       = azurerm_servicebus_queue.events.name
 }
 
-output "topic_name" {
-  description = "Topic name"
-  value       = azurerm_servicebus_topic.notifications.name
+output "notifications_queue_name" {
+  description = "Notifications queue name"
+  value       = azurerm_servicebus_queue.notifications.name
 }
 

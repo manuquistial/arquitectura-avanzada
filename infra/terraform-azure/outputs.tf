@@ -46,16 +46,16 @@ output "storage_primary_connection_string" {
   sensitive   = true
 }
 
-output "search_endpoint" {
-  description = "Azure Cognitive Search endpoint"
-  value       = module.search.endpoint
-}
+# output "search_endpoint" {
+#   description = "Azure Cognitive Search endpoint"
+#   value       = module.search.endpoint
+# }
 
-output "search_primary_key" {
-  description = "Azure Cognitive Search primary key"
-  value       = module.search.primary_key
-  sensitive   = true
-}
+# output "search_primary_key" {
+#   description = "Azure Cognitive Search primary key"
+#   value       = module.search.primary_key
+#   sensitive   = true
+# }
 
 output "servicebus_connection_string" {
   description = "Service Bus connection string"
@@ -68,27 +68,27 @@ output "servicebus_queue_name" {
   value       = module.servicebus.queue_name
 }
 
-output "acr_login_server" {
-  description = "ACR login server"
-  value       = module.acr.login_server
-}
+# output "acr_login_server" {
+#   description = "ACR login server"
+#   value       = module.acr.login_server
+# }
 
-output "acr_admin_username" {
-  description = "ACR admin username"
-  value       = module.acr.admin_username
-  sensitive   = true
-}
+# output "acr_admin_username" {
+#   description = "ACR admin username"
+#   value       = module.acr.admin_username
+#   sensitive   = true
+# }
 
-output "acr_admin_password" {
-  description = "ACR admin password"
-  value       = module.acr.admin_password
-  sensitive   = true
-}
+# output "acr_admin_password" {
+#   description = "ACR admin password"
+#   value       = module.acr.admin_password
+#   sensitive   = true
+# }
 
-output "keyvault_uri" {
-  description = "Key Vault URI"
-  value       = module.keyvault.vault_uri
-}
+# output "keyvault_uri" {
+#   description = "Key Vault URI"
+#   value       = module.keyvault.vault_uri
+# }
 
 output "managed_identity_client_id" {
   description = "Managed Identity Client ID"

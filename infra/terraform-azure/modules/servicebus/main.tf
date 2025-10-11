@@ -22,21 +22,35 @@ resource "azurerm_servicebus_queue" "events" {
 }
 
 # Topic para notificaciones (equivalente a SNS)
-resource "azurerm_servicebus_topic" "notifications" {
-  name         = "notifications-topic"
+# Comentado - Basic tier solo soporta Queues, no Topics
+# Para Topics necesitamos Standard tier (+$10/mes)
+# resource "azurerm_servicebus_topic" "notifications" {
+#   name         = "notifications-topic"
+#   namespace_id = azurerm_servicebus_namespace.main.id
+#   
+#   max_size_in_megabytes = 1024
+#   default_message_ttl   = "P14D"
+# }
+
+# # Subscription para el topic
+# resource "azurerm_servicebus_subscription" "notifications_sub" {
+#   name               = "all-notifications"
+#   topic_id           = azurerm_servicebus_topic.notifications.id
+#   max_delivery_count = 10
+#   
+#   dead_lettering_on_message_expiration = true
+# }
+
+# Queue adicional para notificaciones (alternativa al Topic)
+resource "azurerm_servicebus_queue" "notifications" {
+  name         = "notifications-queue"
   namespace_id = azurerm_servicebus_namespace.main.id
   
   max_size_in_megabytes = 1024
   default_message_ttl   = "P14D"
-}
-
-# Subscription para el topic
-resource "azurerm_servicebus_subscription" "notifications_sub" {
-  name               = "all-notifications"
-  topic_id           = azurerm_servicebus_topic.notifications.id
-  max_delivery_count = 10
   
   dead_lettering_on_message_expiration = true
+  max_delivery_count                   = 10
 }
 
 # Authorization rules

@@ -6,18 +6,9 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.80"
     }
-    azuread = {
-      source  = "hashicorp/azuread"
-      version = "~> 2.45"
-    }
   }
-
-  backend "azurerm" {
-    resource_group_name  = "carpeta-ciudadana-tfstate-rg"
-    storage_account_name = "carpetaciudadanatfstate"
-    container_name       = "tfstate"
-    key                  = "terraform.tfstate"
-  }
+  
+  # Backend configurado en backend-config.tf
 }
 
 provider "azurerm" {
@@ -88,14 +79,16 @@ module "storage" {
 }
 
 # Azure Cognitive Search (equivalente a OpenSearch)
-module "search" {
-  source = "./modules/search"
-
-  environment         = var.environment
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  sku                 = var.search_sku
-}
+# Comentado para ahorrar costos ($75/mes)
+# Usaremos Elasticsearch self-hosted en AKS
+# module "search" {
+#   source = "./modules/search"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   location            = azurerm_resource_group.main.location
+#   sku                 = var.search_sku
+# }
 
 # Service Bus (equivalente a SQS/SNS)
 module "servicebus" {
@@ -108,33 +101,38 @@ module "servicebus" {
 }
 
 # Azure AD B2C (equivalente a Cognito)
-module "adb2c" {
-  source = "./modules/adb2c"
-
-  environment         = var.environment
-  resource_group_name = azurerm_resource_group.main.name
-  domain_name         = var.adb2c_domain_name
-}
+# Comentado - Requiere permisos especiales en Azure for Students
+# Usaremos autenticación simple por ahora
+# module "adb2c" {
+#   source = "./modules/adb2c"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   domain_name         = var.adb2c_domain_name
+# }
 
 # Container Registry (ACR - equivalente a ECR)
-module "acr" {
-  source = "./modules/acr"
-
-  environment         = var.environment
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  sku                 = var.acr_sku
-}
+# Comentado para ahorrar $5/mes - Usaremos Docker Hub (gratis)
+# module "acr" {
+#   source = "./modules/acr"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   location            = azurerm_resource_group.main.location
+#   sku                 = var.acr_sku
+# }
 
 # Key Vault (para certificados mTLS)
-module "keyvault" {
-  source = "./modules/keyvault"
-
-  environment         = var.environment
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-}
+# Comentado - Requiere permisos adicionales
+# Usaremos certificados self-signed por ahora
+# module "keyvault" {
+#   source = "./modules/keyvault"
+#
+#   environment         = var.environment
+#   resource_group_name = azurerm_resource_group.main.name
+#   location            = azurerm_resource_group.main.location
+#   tenant_id           = data.azurerm_client_config.current.tenant_id
+# }
 
 # Managed Identity para AKS
 resource "azurerm_user_assigned_identity" "aks_identity" {
@@ -144,11 +142,11 @@ resource "azurerm_user_assigned_identity" "aks_identity" {
 }
 
 # Role assignments para Managed Identity
-resource "azurerm_role_assignment" "aks_to_acr" {
-  scope                = module.acr.acr_id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
-}
+# resource "azurerm_role_assignment" "aks_to_acr" {
+#   scope                = module.acr.acr_id
+#   role_definition_name = "AcrPull"
+#   principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
+# }
 
 resource "azurerm_role_assignment" "aks_to_storage" {
   scope                = module.storage.storage_account_id
