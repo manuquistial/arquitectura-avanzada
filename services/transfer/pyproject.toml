@@ -3,7 +3,6 @@ name = "transfer-service"
 version = "0.1.0"
 description = "P2P transfer service between operators"
 authors = ["Carpeta Ciudadana Team"]
-package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
