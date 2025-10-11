@@ -63,7 +63,7 @@ services:
 
   frontend:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/frontend:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-frontend:${TAG:-local}
     ports:
       - "3000:3000"
     environment:
@@ -73,7 +73,7 @@ services:
 
   gateway:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/gateway:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-gateway:${TAG:-local}
     ports:
       - "8000:8000"
     environment:
@@ -90,7 +90,7 @@ services:
 
   citizen:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/citizen:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-citizen:${TAG:-local}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -100,7 +100,7 @@ services:
 
   ingestion:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/ingestion:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ingestion:${TAG:-local}
     environment:
       - ENVIRONMENT=development
       - CLOUD_PROVIDER=azure
@@ -113,7 +113,7 @@ services:
 
   metadata:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/metadata:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-metadata:${TAG:-local}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -125,7 +125,7 @@ services:
 
   transfer:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/transfer:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-transfer:${TAG:-local}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -134,7 +134,7 @@ services:
 
   mintic-client:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ciudadana/mintic_client:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-mintic_client:${TAG:-local}
     environment:
       - ENVIRONMENT=development
       - MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { api } from '@/lib/api';
 import { ArrowRightLeft, AlertTriangle } from 'lucide-react';
 
 interface Operator {
@@ -14,10 +13,9 @@ interface Operator {
 
 export default function TransferPage() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [selectedOperator, setSelectedOperator] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState<'select' | 'confirm' | 'processing' | 'success'>('select');
 
@@ -58,7 +56,6 @@ export default function TransferPage() {
     if (!selectedOperator) return;
 
     setStep('processing');
-    setLoading(true);
     setError('');
 
     try {
@@ -72,11 +69,10 @@ export default function TransferPage() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       setStep('success');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Error al transferir carpeta');
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Error al transferir carpeta');
       setStep('select');
-    } finally {
-      setLoading(false);
     }
   };
 

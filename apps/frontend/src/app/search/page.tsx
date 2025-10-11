@@ -32,7 +32,7 @@ export default function SearchPage() {
       // Call metadata service for search
       const response = await api.get(`/api/metadata/search?q=${encodeURIComponent(query)}`);
       setResults(response.data.results || []);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Search error:', err);
       setResults([]);
     } finally {

@@ -12,6 +12,7 @@ interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User, token: string) => void;
@@ -24,9 +25,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
 
-      login: async (email: string, password: string) => {
+      login: async (email: string) => {
         // TODO: Implement Cognito OIDC login with PKCE
-        // For now, using mock authentication
+        // For now, using mock authentication (password will be used in real implementation)
         const mockUser: User = {
           id: 1234567890,
           name: 'Carlos Andres Caro',

@@ -127,8 +127,8 @@ jobs:
           file: ${{ matrix.service == 'frontend' && 'apps/frontend/Dockerfile' || format('services/{0}/Dockerfile', matrix.service) }}
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/carpeta-ciudadana/${{ matrix.service }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/carpeta-ciudadana/${{ matrix.service }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/carpeta-${{ matrix.service }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/carpeta-${{ matrix.service }}:${{ github.sha }}
 
   # Deploy to AKS usando Federated Credentials
   deploy:
