@@ -3,7 +3,7 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Install poetry
-RUN pip install poetry==2.2.1
+RUN pip install --no-cache-dir poetry==2.2.1
 
 # Copy dependency files
 COPY pyproject.toml poetry.lock* ./
