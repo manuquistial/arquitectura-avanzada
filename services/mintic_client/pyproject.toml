@@ -5,11 +5,12 @@ description = "MinTIC Hub client service"
 authors = ["Carpeta Ciudadana Team"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
 httpx = "^0.26.0"
 pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
 python-jose = "^3.3.0"
 cryptography = "^41.0.7"
 tenacity = "^8.2.3"

@@ -5,7 +5,7 @@ description = "Shared utilities for Carpeta Ciudadana services"
 authors = ["Carpeta Ciudadana Team"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
 
