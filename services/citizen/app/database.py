@@ -1,6 +1,7 @@
 """Database configuration."""
 
 import logging
+import os
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -9,11 +10,14 @@ from sqlalchemy.orm import sessionmaker
 
 logger = logging.getLogger(__name__)
 
-# Database URL (from environment in production)
-DATABASE_URL = "postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana"
+# Database URL (from environment variable)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/carpeta_ciudadana"
+)
 
 # Create async engine
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
 # Create async session factory
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
