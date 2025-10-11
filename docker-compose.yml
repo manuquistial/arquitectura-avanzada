@@ -29,17 +29,18 @@ services:
     volumes:
       - opensearch_data:/usr/share/opensearch/data
 
-  localstack:
-    image: localstack/localstack:latest
-    environment:
-      - SERVICES=s3,sqs,sns,cognito-idp
-      - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
-    ports:
-      - "4566:4566"
-    volumes:
-      - localstack_data:/tmp/localstack
-      - /var/run/docker.sock:/var/run/docker.sock
+  # localstack:
+  #   image: localstack/localstack:latest
+  #   environment:
+  #     - SERVICES=s3,sqs,sns,cognito-idp
+  #     - DEBUG=1
+  #     - DATA_DIR=/tmp/localstack/data
+  #   ports:
+  #     - "4566:4566"
+  #   volumes:
+  #     - localstack_data:/tmp/localstack
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  # Comentado: usando Azure real en lugar de LocalStack
 
   redis:
     image: redis:7-alpine
@@ -60,6 +61,6 @@ services:
 volumes:
   postgres_data:
   opensearch_data:
-  localstack_data:
+  # localstack_data:  # Comentado: LocalStack deshabilitado
   redis_data:
 
