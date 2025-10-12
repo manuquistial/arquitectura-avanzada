@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 5/24 fases (20.8%)
+**Completado**: 6/24 fases (25%)
 
 ```
-Progreso: █████░░░░░░░░░░░░░░░ 20.8%
+Progreso: ██████░░░░░░░░░░░░░░ 25%
 ```
 
-**Tiempo invertido**: 22h / 150h
+**Tiempo invertido**: 32h / 150h
 
-**Última actualización**: 2025-10-13 00:00
+**Última actualización**: 2025-10-13 01:15
 
 ---
 
@@ -45,13 +45,15 @@ Progreso: █████░░░░░░░░░░░░░░░ 20.8%
   - [x] 2.8 JWT validator (backend) ✅
   - [x] 2.9 Documentación Azure AD B2C ✅
 
-- [ ] **FASE 3**: transfer-worker + KEDA (10h)
-  - [ ] 3.1 Instalar KEDA (Terraform)
-  - [ ] 3.2 Crear transfer-worker service
-  - [ ] 3.3 ScaledObject KEDA
-  - [ ] 3.4 Spot nodepool workers
-  - [ ] 3.5 Añadir a CI/CD
-  - [ ] 3.6 Verificación scaling
+- [x] **FASE 3**: transfer-worker + KEDA (10h) ✅ COMPLETADA
+  - [x] 3.1 Módulo Terraform KEDA (main.tf, variables.tf, outputs.tf) ✅
+  - [x] 3.2 Transfer Worker service (main.py) ✅
+  - [x] 3.3 Dockerfile transfer-worker ✅
+  - [x] 3.4 ScaledObject KEDA (Service Bus trigger) ✅
+  - [x] 3.5 Deployment Helm template ✅
+  - [x] 3.6 Values.yaml configuración completa ✅
+  - [x] 3.7 CI/CD actualizado (13 servicios) ✅
+  - [x] 3.8 Documentación arquitectura KEDA ✅
 
 - [ ] **FASE 4**: Key Vault + CSI Secret Store (6h)
   - [ ] 4.1 Crear Key Vault (Terraform)
@@ -440,6 +442,51 @@ Progreso: █████░░░░░░░░░░░░░░░ 20.8%
 
 **LOGRO**: Autenticación real con Azure AD B2C + OIDC + JWT validation
 
+### 2025-10-13 01:15 - ✅ FASE 3 COMPLETADA (transfer-worker + KEDA)
+- ✅ Módulo Terraform KEDA
+  - infra/terraform/modules/keda/main.tf (Helm release)
+  - TriggerAuthentication para Service Bus
+  - ServiceMonitor para Prometheus
+  - Variables y outputs
+- ✅ Servicio Transfer Worker
+  - services/transfer_worker/app/main.py
+  - Consumer dedicado Service Bus
+  - Endpoints: /health, /ready, /metrics
+  - Max concurrent: 10 mensajes por pod
+  - Graceful shutdown (60 segundos)
+- ✅ Dockerfile transfer-worker
+  - Python 3.13-slim
+  - Poetry dependencies
+  - Non-root user
+  - Healthcheck integrado
+- ✅ ScaledObject KEDA
+  - Trigger: azure-servicebus queue length
+  - Min replicas: 0 (scale to zero)
+  - Max replicas: 30
+  - Target: 5 mensajes por pod
+  - Activation threshold: 1 mensaje
+- ✅ Helm templates
+  - deployment-transfer-worker.yaml
+  - scaledobject-transfer-worker.yaml
+  - Node selector para spot instances
+  - Tolerations y affinity
+- ✅ Values.yaml configuración completa
+  - KEDA polling/cooldown config
+  - Worker resources (optimizado spot)
+  - ServiceMonitor Prometheus
+- ✅ CI/CD actualizado
+  - Backend test: 13 servicios (+ transfer_worker)
+  - Build and push: 13 servicios
+  - Helm deploy: transfer_worker.image.tag
+- ✅ Documentación
+  - docs/KEDA_ARCHITECTURE.md (completa)
+  - Flujo de procesamiento
+  - Auto-scaling explicado
+  - Troubleshooting
+  - README transfer_worker
+
+**LOGRO**: Auto-scaling event-driven con KEDA + spot instances (hasta 30 replicas)
+
 ### 2025-10-12 21:30 - ✅ FASE 1 COMPLETADA
 
 ### 2025-10-12 21:00 - FASE 1 Iniciada
@@ -457,15 +504,16 @@ Progreso: █████░░░░░░░░░░░░░░░ 20.8%
 **Completadas**: 
 - ✅ FASE 1 - WORM + Retención
 - ✅ FASE 2 - Azure AD B2C (OIDC Real)
+- ✅ FASE 3 - transfer-worker + KEDA
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 5/24 fases
+**Progreso total**: 6/24 fases
 
-**Tiempo invertido**: ~22 horas
+**Tiempo invertido**: ~32 horas
 
-**Siguiente fase**: FASE 3 - transfer-worker + KEDA
+**Siguiente fase**: FASE 4 - Headers M2M Completos
 
 ---
 

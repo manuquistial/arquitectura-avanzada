@@ -75,6 +75,7 @@ jobs:
           - notification
           - read_models
           - auth
+          - transfer_worker
     steps:
       - uses: actions/checkout@v4
       
@@ -1326,6 +1327,7 @@ jobs:
           - notification
           - read_models
           - auth
+          - transfer_worker
     steps:
       - uses: actions/checkout@v4
       
@@ -1434,6 +1436,7 @@ jobs:
             --set notification.image.tag=${{ github.sha }} \
             --set readModels.image.tag=${{ github.sha }} \
             --set auth.image.tag=${{ github.sha }} \
+            --set transferWorker.image.tag=${{ github.sha }} \
             --set servicebus.connectionString="${{ secrets.SERVICEBUS_CONNECTION_STRING }}" \
             --set redis.password="${{ secrets.REDIS_PASSWORD }}" \
             --set opensearch.username="admin" \

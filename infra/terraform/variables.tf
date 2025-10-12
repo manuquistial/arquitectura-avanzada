@@ -209,6 +209,25 @@ variable "prometheus_retention" {
   default     = "15d"
 }
 
+# KEDA (Kubernetes Event-Driven Autoscaling)
+variable "keda_version" {
+  description = "KEDA Helm chart version"
+  type        = string
+  default     = "2.13.0"
+}
+
+variable "keda_namespace" {
+  description = "Kubernetes namespace for KEDA"
+  type        = string
+  default     = "keda-system"
+}
+
+variable "keda_replica_count" {
+  description = "Number of replicas for KEDA operator (HA)"
+  type        = number
+  default     = 2
+}
+
 variable "prometheus_storage_size" {
   description = "Prometheus storage size"
   type        = string

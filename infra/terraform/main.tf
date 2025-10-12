@@ -137,6 +137,20 @@ module "servicebus" {
   sku                 = var.servicebus_sku
 }
 
+# KEDA (Kubernetes Event-Driven Autoscaling)
+module "keda" {
+  source = "./modules/keda"
+
+  keda_version                  = var.keda_version
+  keda_namespace                = var.keda_namespace
+  app_namespace                 = "${var.project_name}-${var.environment}"
+  replica_count                 = var.keda_replica_count
+  enable_servicebus_trigger     = true
+  enable_prometheus_monitoring  = var.observability_enabled
+
+  depends_on = [module.aks, module.servicebus]
+}
+
 # Azure AD B2C (equivalente a Cognito)
 # Comentado - Requiere permisos especiales en Azure for Students
 # Usaremos autenticación simple por ahora

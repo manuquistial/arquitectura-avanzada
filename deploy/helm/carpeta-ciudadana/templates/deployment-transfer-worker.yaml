@@ -1,0 +1,151 @@
+{{- if .Values.transferWorker.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer-worker
+  labels:
+    app: transfer-worker
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.transferWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app: transfer-worker
+  template:
+    metadata:
+      labels:
+        app: transfer-worker
+        azure.workload.identity/use: "{{ .Values.global.useWorkloadIdentity }}"
+      annotations:
+        {{- if .Values.transferWorker.podAnnotations }}
+        {{- toYaml .Values.transferWorker.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      
+      {{- if .Values.transferWorker.nodeSelector }}
+      # Node selector for spot instances
+      nodeSelector:
+        {{- toYaml .Values.transferWorker.nodeSelector | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.transferWorker.tolerations }}
+      # Tolerations for spot instances
+      tolerations:
+        {{- toYaml .Values.transferWorker.tolerations | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.transferWorker.affinity }}
+      affinity:
+        {{- toYaml .Values.transferWorker.affinity | nindent 8 }}
+      {{- end }}
+      
+      # Graceful shutdown
+      terminationGracePeriodSeconds: {{ .Values.transferWorker.terminationGracePeriodSeconds }}
+      
+      containers:
+      - name: worker
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.transferWorker.image.repository }}:{{ .Values.transferWorker.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        
+        ports:
+        - containerPort: 8012
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: SERVICEBUS_TRANSFER_QUEUE
+          value: "{{ .Values.transferWorker.queueName }}"
+        - name: MAX_CONCURRENT_MESSAGES
+          value: "{{ .Values.transferWorker.maxConcurrent }}"
+        - name: PREFETCH_COUNT
+          value: "{{ .Values.transferWorker.prefetchCount }}"
+        - name: MAX_WAIT_TIME
+          value: "{{ .Values.transferWorker.maxWaitTime }}"
+        - name: LOG_LEVEL
+          value: "{{ .Values.global.logLevel }}"
+        
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - secretRef:
+            name: sb-secrets
+        - secretRef:
+            name: db-secrets
+        - secretRef:
+            name: redis-auth
+            optional: true
+        
+        resources:
+          {{- toYaml .Values.transferWorker.resources | nindent 10 }}
+        
+        # Liveness probe
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8012
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.transferWorker.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.transferWorker.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.transferWorker.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.transferWorker.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.transferWorker.livenessProbe.failureThreshold }}
+        
+        # Readiness probe
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8012
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.transferWorker.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.transferWorker.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.transferWorker.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.transferWorker.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.transferWorker.readinessProbe.failureThreshold }}
+        
+        # Lifecycle hooks for graceful shutdown
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer-worker
+  labels:
+    app: transfer-worker
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.transferWorker.service.type }}
+  ports:
+  - port: {{ .Values.transferWorker.service.port }}
+    targetPort: 8012
+    protocol: TCP
+    name: http
+  selector:
+    app: transfer-worker
+
+{{- if .Values.transferWorker.serviceMonitor.enabled }}
+---
+# ServiceMonitor for Prometheus (if prometheus-operator is installed)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer-worker
+  labels:
+    app: transfer-worker
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: transfer-worker
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+{{- end }}
+
+{{- end }}
+
