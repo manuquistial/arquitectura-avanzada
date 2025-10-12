@@ -1,0 +1,154 @@
+{
+  "dashboard": {
+    "title": "Service Bus & Dead Letter Queue",
+    "tags": ["carpeta-ciudadana", "servicebus", "dlq", "queues"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Queue Message Count",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(servicebus_queue_message_count) by (queue_name)",
+            "legendFormat": "{{queue_name}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "DLQ Message Count",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(servicebus_dlq_message_count) by (queue_name)",
+            "legendFormat": "{{queue_name}} DLQ",
+            "refId": "A"
+          }
+        ],
+        "alert": {
+          "name": "DLQ Messages Accumulating",
+          "conditions": [
+            {
+              "evaluator": {"type": "gt", "params": [10]},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"type": "last"},
+              "type": "query"
+            }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "title": "Consumer Retry Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(queue_consumer_retries_total[5m])",
+            "legendFormat": "Retries/s",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Consumer Success Rate",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "(sum(rate(queue_consumer_success_total[5m])) / (sum(rate(queue_consumer_success_total[5m])) + sum(rate(queue_consumer_errors_total[5m])))) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "unit": "percent"
+        },
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {"value": 0, "color": "red"},
+            {"value": 90, "color": "yellow"},
+            {"value": 99, "color": "green"}
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "title": "Messages Sent to DLQ (Rate)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(queue_consumer_dlq_count_total[5m])",
+            "legendFormat": "DLQ messages/s",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Transient Errors (Retryable)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(queue_consumer_transient_errors_total[5m])",
+            "legendFormat": "Transient errors/s",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Queue Processing Latency",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(queue_processing_duration_seconds_bucket[5m])) by (queue_name, le))",
+            "legendFormat": "{{queue_name}} p95",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "DLQ Messages by Reason",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(servicebus_dlq_reason_count) by (queue_name, reason)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "renameByName": {
+                "queue_name": "Queue",
+                "reason": "DLQ Reason",
+                "Value": "Count"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+

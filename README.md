@@ -7,20 +7,33 @@
 
 ---
 
-## 📖 Documentación
+## 📖 Documentación Principal
 
-- **[GUIA_COMPLETA.md](./GUIA_COMPLETA.md)** ⭐ - Guía completa del proyecto
-- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitectura técnica detallada
-- **[OBSERVABILITY_GUIDE.md](./OBSERVABILITY_GUIDE.md)** - OpenTelemetry y métricas
-- **[RATE_LIMITER_GUIDE.md](./RATE_LIMITER_GUIDE.md)** - Rate limiting avanzado
-- **[scripts/secrets/README.md](./scripts/secrets/README.md)** - Rotación de secretos
-- **[observability/README.md](./observability/README.md)** - Dashboards y alertas
+### 📚 Guías Esenciales
+
+1. **[GUIA_COMPLETA.md](./GUIA_COMPLETA.md)** ⭐
+   - Guía completa del proyecto con todos los detalles
+   - Quick start y desarrollo local
+   - Despliegue, testing y troubleshooting
+   - CI/CD, secrets, backup y operaciones
+
+2. **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** 🏗️
+   - Arquitectura técnica detallada del sistema
+   - Descripción completa de los 12 microservicios
+   - Patrones de diseño implementados (CQRS, Saga, Circuit Breaker)
+   - Flujos de datos, diagramas e infraestructura Azure
+
+### 🛠️ Recursos Adicionales
+- **[Makefile](./Makefile)** - Todos los comandos de automatización disponibles
+- **[scripts/](./scripts/)** - Scripts de operación y deployment
+- **[observability/](./observability/)** - Dashboards Grafana y alertas Prometheus
+- **[deploy/helm/](./deploy/helm/)** - Charts de Helm para Kubernetes
 
 ---
 
 ## 🚀 Quick Start
 
-### Desarrollo Local (venv - recomendado)
+### Desarrollo Local
 
 ```bash
 # 1. Levantar infraestructura (Postgres, Redis, OpenSearch)
@@ -37,47 +50,25 @@ open http://localhost:3000
 docker-compose down
 ```
 
-### Stack Completo en Docker
+### Despliegue Completo Automatizado
 
 ```bash
-# Build todas las imágenes
-./build-all.sh
+# 1. Configurar credenciales
+cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+# Editar terraform.tfvars con tus valores
 
-# Levantar stack completo
-docker-compose --profile app up -d
+# 2. Desplegar TODO (infraestructura + aplicación)
+make deploy-full-stack
 
-# Ver logs
-docker-compose logs -f gateway
-
-# Detener
-docker-compose down
+# O paso a paso:
+make deploy-infra        # Terraform
+make create-secrets      # Secrets K8s
+make deploy-helm-dev     # Helm
 ```
 
 ---
 
 ## 🏗️ Arquitectura
-
-### Stack Tecnológico
-
-**Frontend:**
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS
-- Fuente: Montserrat
-
-**Backend:**
-- FastAPI (Python 3.13)
-- PostgreSQL (Azure Database)
-- Redis (Azure Cache)
-- Azure Blob Storage
-- Service Bus (eventos)
-- OpenSearch (búsqueda)
-
-**Cloud:**
-- Azure Kubernetes Service (AKS)
-- Terraform (IaC)
-- Helm (deploy)
-- GitHub Actions (CI/CD)
 
 ### Microservicios (12)
 
@@ -86,220 +77,94 @@ docker-compose down
 | **frontend** | 3000 | Next.js UI |
 | **gateway** | 8000 | API Gateway + Rate Limiting |
 | **citizen** | 8001 | Gestión ciudadanos |
-| **ingestion** | 8002 | Upload/download documentos |
-| **metadata** | 8003 | Búsqueda y metadata |
-| **transfer** | 8004 | Transferencias P2P |
-| **mintic_client** | 8005 | Cliente hub MinTIC |
+| **ingestion** | 8002 | Upload/download documentos (SAS) |
+| **metadata** | 8003 | Búsqueda y metadata (OpenSearch) |
+| **transfer** | 8004 | Transferencias P2P (Saga) |
+| **mintic_client** | 8005 | Cliente hub MinTIC (CB + RL) |
 | **signature** | 8006 | Firma y autenticación |
 | **read_models** | 8007 | CQRS read models |
 | **auth** | 8008 | OIDC provider |
-| **iam** | 8009 | ABAC authorization |
 | **notification** | 8010 | Email + webhooks |
 | **sharing** | 8011 | Compartición shortlinks |
 
+### Stack Tecnológico
+
+**Backend:** FastAPI (Python 3.13) + PostgreSQL + Redis + Azure Blob Storage + Service Bus + OpenSearch  
+**Frontend:** Next.js 14 (App Router) + TypeScript + Tailwind CSS  
+**Cloud:** Azure Kubernetes Service (AKS) + Terraform (IaC) + Helm (deploy)  
+**Observabilidad:** OpenTelemetry + Prometheus + Grafana
+
 ---
 
-## 🔧 Requisitos
+## 🎯 Características
 
-### Local Development
+### Seguridad
+✅ Managed Identity + User Delegation SAS  
+✅ PostgreSQL Firewall restrictivo  
+✅ TLS automático (cert-manager + Let's Encrypt)  
+✅ Sanitización y headers de seguridad  
+
+### Resiliencia
+✅ Circuit Breaker configurable por endpoint  
+✅ Rate Limiting multinivel (Ingress, Gateway, Hub)  
+✅ Dead Letter Queue con retry exponencial  
+✅ Health Checks (liveness + readiness)  
+
+### Observabilidad
+✅ OpenTelemetry (traces, metrics, logs)  
+✅ Dashboards predefinidos (Latency, DLQ, Cache, Hub)  
+✅ Alertas Prometheus configuradas  
+✅ Logs correlacionados con trace_id  
+
+---
+
+## 📦 Comandos Útiles
 
 ```bash
-# Node.js 22
-nvm use 22
+# Desarrollo
+make dev-up              # Levanta infra + servicios
+make dev-down            # Para todo
+make test                # Tests unitarios
+make lint                # Linters
 
-# Python 3.13
-python --version  # 3.13.7
+# Despliegue
+make deploy-full-stack   # Stack completo
+make deploy-infra        # Solo Terraform
+make deploy-helm-dev     # Solo Helm (dev)
 
-# Poetry 2.2.1
-poetry --version
+# Monitoreo
+make k8s-pods            # Ver pods
+make prometheus-port-forward
+make opensearch-dashboards
 
-# Docker
-docker --version
-
-# Kubernetes tools
-kubectl version
-helm version
-```
-
-### Azure Setup
-
-- Cuenta Azure for Students ($100 créditos)
-- Azure CLI instalado y autenticado
-- Terraform 1.6+
-- kubectl configurado con AKS
-
----
-
-## 🧪 Testing
-
-```bash
-# Unit tests (backend)
-cd services/gateway
-pytest tests/ -v
-
-# E2E tests (Playwright)
-cd tests/e2e
-npx playwright test
-
-# Load tests (k6)
-cd tests/load
-k6 run k6-load-test.js
-
-# Load tests (Locust)
-locust -f locustfile.py
+# Operaciones
+make backup-postgres     # Backup PostgreSQL
+make rotate-secrets      # Rotar secretos
+make clean               # Limpiar temporales
 ```
 
 ---
 
-## 🚢 Deployment
+## 📚 Para Más Información
 
-### Local
-
-```bash
-# Con venv
-./start-services.sh
-
-# Con Docker
-docker-compose --profile app up -d
-```
-
-### Azure (AKS)
-
-```bash
-# 1. Deploy infraestructura
-cd infra/terraform
-terraform init
-terraform apply
-
-# 2. Deploy aplicación
-cd ../../
-helm upgrade --install carpeta-ciudadana \
-  deploy/helm/carpeta-ciudadana \
-  --namespace carpeta-ciudadana \
-  --create-namespace
-
-# 3. Verificar
-kubectl get pods -n carpeta-ciudadana
-```
-
-### CI/CD (Automático)
-
-GitHub Actions despliega automáticamente en cada push a `master`:
-- Lint + tests
-- Build Docker images
-- Push a Docker Hub
-- Deploy a AKS con Helm
+- **Arquitectura detallada:** Ver [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **Guía completa de uso:** Ver [GUIA_COMPLETA.md](./GUIA_COMPLETA.md)
+- **Dashboards y alertas:** Ver [observability/](./observability/)
+- **Scripts de operación:** Ver [scripts/](./scripts/)
 
 ---
 
-## 📊 Características Principales
+## 🎓 Proyecto Universitario
 
-### ✅ Implementado
+Sistema desarrollado como proyecto de arquitectura avanzada, optimizado para Azure for Students ($100 créditos).
 
-- [x] 12 microservicios con FastAPI
-- [x] Frontend Next.js 14 con TypeScript
-- [x] API Gateway con rate limiting avanzado
-- [x] Integración con hub MinTIC (GovCarpeta)
-- [x] Upload directo a Azure Blob Storage (presigned URLs)
-- [x] Búsqueda full-text con OpenSearch
-- [x] Transferencias P2P entre operadores
-- [x] Compartición de documentos con shortlinks
-- [x] Sistema de eventos con Azure Service Bus
-- [x] CQRS con read models
-- [x] Saga pattern con compensación
-- [x] Circuit breakers para resilencia
-- [x] OpenTelemetry (traces, metrics, logs)
-- [x] Redis para cache, locks, idempotencia
-- [x] Rotación automática de secretos (30 días)
-- [x] Backups automáticos (PostgreSQL, OpenSearch)
-- [x] Dashboards Grafana predefinidos
-- [x] Alertas Prometheus configuradas
-- [x] Tests E2E con Playwright
-- [x] Tests de carga con k6 y Locust
-- [x] CI/CD completo con GitHub Actions
-
-### 🔄 Próximas Mejoras
-
-- [ ] OIDC authentication completa (Auth service)
-- [ ] ABAC policies en IAM service
-- [ ] Azure Key Vault + CSI driver
-- [ ] Multi-región con geo-replication
-- [ ] CDN para assets estáticos
+**Costo estimado:** ~$35/mes en desarrollo  
+**Tiempo de uso:** 2-5 meses con créditos gratuitos
 
 ---
 
-## 🌐 Integración Hub MinTIC
+**Estado:** ✅ PRODUCTION READY  
+**Última actualización:** 2025-10-12  
+**Autor:** Manuel Jurado - Universidad EAFIT
 
-**Hub GovCarpeta:**
-- URL: https://govcarpeta-apis-4905ff3c005b.herokuapp.com
-- API pública (sin OAuth ni mTLS)
-
-**Endpoints integrados:**
-- Register/unregister citizen
-- Authenticate document
-- Validate citizen
-- Register operator
-- Get operators list
-- Register transfer endpoint
-
----
-
-## 📈 Observabilidad
-
-**OpenTelemetry instrumentación completa:**
-- Trazas distribuidas con `traceparent`
-- Métricas: latencia p95, error rate, cache hit/miss, DLQ length
-- 4 dashboards Grafana (API Latency, Transfers Saga, Queue Health, Cache Efficiency)
-- 11 alertas configuradas (p95>2s, 5xx>1%, DLQ>10, etc.)
-
-**Exporters:**
-- Console (stdout) para desarrollo
-- Azure Monitor para producción
-- Prometheus + Grafana
-
----
-
-## 🔐 Seguridad
-
-- **Rate Limiting**: Por rol (ciudadano: 60rpm, operador: 200rpm, services: 400rpm)
-- **Ban System**: 5 violaciones → ban 120s
-- **Allowlist**: IPs hub MinTIC bypass límites
-- **Secretos**: Rotación automática cada 30 días
-- **Backups**: Encriptados con AES-256-CBC
-- **Eventos**: Deduplicación con Redis
-
----
-
-## 💾 Backup & Recovery
-
-**RPO:** 24 horas  
-**RTO:** < 2 horas
-
-- PostgreSQL: Backups diarios (retención 7 días)
-- OpenSearch: Snapshots diarios
-- Blobs: Replicación LRS nativa de Azure
-- Cleanup de huérfanos: Semanal
-
----
-
-## 📞 Soporte
-
-Para problemas:
-1. Ver logs: `docker-compose logs -f {service}`
-2. Consultar [GUIA_COMPLETA.md](./GUIA_COMPLETA.md)
-3. Revisar [GitHub Actions](https://github.com/manuquistial/arquitectura-avanzada/actions)
-4. Verificar [Troubleshooting](./GUIA_COMPLETA.md#troubleshooting)
-
----
-
-## 🔗 Enlaces
-
-- **Repositorio**: https://github.com/manuquistial/arquitectura-avanzada
-- **Docker Hub**: https://hub.docker.com/u/manuelquistial
-- **GovCarpeta API**: https://govcarpeta-apis-4905ff3c005b.herokuapp.com
-
----
-
-**Versión:** 2.0.0  
-**Última actualización:** 12 Octubre 2025  
-**Autor:** Manuel Jurado (Proyecto Universitario - Arquitectura Avanzada)
+**Deployment rápido:** `make deploy-full-stack`

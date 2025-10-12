@@ -14,7 +14,7 @@ echo "✅ Frontend built"
 echo ""
 
 # Build backend services
-SERVICES=("gateway" "citizen" "ingestion" "metadata" "transfer" "mintic_client")
+SERVICES=("gateway" "citizen" "ingestion" "metadata" "transfer" "mintic_client" "signature" "sharing" "notification" "read_models" "auth")
 
 for SERVICE in "${SERVICES[@]}"; do
     echo "📦 Building ${SERVICE}..."

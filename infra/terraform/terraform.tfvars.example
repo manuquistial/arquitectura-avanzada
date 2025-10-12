@@ -19,6 +19,11 @@ db_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"
 db_sku_name       = "B_Standard_B1ms"  # $13.87/mes - Free tier optimizado
 db_storage_mb     = 32768              # 32GB
 
+# PostgreSQL Firewall (Security)
+db_enable_public_access  = true   # Set to false for private endpoint only
+db_aks_egress_ip         = ""     # Leave empty to allow all AKS, or specify egress IP
+db_allow_azure_services  = false  # Set to true to allow Azure backup/monitoring
+
 # Cognitive Search
 search_sku = "basic"  # $75/mes - O usa "free" si está disponible
 
@@ -30,4 +35,34 @@ adb2c_domain_name = "carpetaciudadana"
 
 # Container Registry
 acr_sku = "Basic"  # $5/mes - O no crear si usas Docker Hub
+
+# Observability Configuration (OpenTelemetry + Prometheus)
+observability_namespace    = "observability"
+otel_chart_version        = "0.78.0"
+otel_replicas             = 2
+prometheus_chart_version  = "25.8.0"
+prometheus_retention      = "15d"
+prometheus_storage_size   = "10Gi"
+
+# cert-manager Configuration (deployed via Helm in AKS)
+cert_manager_namespace      = "cert-manager"
+cert_manager_chart_version  = "v1.13.3"
+letsencrypt_email          = "your-email@example.com"  # CHANGE THIS - Email for Let's Encrypt notifications
+cert_manager_ingress_class = "nginx"
+enable_tls                 = false  # Set to true when you have a domain configured
+domain_name                = ""     # Set your domain when available (e.g., "carpeta-ciudadana.example.com")
+
+# OpenSearch Configuration (deployed via Helm in AKS)
+opensearch_namespace         = "search"
+opensearch_chart_version     = "2.17.0"
+opensearch_storage_size      = "8Gi"
+opensearch_storage_class     = "managed-premium"  # Azure Premium SSD
+opensearch_memory_request    = "1Gi"
+opensearch_memory_limit      = "2Gi"
+opensearch_cpu_request       = "500m"
+opensearch_cpu_limit         = "1000m"
+opensearch_heap_size         = "1g"
+opensearch_username          = "admin"
+opensearch_password          = "CHANGE_ME_STRONG_OPENSEARCH_PASSWORD!"  # Change in production
+opensearch_enable_dashboards = true
 

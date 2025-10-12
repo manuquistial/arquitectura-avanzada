@@ -1,0 +1,106 @@
+{{- if .Values.sharing.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-sharing
+  labels:
+    app: sharing
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.sharing.replicaCount }}
+  selector:
+    matchLabels:
+      app: sharing
+  template:
+    metadata:
+      labels:
+        app: sharing
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: sharing
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.sharing.image.repository }}:{{ .Values.sharing.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - secretRef:
+            name: db-secrets
+        - secretRef:
+            name: azure-storage
+        - secretRef:
+            name: redis-auth
+            optional: true
+        - secretRef:
+            name: sb-secrets
+            optional: true
+        resources:
+          {{- toYaml .Values.sharing.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-sharing
+  labels:
+    app: sharing
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.sharing.service.type }}
+  ports:
+  - port: {{ .Values.sharing.service.port }}
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: sharing
+---
+{{- if .Values.sharing.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-sharing
+  labels:
+    app: sharing
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "carpeta-ciudadana.fullname" . }}-sharing
+  minReplicas: {{ .Values.sharing.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.sharing.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.sharing.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+

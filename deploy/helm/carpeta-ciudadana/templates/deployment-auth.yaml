@@ -1,0 +1,126 @@
+{{- if .Values.auth.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-auth
+  labels:
+    app: auth
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.auth.replicaCount }}
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: auth
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8011
+          name: http
+          protocol: TCP
+        env:
+        - name: AZURE_B2C_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c
+              key: tenant_id
+              optional: true
+        - name: AZURE_B2C_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c
+              key: client_id
+              optional: true
+        - name: AZURE_B2C_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c
+              key: client_secret
+              optional: true
+        - name: AZURE_B2C_POLICY
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c
+              key: policy
+              optional: true
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - secretRef:
+            name: db-secrets
+        - secretRef:
+            name: redis-auth
+            optional: true
+        resources:
+          {{- toYaml .Values.auth.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8011
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8011
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-auth
+  labels:
+    app: auth
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.auth.service.type }}
+  ports:
+  - port: {{ .Values.auth.service.port }}
+    targetPort: 8011
+    protocol: TCP
+    name: http
+  selector:
+    app: auth
+---
+{{- if .Values.auth.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-auth
+  labels:
+    app: auth
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "carpeta-ciudadana.fullname" . }}-auth
+  minReplicas: {{ .Values.auth.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.auth.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.auth.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+

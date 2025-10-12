@@ -25,24 +25,41 @@ spec:
         - containerPort: 8000
           name: http
         env:
-        - name: ENVIRONMENT
-          value: {{ .Values.global.environment }}
         - name: DATABASE_URL
           value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+        {{- if .Values.serviceBus.enabled }}
+        - name: SERVICEBUS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: sb-conn
+              key: SERVICEBUS_CONNECTION_STRING
+              optional: true
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
         resources:
           {{- toYaml .Values.transfer.resources | nindent 10 }}
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 30
+            scheme: HTTP
+          initialDelaySeconds: 20
           periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: 8000
-          initialDelaySeconds: 5
+            scheme: HTTP
+          initialDelaySeconds: 15
           periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 2
 ---
 apiVersion: v1
 kind: Service

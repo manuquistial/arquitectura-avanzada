@@ -6,6 +6,18 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.80"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.12"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.24"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.10"
+    }
   }
   
   # Backend configurado en backend-config.tf
@@ -17,6 +29,24 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
+}
+
+# Provider para Helm
+provider "helm" {
+  kubernetes {
+    host                   = module.aks.cluster_endpoint
+    client_certificate     = base64decode(module.aks.client_certificate)
+    client_key             = base64decode(module.aks.client_key)
+    cluster_ca_certificate = base64decode(module.aks.cluster_ca_certificate)
+  }
+}
+
+# Provider para Kubernetes
+provider "kubernetes" {
+  host                   = module.aks.cluster_endpoint
+  client_certificate     = base64decode(module.aks.client_certificate)
+  client_key             = base64decode(module.aks.client_key)
+  cluster_ca_certificate = base64decode(module.aks.cluster_ca_certificate)
 }
 
 # Resource Group principal
@@ -67,6 +97,13 @@ module "postgresql" {
   admin_password      = var.db_admin_password
   sku_name            = var.db_sku_name
   storage_mb          = var.db_storage_mb
+  
+  # Firewall configuration
+  enable_public_access = var.db_enable_public_access
+  aks_egress_ip        = var.db_aks_egress_ip
+  allow_azure_services = var.db_allow_azure_services
+  
+  depends_on = [module.aks]
 }
 
 # Blob Storage
@@ -148,10 +185,71 @@ resource "azurerm_user_assigned_identity" "aks_identity" {
 #   principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
 # }
 
-resource "azurerm_role_assignment" "aks_to_storage" {
+# Role assignment para el cluster AKS (System Managed Identity)
+# Permite a los pods del cluster generar User Delegation SAS tokens
+resource "azurerm_role_assignment" "aks_cluster_to_storage" {
+  scope                = module.storage.storage_account_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = module.aks.identity_principal_id
+  
+  depends_on = [module.aks, module.storage]
+}
+
+# Role assignment adicional para la User Assigned Identity (si se usa)
+resource "azurerm_role_assignment" "aks_identity_to_storage" {
   scope                = module.storage.storage_account_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
+}
+
+# cert-manager deployment via Helm
+module "cert_manager" {
+  source = "./modules/cert-manager"
+
+  namespace          = var.cert_manager_namespace
+  chart_version      = var.cert_manager_chart_version
+  letsencrypt_email  = var.letsencrypt_email
+  ingress_class      = var.cert_manager_ingress_class
+  cpu_request        = var.cert_manager_cpu_request
+  cpu_limit          = var.cert_manager_cpu_limit
+  memory_request     = var.cert_manager_memory_request
+  memory_limit       = var.cert_manager_memory_limit
+
+  depends_on = [module.aks]
+}
+
+# Observability stack (OpenTelemetry + Prometheus)
+module "observability" {
+  source = "./modules/observability"
+
+  namespace                  = var.observability_namespace
+  otel_chart_version         = var.otel_chart_version
+  otel_replicas              = var.otel_replicas
+  prometheus_chart_version   = var.prometheus_chart_version
+  prometheus_retention       = var.prometheus_retention
+  prometheus_storage_size    = var.prometheus_storage_size
+
+  depends_on = [module.aks]
+}
+
+# OpenSearch deployment via Helm
+module "opensearch" {
+  source = "./modules/opensearch"
+
+  namespace           = var.opensearch_namespace
+  chart_version       = var.opensearch_chart_version
+  storage_size        = var.opensearch_storage_size
+  storage_class       = var.opensearch_storage_class
+  memory_request      = var.opensearch_memory_request
+  memory_limit        = var.opensearch_memory_limit
+  cpu_request         = var.opensearch_cpu_request
+  cpu_limit           = var.opensearch_cpu_limit
+  heap_size           = var.opensearch_heap_size
+  opensearch_username = var.opensearch_username
+  opensearch_password = var.opensearch_password
+  enable_dashboards   = var.opensearch_enable_dashboards
+
+  depends_on = [module.aks]
 }
 
 # Data sources

@@ -166,3 +166,37 @@ volumes:
   opensearch_data:
   redis_data:
 
+
+  auth:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-auth:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+
+  notification:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-notification:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - SERVICE_BUS_ENABLED=false
+    depends_on:
+      - postgres
+
+  read-models:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-read_models:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis

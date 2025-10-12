@@ -1,0 +1,83 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}
+  labels:
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.className }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.className }}
+    {{- end }}
+    {{- if and .Values.ingress.tls.enabled .Values.ingress.tls.certManager.enabled }}
+    # cert-manager annotations
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.certManager.clusterIssuer | quote }}
+    {{- if .Values.ingress.tls.certManager.acmeChallenge }}
+    cert-manager.io/acme-challenge-type: {{ .Values.ingress.tls.certManager.acmeChallenge }}
+    {{- end }}
+    {{- end }}
+    # Security Headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+    {{- if .Values.ingress.tls.enabled }}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    nginx.ingress.kubernetes.io/hsts-preload: "true"
+    {{- end }}
+    # Content Security Policy
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://govcarpeta-apis-4905ff3c005b.herokuapp.com; frame-ancestors 'none';" always;
+    # Body size limits (gateway handles metadata, not file uploads)
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/client-body-buffer-size: "1m"
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "{{ .Values.ingress.rateLimitRps | default "100" }}"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if and .Values.ingress.tls.enabled (not (eq .Values.ingress.tls.secretName "")) }}
+  tls:
+  {{- range .Values.ingress.hosts }}
+  {{- if .host }}
+  - hosts:
+    - {{ .host }}
+    secretName: {{ $.Values.ingress.tls.secretName }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+  {{- if .host }}
+  - host: {{ .host }}
+    http:
+  {{- else }}
+  - http:
+  {{- end }}
+      paths:
+      {{- range .paths }}
+      - path: {{ .path }}
+        pathType: {{ .pathType }}
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-{{ .backend.service.name }}
+            port:
+              number: {{ .backend.service.port }}
+      {{- end }}
+  {{- end }}
+{{- end }}
+

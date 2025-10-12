@@ -1,6 +1,6 @@
 apiVersion: v2
 name: carpeta-ciudadana
-description: Carpeta Ciudadana operator on AWS with microservices
+description: Carpeta Ciudadana operator on Azure with microservices
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

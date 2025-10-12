@@ -1,0 +1,174 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: purge-unsigned-documents
+  namespace: carpeta-ciudadana
+  labels:
+    app.kubernetes.io/name: purge-unsigned
+    app.kubernetes.io/component: maintenance
+    app.kubernetes.io/part-of: carpeta-ciudadana
+spec:
+  # Run daily at 2:00 AM
+  schedule: "0 2 * * *"
+  
+  # Don't allow concurrent runs
+  concurrencyPolicy: Forbid
+  
+  # Keep history
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  
+  # Job template
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: purge-unsigned
+        app.kubernetes.io/component: maintenance
+    spec:
+      # Max 30 minutes
+      activeDeadlineSeconds: 1800
+      
+      # Retry up to 3 times
+      backoffLimit: 3
+      
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: purge-unsigned
+        spec:
+          serviceAccountName: carpeta-ciudadana-sa
+          restartPolicy: Never
+          
+          containers:
+          - name: purge-unsigned
+            image: manuelquistial/carpeta-ingestion:latest
+            imagePullPolicy: IfNotPresent
+            
+            command:
+            - python
+            - -c
+            - |
+              """
+              Auto-purga de documentos UNSIGNED > 30 días
+              
+              REQUERIMIENTO: Documentos UNSIGNED tienen TTL de 30 días.
+              Después de 30 días sin firmar, se eliminan automáticamente.
+              """
+              
+              import asyncio
+              import logging
+              import os
+              from datetime import datetime, timedelta
+              
+              from sqlalchemy import select, delete, func
+              from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+              from sqlalchemy.orm import sessionmaker
+              
+              # Setup logging
+              logging.basicConfig(
+                  level=logging.INFO,
+                  format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+              )
+              logger = logging.getLogger("purge-unsigned")
+              
+              # Import models
+              import sys
+              sys.path.insert(0, '/app')
+              from app.models import DocumentMetadata
+              
+              
+              async def purge_old_unsigned_documents():
+                  """Purge UNSIGNED documents older than 30 days."""
+                  
+                  # Database connection
+                  database_url = os.getenv("DATABASE_URL")
+                  if not database_url:
+                      logger.error("❌ DATABASE_URL not set")
+                      return
+                  
+                  logger.info("🚀 Starting purge of UNSIGNED documents > 30 days")
+                  
+                  engine = create_async_engine(database_url, echo=False)
+                  async_session = sessionmaker(
+                      engine, class_=AsyncSession, expire_on_commit=False
+                  )
+                  
+                  async with async_session() as session:
+                      # Calculate cutoff date (30 days ago)
+                      cutoff_date = datetime.utcnow() - timedelta(days=30)
+                      
+                      logger.info(f"📅 Cutoff date: {cutoff_date.isoformat()}")
+                      
+                      # Find UNSIGNED documents > 30 days old
+                      stmt = select(DocumentMetadata).where(
+                          DocumentMetadata.state == "UNSIGNED",
+                          DocumentMetadata.created_at < cutoff_date,
+                          DocumentMetadata.is_deleted == False
+                      )
+                      
+                      result = await session.execute(stmt)
+                      old_docs = result.scalars().all()
+                      
+                      logger.info(f"📊 Found {len(old_docs)} UNSIGNED documents > 30 days old")
+                      
+                      if len(old_docs) == 0:
+                          logger.info("✅ No documents to purge")
+                          return
+                      
+                      # Delete blobs from Azure Storage
+                      # TODO: Implement blob deletion
+                      # for doc in old_docs:
+                      #     logger.info(f"🗑️  Deleting blob: {doc.blob_name}")
+                      #     await blob_client.delete_blob(doc.blob_name)
+                      
+                      # Soft delete in database (is_deleted=True)
+                      deleted_count = 0
+                      for doc in old_docs:
+                          doc.is_deleted = True
+                          doc.updated_at = datetime.utcnow()
+                          deleted_count += 1
+                          
+                          logger.info(
+                              f"🗑️  Soft-deleted: id={doc.id}, "
+                              f"file={doc.filename}, "
+                              f"age={(datetime.utcnow() - doc.created_at).days} days"
+                          )
+                      
+                      await session.commit()
+                      
+                      logger.info(f"✅ Purged {deleted_count} UNSIGNED documents")
+                      logger.info("📊 Summary:")
+                      logger.info(f"   - Documents processed: {len(old_docs)}")
+                      logger.info(f"   - Documents deleted: {deleted_count}")
+                      logger.info(f"   - Cutoff date: {cutoff_date.date().isoformat()}")
+                  
+                  await engine.dispose()
+              
+              
+              # Run
+              try:
+                  asyncio.run(purge_old_unsigned_documents())
+                  logger.info("🎉 Purge job completed successfully")
+              except Exception as e:
+                  logger.error(f"❌ Purge job failed: {e}")
+                  raise
+            
+            # Environment variables from secrets and configmaps
+            envFrom:
+            - configMapRef:
+                name: carpeta-ciudadana-app-flags
+            - secretRef:
+                name: db-secrets
+            - secretRef:
+                name: azure-storage
+                optional: true
+            
+            # Resource limits
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+

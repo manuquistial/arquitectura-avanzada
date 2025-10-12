@@ -25,44 +25,37 @@ spec:
         - containerPort: 8000
           name: http
         env:
-        - name: ENVIRONMENT
-          value: {{ .Values.global.environment }}
         - name: RATE_LIMIT_PER_MINUTE
           value: "60"
         - name: REDIS_HOST
           value: redis
-        - name: REDIS_PORT
-          value: "6379"
-        - name: CITIZEN_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
-        - name: INGESTION_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
-        - name: METADATA_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000"
-        - name: SIGNATURE_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000"
-        - name: TRANSFER_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000"
-        - name: SHARING_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-sharing:8000"
-        - name: NOTIFICATION_SERVICE_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-notification:8000"
-        - name: MINTIC_CLIENT_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-cors-origins
         resources:
           {{- toYaml .Values.gateway.resources | nindent 10 }}
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 30
+            scheme: HTTP
+          initialDelaySeconds: 15
           periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: 8000
-          initialDelaySeconds: 5
+            scheme: HTTP
+          initialDelaySeconds: 10
           periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 2
 ---
 apiVersion: v1
 kind: Service

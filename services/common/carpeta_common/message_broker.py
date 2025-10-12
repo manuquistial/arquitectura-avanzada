@@ -4,11 +4,16 @@ Supports:
 - Azure Service Bus (production)
 - Mock/logging (local development)
 - Redis deduplication
+- Retry logic with exponential backoff
+- Dead Letter Queue (DLQ) handling
+- Metrics for retries and DLQ
 """
 
+import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
@@ -17,8 +22,9 @@ logger = logging.getLogger(__name__)
 
 # Try to import Azure Service Bus (optional for local dev)
 try:
-    from azure.servicebus.aio import ServiceBusClient, ServiceBusMessage
-    from azure.servicebus import ServiceBusReceiveMode
+    from azure.servicebus.aio import ServiceBusClient, ServiceBusMessage, ServiceBusReceiver
+    from azure.servicebus import ServiceBusReceiveMode, ServiceBusReceivedMessage
+    from azure.core.exceptions import ServiceBusError
     AZURE_SB_AVAILABLE = True
 except ImportError:
     AZURE_SB_AVAILABLE = False
@@ -31,6 +37,23 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
     logger.warning("⚠️  Redis client not available, deduplication disabled")
+
+# Metrics counters (in-memory for simplicity, ideally use Prometheus client)
+METRICS = {
+    "queue.consumer.retries": 0,
+    "queue.consumer.dlq_count": 0,
+    "queue.consumer.success": 0,
+    "queue.consumer.errors": 0,
+}
+
+def increment_metric(metric_name: str, value: int = 1):
+    """Increment a metric counter."""
+    if metric_name in METRICS:
+        METRICS[metric_name] += value
+
+def get_metrics() -> Dict[str, int]:
+    """Get all metrics."""
+    return METRICS.copy()
 
 
 class MessageBroker:
