@@ -295,6 +295,109 @@ auth:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
 
+# Transfer Worker - Dedicated consumer for transfers (KEDA auto-scaling)
+transferWorker:
+  enabled: true
+  replicaCount: 0  # KEDA controls replicas (scales from 0)
+  image:
+    repository: carpeta-transfer-worker
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - solo métricas
+    port: 8012
+  
+  # Worker configuration
+  queueName: "transfers"
+  maxConcurrent: 10  # Max concurrent messages per pod
+  prefetchCount: 20  # Prefetch messages for performance
+  maxWaitTime: 60    # Max seconds to wait for messages
+  
+  # Resources (optimized for spot instances)
+  resources:
+    requests:
+      memory: "256Mi"  # Message processing + DB connections
+      cpu: "200m"
+    limits:
+      memory: "512Mi"  # Limit to prevent OOM
+      cpu: "1000m"     # Can spike during high load
+  
+  # KEDA auto-scaling configuration
+  keda:
+    enabled: true
+    pollingInterval: 30  # Check queue every 30 seconds
+    cooldownPeriod: 300   # Wait 5 minutes before scaling down
+    minReplicas: 0        # Scale to zero when queue is empty
+    maxReplicas: 30       # Maximum replicas under load
+    fallbackReplicas: 3   # Fallback if metrics unavailable
+    scaleDownStabilization: 300  # Wait 5 min before scale down
+    
+    # Queue metrics
+    queueName: "transfers"
+    targetQueueLength: 5  # Target 5 messages per pod
+    activationThreshold: 1  # Activate from 0 when 1+ messages
+    triggerAuthName: "azure-servicebus-auth"
+    
+    # Additional triggers (optional)
+    cpuTrigger:
+      enabled: false
+      targetUtilization: 70
+    memoryTrigger:
+      enabled: false
+      targetUtilization: 80
+  
+  # Node selector for spot instances
+  nodeSelector:
+    workload: "workers"
+    kubernetes.azure.com/scalesetpriority: "spot"
+  
+  # Tolerations for spot instances
+  tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: "Equal"
+    value: "spot"
+    effect: "NoSchedule"
+  
+  # Anti-affinity (spread across nodes)
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - transfer-worker
+          topologyKey: kubernetes.io/hostname
+  
+  # Graceful shutdown
+  terminationGracePeriodSeconds: 60
+  
+  # Probes
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 20
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 2
+  
+  # Prometheus monitoring
+  serviceMonitor:
+    enabled: true
+  
+  # Pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8012"
+    prometheus.io/path: "/metrics"
+
 # PostgreSQL Configuration (Azure Database for PostgreSQL)
 postgresql:
   enabled: true
