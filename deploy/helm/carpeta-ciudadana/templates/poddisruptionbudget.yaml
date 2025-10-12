@@ -1,0 +1,195 @@
+{{- if .Values.podDisruptionBudget.enabled -}}
+
+# PodDisruptionBudget for Gateway (CRITICAL)
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: gateway
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.gateway.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: gateway
+
+# PodDisruptionBudget for Citizen
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-citizen
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: citizen
+spec:
+  minAvailable: {{ .Values.citizen.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: citizen
+
+# PodDisruptionBudget for Ingestion
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-ingestion
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ingestion
+spec:
+  minAvailable: {{ .Values.ingestion.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: ingestion
+
+# PodDisruptionBudget for Metadata
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-metadata
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: metadata
+spec:
+  minAvailable: {{ .Values.metadata.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: metadata
+
+# PodDisruptionBudget for Transfer (CRITICAL - Saga orchestrator)
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: transfer
+spec:
+  minAvailable: {{ .Values.transfer.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: transfer
+
+# PodDisruptionBudget for Signature (CRITICAL - WORM activation)
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-signature
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: signature
+spec:
+  minAvailable: {{ .Values.signature.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: signature
+
+# PodDisruptionBudget for MinTIC Client
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-mintic-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mintic-client
+spec:
+  minAvailable: {{ .Values.minticClient.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: mintic-client
+
+# PodDisruptionBudget for Sharing
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-sharing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: sharing
+spec:
+  minAvailable: {{ .Values.sharing.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: sharing
+
+# PodDisruptionBudget for Notification
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-notification
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: notification
+spec:
+  minAvailable: {{ .Values.notification.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: notification
+
+# PodDisruptionBudget for Read Models
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-read-models
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: read-models
+spec:
+  minAvailable: {{ .Values.readModels.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: read-models
+
+# PodDisruptionBudget for Transfer Worker (KEDA-aware)
+{{- if .Values.transferWorker.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: transfer-worker
+spec:
+  # For KEDA scaled workloads, use maxUnavailable instead
+  # Allows scaling to zero while protecting during normal operation
+  {{- if .Values.transferWorker.podDisruptionBudget.useMaxUnavailable }}
+  maxUnavailable: {{ .Values.transferWorker.podDisruptionBudget.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.transferWorker.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: transfer-worker
+{{- end }}
+
+# PodDisruptionBudget for Frontend
+{{- if .Values.frontend.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: frontend
+spec:
+  minAvailable: {{ .Values.frontend.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: frontend
+{{- end }}
+
+{{- end }}
+
