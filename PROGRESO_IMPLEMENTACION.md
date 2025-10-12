@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 6/24 fases (25%)
+**Completado**: 7/24 fases (29.2%)
 
 ```
-Progreso: ██████░░░░░░░░░░░░░░ 25%
+Progreso: ███████░░░░░░░░░░░░░ 29.2%
 ```
 
-**Tiempo invertido**: 32h / 150h
+**Tiempo invertido**: 36h / 150h
 
-**Última actualización**: 2025-10-13 01:15
+**Última actualización**: 2025-10-13 01:45
 
 ---
 
@@ -55,16 +55,27 @@ Progreso: ██████░░░░░░░░░░░░░░ 25%
   - [x] 3.7 CI/CD actualizado (13 servicios) ✅
   - [x] 3.8 Documentación arquitectura KEDA ✅
 
-- [ ] **FASE 4**: Key Vault + CSI Secret Store (6h)
-  - [ ] 4.1 Crear Key Vault (Terraform)
-  - [ ] 4.2 Instalar CSI Secret Store Driver
-  - [ ] 4.3 SecretProviderClass (Helm)
-  - [ ] 4.4 Actualizar ServiceAccount
-  - [ ] 4.5 Montar secrets en deployments
-  - [ ] 4.6 Migrar secretos a Key Vault
-  - [ ] 4.7 Verificación completa
+- [x] **FASE 4**: Headers M2M Completos (4h) ✅ COMPLETADA
+  - [x] 4.1 M2MAuthGenerator (nonce, timestamp, signature) ✅
+  - [x] 4.2 M2MAuthValidator (HMAC verification) ✅
+  - [x] 4.3 Redis nonce deduplication ✅
+  - [x] 4.4 M2MHttpClient (auto headers) ✅
+  - [x] 4.5 FastAPI dependency (get_m2m_auth) ✅
+  - [x] 4.6 Tests unitarios completos ✅
+  - [x] 4.7 Gateway actualizado (usa M2M) ✅
+  - [x] 4.8 Secret Helm template ✅
+  - [x] 4.9 Documentación completa ✅
 
-- [ ] **FASE 5**: NetworkPolicies (3h)
+- [ ] **FASE 5**: Key Vault + CSI Secret Store (6h)
+  - [ ] 5.1 Crear Key Vault (Terraform)
+  - [ ] 5.2 Instalar CSI Secret Store Driver
+  - [ ] 5.3 SecretProviderClass (Helm)
+  - [ ] 5.4 Actualizar ServiceAccount
+  - [ ] 5.5 Montar secrets en deployments
+  - [ ] 5.6 Migrar secretos a Key Vault
+  - [ ] 5.7 Verificación completa
+
+- [ ] **FASE 6**: NetworkPolicies (3h)
   - [ ] 5.1 NetworkPolicy para gateway
   - [ ] 5.2 NetworkPolicy para citizen
   - [ ] 5.3 NetworkPolicy para ingestion
@@ -487,6 +498,40 @@ Progreso: ██████░░░░░░░░░░░░░░ 25%
 
 **LOGRO**: Auto-scaling event-driven con KEDA + spot instances (hasta 30 replicas)
 
+### 2025-10-13 01:45 - ✅ FASE 4 COMPLETADA (Headers M2M Completos)
+- ✅ M2M Authentication Module (carpeta_common/m2m_auth.py)
+  - M2MAuthGenerator: genera X-Service-Id, X-Nonce, X-Timestamp, X-Signature
+  - M2MAuthValidator: valida HMAC-SHA256, timestamp, nonce
+  - Redis nonce deduplication (replay protection)
+  - FastAPI dependency: get_m2m_auth()
+  - Constant-time signature comparison
+- ✅ HTTP Client con M2M (carpeta_common/http_client.py)
+  - M2MHttpClient: GET, POST, PUT, DELETE con headers automáticos
+  - Async context manager
+  - Helper: m2m_request()
+- ✅ Tests Unitarios (carpeta_common/tests/test_m2m_auth.py)
+  - Test nonce generation (uniqueness)
+  - Test timestamp validation (too old, future, invalid)
+  - Test signature validation (valid, invalid)
+  - Test nonce replay attack detection
+  - Test complete header validation
+- ✅ Gateway actualizado
+  - Integración M2MHttpClient para llamadas internas
+  - Discrimina entre internal (M2M) y external (Hub)
+  - Fallback a httpx si M2M no disponible
+- ✅ Configuración Helm
+  - secret-m2m.yaml (M2M_SECRET_KEY, configs)
+  - values.yaml: global.m2mAuth section
+  - Service Bus namespace (para KEDA)
+- ✅ Documentación
+  - docs/M2M_AUTHENTICATION.md (protocolo completo)
+  - Algoritmo HMAC explicado
+  - Ejemplos de uso
+  - Troubleshooting
+  - Best practices
+
+**LOGRO**: Autenticación M2M con HMAC + replay protection + Redis deduplication
+
 ### 2025-10-12 21:30 - ✅ FASE 1 COMPLETADA
 
 ### 2025-10-12 21:00 - FASE 1 Iniciada
@@ -505,15 +550,16 @@ Progreso: ██████░░░░░░░░░░░░░░ 25%
 - ✅ FASE 1 - WORM + Retención
 - ✅ FASE 2 - Azure AD B2C (OIDC Real)
 - ✅ FASE 3 - transfer-worker + KEDA
+- ✅ FASE 4 - Headers M2M Completos
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 6/24 fases
+**Progreso total**: 7/24 fases
 
-**Tiempo invertido**: ~32 horas
+**Tiempo invertido**: ~36 horas
 
-**Siguiente fase**: FASE 4 - Headers M2M Completos
+**Siguiente fase**: FASE 5 - Key Vault + CSI Secret Store
 
 ---
 
