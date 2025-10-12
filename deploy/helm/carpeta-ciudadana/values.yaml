@@ -21,6 +21,15 @@ global:
     clientId: ""  # Same as workloadIdentity.clientId
     syncToK8sSecrets: true  # Sync to K8s secrets for backward compatibility
   
+  # CORS Configuration (restrictive)
+  corsOrigins: "http://localhost:3000,http://localhost:3001"  # Update for production with actual domains
+  
+  # Security Headers
+  security:
+    hstsEnabled: false  # Set to true for production HTTPS
+    cspEnabled: true
+    cspReportUri: ""  # Optional CSP violation reporting endpoint
+  
   # Azure AD B2C configuration
   azureB2C:
     enabled: false  # Set to true when B2C is configured
