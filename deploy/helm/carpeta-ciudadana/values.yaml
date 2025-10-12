@@ -7,6 +7,24 @@ global:
   logLevel: INFO
   useWorkloadIdentity: true
   
+  # Workload Identity configuration
+  workloadIdentity:
+    enabled: true
+    clientId: ""  # AKS Managed Identity client ID (from Terraform)
+    tenantId: ""  # Azure tenant ID (from Terraform)
+  
+  # Azure Key Vault integration
+  keyVault:
+    enabled: false  # Set to true when Key Vault is configured
+    name: ""  # Key Vault name (e.g., carpeta-ciudadana-dev-kv)
+    tenantId: ""  # Azure tenant ID
+    clientId: ""  # Same as workloadIdentity.clientId
+    syncToK8sSecrets: true  # Sync to K8s secrets for backward compatibility
+  
+  # Azure AD B2C configuration
+  azureB2C:
+    enabled: false  # Set to true when B2C is configured
+  
   # M2M Authentication (inter-service communication)
   m2mAuth:
     enabled: true

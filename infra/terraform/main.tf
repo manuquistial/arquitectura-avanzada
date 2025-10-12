@@ -151,6 +151,52 @@ module "keda" {
   depends_on = [module.aks, module.servicebus]
 }
 
+# Azure Key Vault (for secrets management)
+module "keyvault" {
+  source = "./modules/keyvault"
+
+  project_name               = var.project_name
+  environment                = var.environment
+  location                   = azurerm_resource_group.main.location
+  resource_group_name        = azurerm_resource_group.main.name
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  aks_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
+  
+  # Secrets values
+  postgres_host                 = module.postgresql.postgresql_fqdn
+  postgres_username             = var.db_admin_username
+  postgres_password             = var.db_admin_password
+  postgres_database             = "carpeta_ciudadana"
+  servicebus_connection_string  = module.servicebus.primary_connection_string
+  m2m_secret_key                = var.m2m_secret_key
+  storage_account_name          = module.storage.storage_account_name
+  redis_password                = var.redis_password
+  opensearch_username           = var.opensearch_username
+  opensearch_password           = var.opensearch_password
+  azure_b2c_tenant_id           = var.azure_b2c_tenant_id
+  azure_b2c_client_id           = var.azure_b2c_client_id
+  azure_b2c_client_secret       = var.azure_b2c_client_secret
+  
+  # Configuration
+  sku_name                      = var.keyvault_sku
+  enable_public_access          = var.keyvault_enable_public_access
+  purge_protection_enabled      = var.keyvault_purge_protection
+  soft_delete_retention_days    = var.keyvault_soft_delete_days
+
+  depends_on = [module.aks, module.postgresql, module.servicebus, module.storage]
+}
+
+# CSI Secrets Store Driver (for Key Vault integration)
+module "csi_secrets_driver" {
+  source = "./modules/csi-secrets-driver"
+
+  namespace                = var.csi_secrets_namespace
+  enable_secret_rotation   = var.csi_enable_rotation
+  rotation_poll_interval   = var.csi_rotation_interval
+
+  depends_on = [module.aks, module.keyvault]
+}
+
 # Azure AD B2C (equivalente a Cognito)
 # Comentado - Requiere permisos especiales en Azure for Students
 # Usaremos autenticación simple por ahora

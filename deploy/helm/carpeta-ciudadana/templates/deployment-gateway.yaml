@@ -29,11 +29,43 @@ spec:
           value: "60"
         - name: REDIS_HOST
           value: redis
+        {{- if .Values.global.keyVault.enabled }}
+        - name: SERVICE_ID
+          value: "gateway"
+        {{- end }}
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-cors-origins
+        {{- if .Values.global.keyVault.enabled }}
+        {{- if .Values.global.keyVault.syncToK8sSecrets }}
+        # Use synced K8s secrets from Key Vault
+        - secretRef:
+            name: db-secrets-kv
+        - secretRef:
+            name: sb-secrets-kv
+        - secretRef:
+            name: m2m-auth-kv
+        {{- end }}
+        {{- else }}
+        # Use traditional K8s secrets
+        - secretRef:
+            name: db-secrets
+            optional: true
+        - secretRef:
+            name: sb-secrets
+            optional: true
+        - secretRef:
+            name: m2m-auth
+            optional: true
+        {{- end }}
+        {{- if .Values.global.keyVault.enabled }}
+        volumeMounts:
+        - name: secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+        {{- end }}
         resources:
           {{- toYaml .Values.gateway.resources | nindent 10 }}
         livenessProbe:
@@ -56,6 +88,15 @@ spec:
           timeoutSeconds: 2
           successThreshold: 1
           failureThreshold: 2
+      {{- if .Values.global.keyVault.enabled }}
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ include "carpeta-ciudadana.fullname" . }}-secrets
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service

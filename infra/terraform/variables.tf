@@ -228,6 +228,88 @@ variable "keda_replica_count" {
   default     = 2
 }
 
+# Key Vault
+variable "keyvault_sku" {
+  description = "Key Vault SKU (standard or premium)"
+  type        = string
+  default     = "standard"
+}
+
+variable "keyvault_enable_public_access" {
+  description = "Enable public network access to Key Vault"
+  type        = bool
+  default     = true  # false for production with private endpoint
+}
+
+variable "keyvault_purge_protection" {
+  description = "Enable purge protection (prevents permanent deletion)"
+  type        = bool
+  default     = false  # true for production
+}
+
+variable "keyvault_soft_delete_days" {
+  description = "Soft delete retention in days (7-90)"
+  type        = number
+  default     = 7
+}
+
+# M2M Authentication
+variable "m2m_secret_key" {
+  description = "M2M authentication secret key (generate with: openssl rand -hex 32)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+# Redis
+variable "redis_password" {
+  description = "Redis password (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+# Azure AD B2C
+variable "azure_b2c_tenant_id" {
+  description = "Azure AD B2C tenant ID"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "azure_b2c_client_id" {
+  description = "Azure AD B2C client ID"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "azure_b2c_client_secret" {
+  description = "Azure AD B2C client secret"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+# CSI Secrets Store Driver
+variable "csi_secrets_namespace" {
+  description = "Namespace for CSI Secrets Store Driver"
+  type        = string
+  default     = "kube-system"
+}
+
+variable "csi_enable_rotation" {
+  description = "Enable automatic secret rotation"
+  type        = bool
+  default     = true
+}
+
+variable "csi_rotation_interval" {
+  description = "Secret rotation poll interval"
+  type        = string
+  default     = "2m"
+}
+
 variable "prometheus_storage_size" {
   description = "Prometheus storage size"
   type        = string
