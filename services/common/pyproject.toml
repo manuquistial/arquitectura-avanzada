@@ -28,6 +28,7 @@ azure-monitor-opentelemetry-exporter = {version = "^1.0.0b21", optional = true}
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
 pytest-asyncio = "^0.21.1"
+pytest-cov = "^4.1.0"
 fakeredis = "^2.20.0"
 
 [tool.poetry.extras]
