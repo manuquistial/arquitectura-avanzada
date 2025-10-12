@@ -1,148 +1,104 @@
-"""OIDC endpoints - minimal viable implementation."""
+"""
+OIDC Discovery Endpoints
+Implements OpenID Connect Discovery protocol
+"""
 
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import jwt
-from pydantic import BaseModel
+from fastapi import APIRouter
 
-from app.config import Settings
-from app.services.key_manager import KeyManager
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# Singletons
-_settings = Settings()
-_key_manager = KeyManager(_settings.private_key_path, _settings.public_key_path)
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+settings = get_settings()
 
 
-class TokenResponse(BaseModel):
-    """OAuth 2.0 token response."""
-    access_token: str
-    token_type: str = "Bearer"
-    expires_in: int
-    refresh_token: str | None = None
-
-
-@router.get("/.well-known/openid-configuration")
-async def openid_configuration() -> Dict[str, Any]:
-    """OpenID Connect discovery endpoint."""
-    base_url = _settings.issuer
+@router.get("/openid-configuration")
+async def openid_configuration() -> dict[str, Any]:
+    """
+    OIDC Discovery endpoint
+    
+    Returns OpenID Connect configuration metadata
+    @see https://openid.net/specs/openid-connect-discovery-1_0.html
+    """
+    issuer = settings.oidc_issuer_url
     
     return {
-        "issuer": _settings.issuer,
-        "authorization_endpoint": f"{base_url}/auth/authorize",
-        "token_endpoint": f"{base_url}/auth/token",
-        "userinfo_endpoint": f"{base_url}/auth/userinfo",
-        "jwks_uri": f"{base_url}/.well-known/jwks.json",
-        "response_types_supported": ["code", "token"],
+        "issuer": issuer,
+        "authorization_endpoint": f"{issuer}/api/auth/authorize",
+        "token_endpoint": f"{issuer}/api/auth/token",
+        "userinfo_endpoint": f"{issuer}/api/auth/userinfo",
+        "jwks_uri": f"{issuer}/.well-known/jwks.json",
+        "end_session_endpoint": f"{issuer}/api/auth/logout",
+        
+        # Supported features
+        "response_types_supported": [
+            "code",
+            "token",
+            "id_token",
+            "code token",
+            "code id_token",
+            "token id_token",
+            "code token id_token"
+        ],
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": ["RS256"],
-        "scopes_supported": ["openid", "profile", "email"],
-        "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
-        "claims_supported": ["sub", "iss", "aud", "exp", "iat", "name", "email", "roles", "tenant"]
+        "scopes_supported": [
+            "openid",
+            "profile",
+            "email",
+            "offline_access"
+        ],
+        "token_endpoint_auth_methods_supported": [
+            "client_secret_post",
+            "client_secret_basic"
+        ],
+        "claims_supported": [
+            "sub",
+            "iss",
+            "aud",
+            "exp",
+            "iat",
+            "email",
+            "email_verified",
+            "name",
+            "given_name",
+            "family_name",
+            "roles",
+            "permissions"
+        ],
+        "code_challenge_methods_supported": ["S256"],
+        "grant_types_supported": [
+            "authorization_code",
+            "refresh_token",
+            "client_credentials"
+        ]
     }
 
 
-@router.get("/.well-known/jwks.json")
-async def jwks() -> Dict[str, Any]:
-    """JWKS (JSON Web Key Set) endpoint.
-    
-    Publishes public keys for JWT verification.
+@router.get("/jwks.json")
+async def jwks() -> dict[str, list]:
     """
-    return _key_manager.get_jwks()
-
-
-@router.post("/auth/token", response_model=TokenResponse)
-async def token(form_data: OAuth2PasswordRequestForm = Depends()) -> TokenResponse:
-    """OAuth 2.0 token endpoint.
+    JSON Web Key Set (JWKS) endpoint
     
-    For MVP: accepts any credentials and issues JWT.
-    In production: validate against database.
+    Returns public keys for JWT signature verification
     """
-    # MVP: Accept any credentials (development only!)
-    if _settings.environment != "development":
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Production auth not implemented, use Azure AD B2C"
-        )
+    # TODO: Load actual public key from Key Vault or file
+    # For now, return empty (clients should use Azure AD B2C JWKS)
     
-    # Mock user (in production, lookup in database)
-    user = {
-        "sub": str(form_data.username),  # Subject (user ID)
-        "email": form_data.username,
-        "name": "Usuario Demo",
-        "roles": ["citizen", "user"],
-        "tenant": "carpeta-demo"
+    logger.warning("⚠️  JWKS endpoint not fully implemented, using placeholder")
+    
+    return {
+        "keys": [
+            {
+                "kty": "RSA",
+                "use": "sig",
+                "kid": "carpeta-ciudadana-key-1",
+                "alg": "RS256",
+                "n": "placeholder-modulus-value",
+                "e": "AQAB"
+            }
+        ]
     }
-    
-    # Create JWT
-    now = datetime.utcnow()
-    expires_delta = timedelta(minutes=_settings.jwt_access_token_expire_minutes)
-    
-    claims = {
-        "sub": user["sub"],
-        "iss": _settings.issuer,
-        "aud": "carpeta-ciudadana",
-        "exp": now + expires_delta,
-        "iat": now,
-        "name": user["name"],
-        "email": user["email"],
-        "roles": user["roles"],
-        "tenant": user["tenant"]
-    }
-    
-    # Sign with private key
-    access_token = jwt.encode(
-        claims,
-        _key_manager.get_private_key_pem(),
-        algorithm=_settings.jwt_algorithm,
-        headers={"kid": _key_manager.kid}
-    )
-    
-    logger.info(f"✅ JWT issued for {user['sub']}")
-    
-    return TokenResponse(
-        access_token=access_token,
-        token_type="Bearer",
-        expires_in=int(expires_delta.total_seconds())
-    )
-
-
-@router.get("/auth/userinfo")
-async def userinfo(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-    """OIDC userinfo endpoint.
-    
-    Returns user claims from validated JWT.
-    """
-    try:
-        # Decode and verify JWT
-        payload = jwt.decode(
-            token,
-            _key_manager.get_public_key_pem(),
-            algorithms=[_settings.jwt_algorithm],
-            audience="carpeta-ciudadana",
-            issuer=_settings.issuer
-        )
-        
-        return {
-            "sub": payload.get("sub"),
-            "name": payload.get("name"),
-            "email": payload.get("email"),
-            "roles": payload.get("roles", []),
-            "tenant": payload.get("tenant")
-        }
-        
-    except jwt.JWTError as e:
-        logger.error(f"JWT validation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-
