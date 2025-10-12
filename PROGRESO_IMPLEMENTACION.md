@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 4/24 fases (16.7%)
+**Completado**: 5/24 fases (20.8%)
 
 ```
-Progreso: ████░░░░░░░░░░░░░░░░ 16.7%
+Progreso: █████░░░░░░░░░░░░░░░ 20.8%
 ```
 
-**Tiempo invertido**: 10h / 150h
+**Tiempo invertido**: 22h / 150h
 
-**Última actualización**: 2025-10-12 23:00
+**Última actualización**: 2025-10-13 00:00
 
 ---
 
@@ -34,15 +34,16 @@ Progreso: ████░░░░░░░░░░░░░░░░ 16.7%
   - [x] 1.6 Frontend muestra retención ✅
   - [x] 1.7 Script de verificación (test-worm.sh) ✅
 
-- [ ] **FASE 2**: Azure AD B2C (OIDC Real) (12h)
-  - [ ] 2.1 Crear tenant B2C en Azure Portal
-  - [ ] 2.2 Instalar NextAuth
-  - [ ] 2.3 Configurar API route
-  - [ ] 2.4 Actualizar AuthStore
-  - [ ] 2.5 Middleware rutas protegidas
-  - [ ] 2.6 Endpoint /api/users/bootstrap
-  - [ ] 2.7 Migración tablas users
-  - [ ] 2.8 Verificación completa
+- [x] **FASE 2**: Azure AD B2C (OIDC Real) (12h) ✅ COMPLETADA
+  - [x] 2.1 NextAuth instalado (eliminado AWS Amplify) ✅
+  - [x] 2.2 API route /api/auth/[...nextauth] configurado ✅
+  - [x] 2.3 Middleware protección de rutas ✅
+  - [x] 2.4 AuthStore actualizado (wrapper NextAuth) ✅
+  - [x] 2.5 Páginas login, error, unauthorized ✅
+  - [x] 2.6 Tabla users (migración Alembic) ✅
+  - [x] 2.7 Endpoint /api/users/bootstrap ✅
+  - [x] 2.8 JWT validator (backend) ✅
+  - [x] 2.9 Documentación Azure AD B2C ✅
 
 - [ ] **FASE 3**: transfer-worker + KEDA (10h)
   - [ ] 3.1 Instalar KEDA (Terraform)
@@ -410,6 +411,35 @@ Progreso: ████░░░░░░░░░░░░░░░░ 16.7%
 
 **LOGRO**: Pipeline CI/CD completo para 12 servicios con 8 migrations jobs
 
+### 2025-10-13 00:00 - ✅ FASE 2 COMPLETADA (Azure AD B2C - OIDC Real)
+- ✅ Frontend: NextAuth integrado
+  - package.json actualizado (next-auth + jose, eliminado aws-amplify)
+  - API route /api/auth/[...nextauth]/route.ts con Azure AD B2C provider
+  - AuthOptions configurado (tenant, policy, callbacks)
+  - TypeScript types extendidos (src/types/next-auth.d.ts)
+- ✅ Middleware de protección de rutas (src/middleware.ts)
+  - Protected routes: /dashboard, /documents, /transfers, /admin, /operator
+  - Role-based access: admin, operator
+  - Redirect a /login si no autenticado
+- ✅ AuthStore actualizado (Zustand)
+  - Wrapper de NextAuth (useSession)
+  - Helpers: hasRole(), hasPermission()
+  - Caching de user data
+- ✅ Páginas de autenticación
+  - /login: Azure AD B2C sign in
+  - /auth/error: Error handling
+  - /unauthorized: 403 page
+- ✅ Backend: Tabla users + JWT validation
+  - Migration 002_create_users_table.py (citizen service)
+  - Model User con roles/permissions ABAC
+  - Router /api/users con endpoint /bootstrap
+  - JWT validator en carpeta_common (PyJWT + cryptography)
+- ✅ Documentación completa
+  - docs/AZURE_AD_B2C_SETUP.md (guía paso a paso)
+  - .env.example actualizado
+
+**LOGRO**: Autenticación real con Azure AD B2C + OIDC + JWT validation
+
 ### 2025-10-12 21:30 - ✅ FASE 1 COMPLETADA
 
 ### 2025-10-12 21:00 - FASE 1 Iniciada
@@ -426,15 +456,16 @@ Progreso: ████░░░░░░░░░░░░░░░░ 16.7%
 
 **Completadas**: 
 - ✅ FASE 1 - WORM + Retención
+- ✅ FASE 2 - Azure AD B2C (OIDC Real)
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 4/24 fases
+**Progreso total**: 5/24 fases
 
-**Tiempo invertido**: ~10 horas
+**Tiempo invertido**: ~22 horas
 
-**Siguiente fase**: FASE 2 - Azure AD B2C (OIDC Real)
+**Siguiente fase**: FASE 3 - transfer-worker + KEDA
 
 ---
 
