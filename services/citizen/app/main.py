@@ -7,7 +7,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 
 from app.database import engine, init_db
-from app.routers import citizens
+from app.routers import citizens, users
 
 # Import from common package (with fallback)
 try:
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(citizens.router, prefix="/api/citizens", tags=["citizens"])
+    app.include_router(users.router)  # Already has prefix="/api/users"
 
     @app.get("/health")
     async def health() -> dict[str, str]:

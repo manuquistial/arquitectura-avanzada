@@ -1,68 +1,66 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+/**
+ * Auth Store (Zustand) - Wrapper for NextAuth
+ * Integrates NextAuth with Zustand for global state management
+ * 
+ * NOTE: This store is now a thin wrapper around NextAuth.
+ * Use `useSession()` from next-auth/react for most auth operations.
+ */
 
-interface User {
-  id: number;
+import { create } from 'zustand';
+
+export interface User {
+  id: string;
   name: string;
   email: string;
-  operatorId: string;
+  given_name: string;
+  family_name: string;
+  roles: string[];
+  permissions: string[];
 }
 
 interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  token: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  setUser: (user: User, token: string) => void;
+  // UI state
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
+  
+  // Helper methods
+  hasRole: (role: string) => boolean;
+  hasPermission: (permission: string) => boolean;
+  
+  // Cached user data (synced from NextAuth session)
+  cachedUser: User | null;
+  setCachedUser: (user: User | null) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      isAuthenticated: false,
-      user: null,
-      token: null,
+/**
+ * Auth Store
+ * 
+ * Use this store for:
+ * - UI loading states
+ * - Role/permission checks
+ * - Caching user data for offline access
+ * 
+ * For authentication operations, use NextAuth hooks:
+ * - `useSession()` - Get session and user data
+ * - `signIn()` - Trigger login
+ * - `signOut()` - Trigger logout
+ */
+export const useAuthStore = create<AuthState>((set, get) => ({
+  isLoading: false,
+  cachedUser: null,
 
-      login: async (email: string) => {
-        // TODO: Implement Cognito OIDC login with PKCE
-        // For now, using mock authentication (password will be used in real implementation)
-        const mockUser: User = {
-          id: 1234567890,
-          name: 'Carlos Andres Caro',
-          email,
-          operatorId: process.env.NEXT_PUBLIC_OPERATOR_ID || '',
-        };
+  setIsLoading: (loading: boolean) => set({ isLoading: loading }),
 
-        const mockToken = 'mock-jwt-token';
+  setCachedUser: (user: User | null) => set({ cachedUser: user }),
 
-        set({
-          isAuthenticated: true,
-          user: mockUser,
-          token: mockToken,
-        });
-      },
+  hasRole: (role: string): boolean => {
+    const { cachedUser } = get();
+    return cachedUser?.roles?.includes(role) ?? false;
+  },
 
-      logout: () => {
-        set({
-          isAuthenticated: false,
-          user: null,
-          token: null,
-        });
-      },
-
-      setUser: (user: User, token: string) => {
-        set({
-          isAuthenticated: true,
-          user,
-          token,
-        });
-      },
-    }),
-    {
-      name: 'auth-storage',
-    }
-  )
-);
+  hasPermission: (permission: string): boolean => {
+    const { cachedUser } = get();
+    return cachedUser?.permissions?.includes(permission) ?? false;
+  },
+}));
 
