@@ -539,11 +539,18 @@ opensearch:
     enabled: true
     endpoint: http://jaeger-collector:4317
 
-# Service Account (for IRSA)
+# Service Account (for Workload Identity)
 serviceAccount:
   create: true
   annotations: {}
   name: carpeta-ciudadana-sa
+
+# Network Policies (Zero-Trust Networking)
+networkPolicies:
+  enabled: false  # Set to true to enable (requires NetworkPolicy support in AKS)
+  denyAllByDefault: true  # Deny all traffic by default, allow only specific
+  allowDNS: true  # Always allow DNS resolution
+  allowObservability: true  # Allow Prometheus scraping
 
 # Ingress - Solo expone frontend y gateway (público)
 ingress:

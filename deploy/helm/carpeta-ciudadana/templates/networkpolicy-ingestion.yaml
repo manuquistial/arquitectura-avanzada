@@ -1,0 +1,77 @@
+{{- if .Values.networkPolicies.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-ingestion
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ingestion
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: ingestion
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow from gateway
+  - from:
+    - podSelector:
+        matchLabels:
+          app: gateway
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  # Allow from observability
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: observability
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  egress:
+  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  
+  # PostgreSQL
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+  
+  # Azure Storage (blob.core.windows.net)
+  - ports:
+    - protocol: TCP
+      port: 443
+  
+  # Service Bus
+  - ports:
+    - protocol: TCP
+      port: 443
+  
+  # Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+{{- end }}
+
