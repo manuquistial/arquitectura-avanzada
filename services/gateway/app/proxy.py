@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 import json
+import os
 
 import httpx
 from fastapi import Request, status
@@ -10,6 +11,13 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings
 from app.sanitizer import sanitize_log_data, truncate_for_logging, sanitize_hub_payload
+
+# Import M2M client (with fallback)
+try:
+    from carpeta_common.http_client import M2MHttpClient
+    M2M_AVAILABLE = True
+except ImportError:
+    M2M_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +38,14 @@ class ProxyService:
             "notification": settings.notification_service_url,
             "mintic": settings.mintic_client_url,
         }
+        
+        # M2M client for internal service calls
+        self.m2m_client = None
+        if M2M_AVAILABLE:
+            service_id = os.getenv("SERVICE_ID", "gateway")
+            secret_key = os.getenv("M2M_SECRET_KEY", "default-secret-key")
+            self.m2m_client = M2MHttpClient(service_id, secret_key)
+            logger.info("✅ M2M authentication enabled for internal calls")
 
     async def forward_request(self, request: Request, path: str) -> JSONResponse:
         """Forward request to appropriate backend service.

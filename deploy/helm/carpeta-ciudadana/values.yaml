@@ -5,6 +5,15 @@ global:
   imageRegistry: manuelquistial
   imagePullPolicy: IfNotPresent
   logLevel: INFO
+  useWorkloadIdentity: true
+  
+  # M2M Authentication (inter-service communication)
+  m2mAuth:
+    enabled: true
+    secretName: m2m-auth
+    secretKey: ""  # Set via --set or secret (generate with: openssl rand -hex 32)
+    maxTimestampAge: 300  # 5 minutes
+    nonceTtl: 600  # 10 minutes
 
 # Frontend
 frontend:
@@ -426,6 +435,7 @@ circuitBreaker:
 serviceBus:
   enabled: true
   connectionString: "" # Set via --set serviceBus.connectionString or from Terraform output
+  namespace: "" # Service Bus namespace (e.g., carpeta-sb) - for KEDA
 
 # Observability Configuration
 observability:
