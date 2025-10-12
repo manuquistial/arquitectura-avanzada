@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { Montserrat } from 'next/font/google';
 import { Providers } from './providers';
+import { ToastProvider } from '@/components/ToastContainer';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import Navigation from '@/components/Navigation';
 import './globals.css';
 
 const montserrat = Montserrat({ subsets: ['latin'] });
@@ -18,7 +21,14 @@ export default function RootLayout({
   return (
     <html lang="es-CO">
       <body className={montserrat.className}>
-        <Providers>{children}</Providers>
+        <ErrorBoundary>
+          <Providers>
+            <ToastProvider>
+              <Navigation />
+              <main>{children}</main>
+            </ToastProvider>
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );
