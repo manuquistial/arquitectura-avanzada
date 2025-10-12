@@ -1,0 +1,59 @@
+# Gitleaks configuration for Carpeta Ciudadana
+# Detects secrets, API keys, passwords in code
+
+title = "Carpeta Ciudadana Gitleaks Config"
+
+[extend]
+# Use default rules
+useDefault = true
+
+[[rules]]
+id = "azure-storage-key"
+description = "Azure Storage Account Key"
+regex = '''(?i)(?:azure|storage)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:=|\|\|:|<=|=>|:)(?:'|\"|\s|=|\x60){0,5}([a-z0-9/\+]{86}==)(?:['|\"|\n|\r|\s|\x60|;]|$)'''
+tags = ["key", "Azure"]
+
+[[rules]]
+id = "azure-connection-string"
+description = "Azure Connection String"
+regex = '''DefaultEndpointsProtocol=https;AccountName=.+;AccountKey=.+'''
+tags = ["connection-string", "Azure"]
+
+[[rules]]
+id = "postgresql-connection-string"
+description = "PostgreSQL Connection String"
+regex = '''postgresql://[a-zA-Z0-9]+:[a-zA-Z0-9]+@[a-zA-Z0-9.-]+:[0-9]+/[a-zA-Z0-9]+'''
+tags = ["connection-string", "database"]
+
+[[rules]]
+id = "jwt-secret"
+description = "JWT Secret Key"
+regex = '''(?i)(?:jwt|token)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:=|\|\|:|<=|=>|:)(?:'|\"|\s|=|\x60){0,5}([a-z0-9/\+]{32,})(?:['|\"|\n|\r|\s|\x60|;]|$)'''
+tags = ["key", "JWT"]
+
+[[rules]]
+id = "service-bus-connection-string"
+description = "Azure Service Bus Connection String"
+regex = '''Endpoint=sb://[^;]+;SharedAccessKeyName=[^;]+;SharedAccessKey=[^;]+'''
+tags = ["connection-string", "Azure", "ServiceBus"]
+
+# Allowlist for test files and example configs
+[allowlist]
+description = "Allowlisted files"
+paths = [
+  '''.*test.*''',
+  '''.*example.*''',
+  '''.*\.md$''',
+  '''.*\.txt$''',
+]
+
+commits = []
+
+regexes = [
+  '''test-api-key''',
+  '''dummy-secret''',
+  '''example-password''',
+  '''REPLACE_ME''',
+  '''YOUR_.*_HERE''',
+]
+
