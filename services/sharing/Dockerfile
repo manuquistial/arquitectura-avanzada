@@ -1,5 +1,5 @@
 # Multi-stage build for Sharing Service
-FROM python:3.13-slim as builder
+FROM python:3.13-slim AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,12 +11,11 @@ RUN pip install --no-cache-dir poetry==2.2.1
 
 WORKDIR /app
 
-# Copy only dependency files first
-COPY services/sharing/pyproject.toml services/sharing/poetry.lock* ./services/sharing/
-COPY services/common ./services/common/
+# Copy only dependency files first (context is services/sharing/)
+COPY pyproject.toml poetry.lock* ./
+COPY ../common ../common/
 
 # Install dependencies
-WORKDIR /app/services/sharing
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi --no-root --only main
 
@@ -29,9 +28,9 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
-COPY services/sharing/app ./app
-COPY services/common/carpeta_common /usr/local/lib/python3.13/site-packages/carpeta_common
+# Copy application code (context is services/sharing/)
+COPY app ./app
+COPY ../common/carpeta_common /usr/local/lib/python3.13/site-packages/carpeta_common
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
