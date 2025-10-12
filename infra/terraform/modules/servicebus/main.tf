@@ -1,65 +1,93 @@
-resource "azurerm_servicebus_namespace" "main" {
-  name                = "${var.environment}-carpeta-bus"
+/**
+ * Azure Service Bus Module
+ * Creates Service Bus namespace (Basic tier) and queues for event-driven architecture
+ */
+
+resource "azurerm_servicebus_namespace" "carpeta" {
+  name                = var.namespace_name
   location            = var.location
   resource_group_name = var.resource_group_name
-  sku                 = var.sku
+  sku                 = "Basic"  # ~$0.05/month, 1M operations included
   
-  tags = {
-    Environment = var.environment
-  }
+  tags = var.tags
 }
 
-# Queue para eventos (equivalente a SQS)
-resource "azurerm_servicebus_queue" "events" {
-  name         = "events-queue"
-  namespace_id = azurerm_servicebus_namespace.main.id
+# Queue: citizen.registered
+resource "azurerm_servicebus_queue" "citizen_registered" {
+  name         = "citizen-registered"
+  namespace_id = azurerm_servicebus_namespace.carpeta.id
   
-  max_size_in_megabytes = 1024
-  default_message_ttl   = "P14D"  # 14 días
-  
+  max_size_in_megabytes      = 1024  # 1 GB (Basic tier)
+  default_message_ttl        = "P14D"  # 14 days
   dead_lettering_on_message_expiration = true
-  max_delivery_count                   = 10
+  max_delivery_count         = 3  # Send to DLQ after 3 retries
+  
+  requires_duplicate_detection = true
+  duplicate_detection_history_time_window = "PT10M"
 }
 
-# Topic para notificaciones (equivalente a SNS)
-# Comentado - Basic tier solo soporta Queues, no Topics
-# Para Topics necesitamos Standard tier (+$10/mes)
-# resource "azurerm_servicebus_topic" "notifications" {
-#   name         = "notifications-topic"
-#   namespace_id = azurerm_servicebus_namespace.main.id
-#   
-#   max_size_in_megabytes = 1024
-#   default_message_ttl   = "P14D"
-# }
-
-# # Subscription para el topic
-# resource "azurerm_servicebus_subscription" "notifications_sub" {
-#   name               = "all-notifications"
-#   topic_id           = azurerm_servicebus_topic.notifications.id
-#   max_delivery_count = 10
-#   
-#   dead_lettering_on_message_expiration = true
-# }
-
-# Queue adicional para notificaciones (alternativa al Topic)
-resource "azurerm_servicebus_queue" "notifications" {
-  name         = "notifications-queue"
-  namespace_id = azurerm_servicebus_namespace.main.id
+# Queue: document.uploaded
+resource "azurerm_servicebus_queue" "document_uploaded" {
+  name         = "document-uploaded"
+  namespace_id = azurerm_servicebus_namespace.carpeta.id
   
-  max_size_in_megabytes = 1024
-  default_message_ttl   = "P14D"
-  
+  max_size_in_megabytes      = 1024
+  default_message_ttl        = "P14D"
   dead_lettering_on_message_expiration = true
-  max_delivery_count                   = 10
+  max_delivery_count         = 3
+  
+  requires_duplicate_detection = true
+  duplicate_detection_history_time_window = "PT10M"
 }
 
-# Authorization rules
-resource "azurerm_servicebus_namespace_authorization_rule" "listen_send" {
-  name         = "listen-send"
-  namespace_id = azurerm_servicebus_namespace.main.id
+# Queue: document.authenticated
+resource "azurerm_servicebus_queue" "document_authenticated" {
+  name         = "document-authenticated"
+  namespace_id = azurerm_servicebus_namespace.carpeta.id
+  
+  max_size_in_megabytes      = 1024
+  default_message_ttl        = "P14D"
+  dead_lettering_on_message_expiration = true
+  max_delivery_count         = 3
+  
+  requires_duplicate_detection = true
+  duplicate_detection_history_time_window = "PT10M"
+}
+
+# Queue: transfer.requested
+resource "azurerm_servicebus_queue" "transfer_requested" {
+  name         = "transfer-requested"
+  namespace_id = azurerm_servicebus_namespace.carpeta.id
+  
+  max_size_in_megabytes      = 1024
+  default_message_ttl        = "P14D"
+  dead_lettering_on_message_expiration = true
+  max_delivery_count         = 3
+  
+  requires_duplicate_detection = true
+  duplicate_detection_history_time_window = "PT10M"
+}
+
+# Queue: transfer.confirmed
+resource "azurerm_servicebus_queue" "transfer_confirmed" {
+  name         = "transfer-confirmed"
+  namespace_id = azurerm_servicebus_namespace.carpeta.id
+  
+  max_size_in_megabytes      = 1024
+  default_message_ttl        = "P14D"
+  dead_lettering_on_message_expiration = true
+  max_delivery_count         = 3
+  
+  requires_duplicate_detection = true
+  duplicate_detection_history_time_window = "PT10M"
+}
+
+# Authorization Rule for services (Send + Listen)
+resource "azurerm_servicebus_namespace_authorization_rule" "carpeta_services" {
+  name         = "carpeta-services-policy"
+  namespace_id = azurerm_servicebus_namespace.carpeta.id
   
   listen = true
   send   = true
   manage = false
 }
-

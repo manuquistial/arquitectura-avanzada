@@ -1,0 +1,168 @@
+# Prometheus Alert Rules for Carpeta Ciudadana
+# Deploy to Prometheus config or Azure Monitor
+
+groups:
+  - name: carpeta_ciudadana_api_latency
+    interval: 30s
+    rules:
+      - alert: HighAPILatencyP95
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_server_request_duration_bucket[5m])) by (le, service_name, http_route)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency (p95 > 2s)"
+          description: "Service {{ $labels.service_name }} endpoint {{ $labels.http_route }} has p95 latency {{ $value }}s (threshold: 2s)"
+      
+      - alert: VeryHighAPILatencyP95
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_server_request_duration_bucket[5m])) by (le, service_name, http_route)
+          ) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Very high API latency (p95 > 5s)"
+          description: "Service {{ $labels.service_name }} endpoint {{ $labels.http_route }} has p95 latency {{ $value }}s (threshold: 5s)"
+
+  - name: carpeta_ciudadana_errors
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_error_count[5m])) by (service_name) / 
+          sum(rate(http_server_request_count[5m])) by (service_name) * 100 > 1
+        for: 2m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High error rate (> 1%)"
+          description: "Service {{ $labels.service_name }} has {{ $value }}% error rate (threshold: 1%)"
+      
+      - alert: CriticalErrorRate
+        expr: |
+          sum(rate(http_server_error_count[5m])) by (service_name) / 
+          sum(rate(http_server_request_count[5m])) by (service_name) * 100 > 5
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Critical error rate (> 5%)"
+          description: "Service {{ $labels.service_name }} has {{ $value }}% error rate (threshold: 5%)"
+
+  - name: carpeta_ciudadana_transfers
+    interval: 30s
+    rules:
+      - alert: TransferIntraRegionLatency
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(external_call_duration_bucket{external_service="transfer"}[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: transfer
+          region: intra
+        annotations:
+          summary: "Transfer intra-region p95 latency > 2s"
+          description: "Transfer latency p95 is {{ $value }}s (intra-region threshold: 2s)"
+      
+      - alert: TransferInterRegionLatency
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(external_call_duration_bucket{external_service="transfer",external_region!="northcentralus"}[5m])) by (le)
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: transfer
+          region: inter
+        annotations:
+          summary: "Transfer inter-region p95 latency > 5s"
+          description: "Transfer latency p95 is {{ $value }}s (inter-region threshold: 5s)"
+
+  - name: carpeta_ciudadana_queues
+    interval: 30s
+    rules:
+      - alert: MessagesInDLQ
+        expr: queue_dlq_length > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: queue
+        annotations:
+          summary: "Messages accumulating in DLQ"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} messages in DLQ (threshold: 10)"
+      
+      - alert: HighQueueProcessingFailures
+        expr: |
+          sum(rate(queue_message_failed[5m])) by (queue_name) / 
+          sum(rate(queue_message_consumed[5m])) by (queue_name) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: queue
+        annotations:
+          summary: "High queue processing failure rate"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }}% failure rate (threshold: 10%)"
+
+  - name: carpeta_ciudadana_cache
+    interval: 30s
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          sum(rate(cache_hits[10m])) / 
+          (sum(rate(cache_hits[10m])) + sum(rate(cache_misses[10m]))) * 100 < 50
+        for: 10m
+        labels:
+          severity: info
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value }}% (threshold: 50%)"
+      
+      - alert: RedisConnectionPoolExhausted
+        expr: |
+          redis_connection_pool_in_use / redis_connection_pool_size > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis connection pool nearly exhausted"
+          description: "Service {{ $labels.service_name }} using {{ $value | humanizePercentage }} of connection pool"
+
+  - name: carpeta_ciudadana_rate_limit
+    interval: 30s
+    rules:
+      - alert: HighRateLimitExceeded
+        expr: sum(rate(rate_limit_exceeded[5m])) by (http_route) > 10
+        for: 2m
+        labels:
+          severity: info
+          component: gateway
+        annotations:
+          summary: "High rate of rate-limit exceeded"
+          description: "Route {{ $labels.http_route }} experiencing {{ $value }} rate-limit violations/sec"
+
+  - name: carpeta_ciudadana_circuit_breaker
+    interval: 30s
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state{service="transfer"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: transfer
+        annotations:
+          summary: "Circuit breaker OPEN"
+          description: "Transfer service circuit breaker is OPEN - external calls failing"
+

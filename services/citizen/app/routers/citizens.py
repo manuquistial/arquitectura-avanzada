@@ -50,11 +50,12 @@ async def register_citizen(
     db.add(citizen)
     await db.flush()  # Flush but don't commit yet
 
-    # Register citizen in MinTIC Hub (BLOCKING - must succeed)
+    # Register citizen in MinTIC Hub via mintic_client service (simple facade)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
+            # Call mintic_client service (facade to hub)
             response = await client.post(
-                f"{settings.mintic_client_url}/apis/registerCitizen",
+                f"{settings.mintic_client_url}/register-citizen",
                 json={
                     "id": str(citizen.id),  # Send as string for 10-digit validation
                     "name": citizen.name,
@@ -64,15 +65,17 @@ async def register_citizen(
                     "operatorName": citizen.operator_name,
                 }
             )
-            if response.status_code == 201:
-                logger.info(f"Citizen {citizen.id} registered in MinTIC Hub")
-            elif response.status_code == 400:
+            
+            if response.status_code == 200:
+                logger.info(f"✅ Citizen {citizen.id} registered in MinTIC Hub")
+            elif response.status_code in [400, 409]:
                 # Rollback local registration
                 await db.rollback()
-                error_text = response.text
+                error_data = response.json() if response.headers.get("content-type") == "application/json" else {}
+                error_detail = error_data.get("detail", response.text)
                 
                 # Check if it's a duplicate ID error
-                if "ya se encuentra registrado" in error_text.lower():
+                if "ya se encuentra registrado" in error_detail.lower():
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"El ciudadano con ID {citizen.id} ya se encuentra registrado en la Carpeta Ciudadana del Hub MinTIC",
@@ -80,7 +83,7 @@ async def register_citizen(
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Error de validación del Hub MinTIC: {error_text}",
+                        detail=f"Error de validación del Hub MinTIC: {error_detail}",
                     )
             else:
                 # Rollback local registration on any other error
@@ -94,17 +97,29 @@ async def register_citizen(
     except Exception as e:
         # Rollback on any unexpected error
         await db.rollback()
-        logger.error(f"Error calling MinTIC client: {e}")
+        logger.error(f"Error calling MinTIC client service: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Error al comunicarse con el Hub MinTIC: {str(e)}",
+            detail=f"Error al comunicarse con el servicio MinTIC client: {str(e)}",
         )
     
     # Only commit if MinTIC registration succeeded
     await db.commit()
     await db.refresh(citizen)
     
-    # TODO: Publish event to Service Bus/SQS for async processing
+    # Publish event to Service Bus
+    try:
+        from carpeta_common.message_broker import publish_citizen_registered
+        
+        await publish_citizen_registered(
+            citizen_id=citizen.id,
+            name=citizen.name,
+            email=citizen.email
+        )
+    except ImportError:
+        logger.warning("carpeta_common not installed, skipping event publishing")
+    except Exception as e:
+        logger.warning(f"Failed to publish event: {e}")
 
     return citizen
 

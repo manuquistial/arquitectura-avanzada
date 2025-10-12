@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.client import MinTICClient
 from app.config import Settings
-from app.routers import mintic
+from app.routers import mintic, status
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(mintic.router, prefix="/api/mintic", tags=["mintic"])
+    app.include_router(status.router, tags=["status"])
 
     @app.get("/health")
     async def health() -> dict[str, str]:

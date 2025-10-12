@@ -5,12 +5,23 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, init_db
 from app.routers import documents
 
-logging.basicConfig(level=logging.INFO)
+# Import from common package (with fallback)
+try:
+    from carpeta_common.middleware import setup_cors, setup_logging
+    COMMON_AVAILABLE = True
+except ImportError:
+    from fastapi.middleware.cors import CORSMiddleware
+    COMMON_AVAILABLE = False
+
+if COMMON_AVAILABLE:
+    setup_logging()
+else:
+    logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,14 +44,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # CORS (using common utilities)
+    if COMMON_AVAILABLE:
+        setup_cors(app)
+    else:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # Routers
     app.include_router(documents.router, prefix="/api/documents", tags=["documents"])

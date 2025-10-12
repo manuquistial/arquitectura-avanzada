@@ -1,5 +1,10 @@
-variable "environment" {
-  description = "Environment name"
+variable "namespace_name" {
+  description = "Name of the Service Bus namespace"
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region"
   type        = string
 }
 
@@ -8,14 +13,8 @@ variable "resource_group_name" {
   type        = string
 }
 
-variable "location" {
-  description = "Azure location"
-  type        = string
+variable "tags" {
+  description = "Tags for resources"
+  type        = map(string)
+  default     = {}
 }
-
-variable "sku" {
-  description = "Service Bus SKU"
-  type        = string
-  default     = "Basic"
-}
-

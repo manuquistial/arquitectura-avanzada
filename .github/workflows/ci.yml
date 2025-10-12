@@ -171,6 +171,10 @@ jobs:
             --set metadata.image.tag=${{ github.sha }} \
             --set transfer.image.tag=${{ github.sha }} \
             --set minticClient.image.tag=${{ github.sha }} \
+            --set postgresql.auth.password=${{ secrets.POSTGRESQL_PASSWORD }} \
+            --set postgresql.host=${{ secrets.POSTGRESQL_HOST }} \
+            --set azure.storage.accountName=${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }} \
+            --set azure.storage.accountKey=${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }} \
             --wait \
             --timeout 10m
 

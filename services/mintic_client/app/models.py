@@ -1,5 +1,6 @@
 """MinTIC Client models matching exact API specs."""
 
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -58,9 +59,28 @@ class OperatorInfo(BaseModel):
 
 
 class MinTICResponse(BaseModel):
-    """Generic MinTIC response."""
+    """Unified response DTO from MinTIC Hub.
+    
+    Attributes:
+        ok: True if request succeeded (2xx)
+        status: HTTP status code
+        message: Response text (hub message or error)
+        data: Optional parsed JSON data
+    """
 
-    status_code: int
-    message: str
-    success: bool
+    ok: bool = Field(..., description="True if 2xx status")
+    status: int = Field(..., description="HTTP status code")
+    message: str = Field(..., description="Response message or error text")
+    data: Any | None = Field(None, description="Optional parsed JSON data")
+    
+    # Backward compatibility aliases
+    @property
+    def status_code(self) -> int:
+        """Alias for backward compatibility."""
+        return self.status
+    
+    @property
+    def success(self) -> bool:
+        """Alias for backward compatibility."""
+        return self.ok
 
