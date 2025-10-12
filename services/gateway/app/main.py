@@ -16,10 +16,12 @@ from app.rate_limiter import AdvancedRateLimiter, RateLimitMiddleware
 try:
     from carpeta_common.middleware import setup_cors, setup_logging
     from carpeta_common.observability import setup_observability
+    from carpeta_common.security_headers import SecurityHeadersMiddleware
     COMMON_AVAILABLE = True
 except ImportError:
     from fastapi.middleware.cors import CORSMiddleware
     COMMON_AVAILABLE = False
+    SecurityHeadersMiddleware = None
 
 if COMMON_AVAILABLE:
     setup_logging()
@@ -74,28 +76,71 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS (from ConfigMap via environment variables)
+    # Security Headers (must be first)
+    if COMMON_AVAILABLE and SecurityHeadersMiddleware:
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            environment=settings.environment,
+            enable_hsts=settings.environment == "production",
+            enable_csp=True
+        )
+        logger.info("✅ Security headers middleware configured")
+    
+    # CORS (restrictive configuration)
     import os
-    cors_origins = os.getenv("CORS_ORIGINS", "*")
-    cors_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
-    cors_methods = os.getenv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS,PATCH").split(",")
-    cors_headers = os.getenv("CORS_ALLOW_HEADERS", "Content-Type,Authorization,X-Request-ID").split(",")
+    cors_origins = os.getenv("CORS_ORIGINS", "")
+    cors_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+    
+    # Restrictive CORS configuration
+    if cors_origins and cors_origins != "*":
+        # Parse allowed origins (comma-separated)
+        origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    else:
+        # Default allowed origins for development
+        if settings.environment == "development":
+            origins = ["http://localhost:3000", "http://localhost:3001"]
+        else:
+            # Production: Must be explicitly configured
+            origins = []
+            logger.warning("⚠️  CORS_ORIGINS not configured for production")
+    
+    # Allowed methods (restrictive)
+    allowed_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    
+    # Allowed headers (restrictive)
+    allowed_headers = [
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "X-Trace-ID",
+        "X-Span-ID",
+        "Accept",
+        "Accept-Language",
+        "Content-Language"
+    ]
+    
+    # Expose headers (what frontend can access)
+    expose_headers = [
+        "X-Request-ID",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset"
+    ]
     
     if COMMON_AVAILABLE:
         setup_cors(app)
     else:
-        # Parse origins
-        origins = ["*"] if cors_origins == "*" else [o.strip() for o in cors_origins.split(",")]
-        
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=cors_credentials,
-            allow_methods=cors_methods,
-            allow_headers=cors_headers,
+            allow_methods=allowed_methods,
+            allow_headers=allowed_headers,
+            expose_headers=expose_headers,
+            max_age=3600  # Cache preflight for 1 hour
         )
     
-    logger.info(f"CORS configured: origins={cors_origins}, credentials={cors_credentials}")
+    logger.info(f"🔒 CORS configured (restrictive): origins={origins}, credentials={cors_credentials}")
 
     # Advanced rate limiter middleware
     app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
