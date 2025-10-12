@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 8/24 fases (33.3%)
+**Completado**: 9/24 fases (37.5%)
 
 ```
-Progreso: ████████░░░░░░░░░░░░ 33.3%
+Progreso: █████████░░░░░░░░░░░ 37.5%
 ```
 
-**Tiempo invertido**: 42h / 150h
+**Tiempo invertido**: 45h / 150h
 
-**Última actualización**: 2025-10-13 02:15
+**Última actualización**: 2025-10-13 02:45
 
 ---
 
@@ -77,19 +77,21 @@ Progreso: ████████░░░░░░░░░░░░ 33.3%
   - [x] 5.8 values.yaml configuración completa ✅
   - [x] 5.9 Documentación KEY_VAULT_SETUP.md ✅
 
-- [ ] **FASE 6**: NetworkPolicies (3h)
-  - [ ] 5.1 NetworkPolicy para gateway
-  - [ ] 5.2 NetworkPolicy para citizen
-  - [ ] 5.3 NetworkPolicy para ingestion
-  - [ ] 5.4 NetworkPolicy para metadata
-  - [ ] 5.5 NetworkPolicy para transfer
-  - [ ] 5.6 NetworkPolicy para mintic_client
-  - [ ] 5.7 NetworkPolicy para signature
-  - [ ] 5.8 NetworkPolicy para sharing
-  - [ ] 5.9 NetworkPolicy para notification
-  - [ ] 5.10 NetworkPolicy para read_models
-  - [ ] 5.11 NetworkPolicy para auth
-  - [ ] 5.12 Verificación completa
+- [x] **FASE 6**: NetworkPolicies (3h) ✅ COMPLETADA
+  - [x] 6.1 NetworkPolicy frontend ✅
+  - [x] 6.2 NetworkPolicy gateway (egress a todos los internos) ✅
+  - [x] 6.3 NetworkPolicy citizen ✅
+  - [x] 6.4 NetworkPolicy ingestion ✅
+  - [x] 6.5 NetworkPolicy metadata ✅
+  - [x] 6.6 NetworkPolicy transfer ✅
+  - [x] 6.7 NetworkPolicy signature ✅
+  - [x] 6.8 NetworkPolicy sharing ✅
+  - [x] 6.9 NetworkPolicy notification ✅
+  - [x] 6.10 NetworkPolicy read-models ✅
+  - [x] 6.11 NetworkPolicy mintic-client ✅
+  - [x] 6.12 NetworkPolicy transfer-worker ✅
+  - [x] 6.13 Values.yaml configuration ✅
+  - [x] 6.14 Documentación NETWORK_POLICIES.md ✅
 
 - [ ] **FASE 6**: Headers M2M Completos (4h)
   - [ ] 6.1 Generar X-Nonce
@@ -582,6 +584,50 @@ Progreso: ████████░░░░░░░░░░░░ 33.3%
 
 **LOGRO**: Secrets management con Azure Key Vault + auto-rotation + Workload Identity
 
+### 2025-10-13 02:45 - ✅ FASE 6 COMPLETADA (NetworkPolicies - Zero-Trust)
+- ✅ NetworkPolicies creadas (12 políticas)
+  - networkpolicy-frontend.yaml
+  - networkpolicy-gateway.yaml (egress a 9 servicios internos)
+  - networkpolicy-citizen.yaml
+  - networkpolicy-ingestion.yaml
+  - networkpolicy-services.yaml (metadata, transfer, signature, sharing, notification, read-models, mintic-client)
+  - networkpolicy-transfer-worker.yaml
+- ✅ Reglas Ingress
+  - Frontend: Ingress Controller + público
+  - Gateway: Ingress Controller + frontend
+  - Servicios internos: Solo gateway (zero-trust)
+  - Notification: Transfer + transfer-worker
+  - MinTIC Client: Solo signature
+  - Transfer Worker: Solo observability
+  - Todos: Prometheus (observability)
+- ✅ Reglas Egress
+  - DNS: Todos los servicios (kube-dns)
+  - PostgreSQL: Servicios con DB
+  - Service Bus: Servicios con messaging
+  - Redis: Servicios con cache
+  - Azure Storage: ingestion, signature
+  - OpenSearch: metadata
+  - MinTIC Hub: mintic-client
+  - SMTP: notification (ports 25, 587)
+- ✅ Zero-Trust Principles
+  - Deny all by default
+  - Allow específico por servicio
+  - Least privilege
+  - Microsegmentation
+- ✅ Values.yaml configuration
+  - networkPolicies.enabled (default: false)
+  - networkPolicies.denyAllByDefault
+  - networkPolicies.allowDNS, allowObservability
+- ✅ Documentación
+  - docs/NETWORK_POLICIES.md (completa)
+  - Arquitectura de red explicada
+  - Matriz de conectividad (ingress + egress)
+  - Testing matrix script
+  - Troubleshooting exhaustivo
+  - Best practices
+
+**LOGRO**: Zero-trust networking con 12 NetworkPolicies (deny all → allow específico)
+
 ### 2025-10-12 21:30 - ✅ FASE 1 COMPLETADA
 
 ### 2025-10-12 21:00 - FASE 1 Iniciada
@@ -602,15 +648,16 @@ Progreso: ████████░░░░░░░░░░░░ 33.3%
 - ✅ FASE 3 - transfer-worker + KEDA
 - ✅ FASE 4 - Headers M2M Completos
 - ✅ FASE 5 - Key Vault + CSI Secret Store
+- ✅ FASE 6 - NetworkPolicies (Zero-Trust)
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 8/24 fases
+**Progreso total**: 9/24 fases
 
-**Tiempo invertido**: ~42 horas
+**Tiempo invertido**: ~45 horas
 
-**Siguiente fase**: FASE 6 - NetworkPolicies
+**Siguiente fase**: FASE 7 - PodDisruptionBudgets
 
 ---
 
