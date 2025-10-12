@@ -27,13 +27,28 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   collation = "en_US.utf8"
 }
 
-# Firewall rule para permitir acceso desde Azure services
-resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
-  name             = "allow-azure-services"
+# Firewall rule para AKS nodepool egress (si se especifica IP)
+resource "azurerm_postgresql_flexible_server_firewall_rule" "aks_egress" {
+  count = var.aks_egress_ip != "" ? 1 : 0
+  
+  name             = "AllowAKSNodepool"
   server_id        = azurerm_postgresql_flexible_server.main.id
-  start_ip_address = "0.0.0.0"
+  start_ip_address = var.aks_egress_ip
+  end_ip_address   = var.aks_egress_ip
+}
+
+# Firewall rule para Azure services (opcional, solo para backups/monitoring)
+resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
+  count = var.allow_azure_services ? 1 : 0
+  
+  name             = "AllowAzureServices"
+  server_id        = azurerm_postgresql_flexible_server.main.id
+  start_ip_address = "0.0.0.0"  # Valor especial: solo Azure services, NO internet
   end_ip_address   = "0.0.0.0"
 }
+
+# NOTA: 0.0.0.0-0.0.0.0 es un valor especial de Azure que permite SOLO servicios de Azure
+# NO permite internet público. Para permitir internet, sería 0.0.0.0-255.255.255.255
 
 # Configuración de conexión
 resource "azurerm_postgresql_flexible_server_configuration" "connection_limit" {

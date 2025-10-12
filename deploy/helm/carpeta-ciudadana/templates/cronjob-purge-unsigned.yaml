@@ -1,0 +1,46 @@
+{{- if .Values.ingestion.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-purge-unsigned
+  labels:
+    app: ingestion
+    component: cleanup
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  # Daily at 2 AM
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: ingestion
+            component: cleanup
+        spec:
+          serviceAccountName: {{ include "carpeta-ciudadana.fullname" . }}-sa
+          restartPolicy: OnFailure
+          containers:
+          - name: purge
+            image: "{{ .Values.global.imageRegistry }}/{{ .Values.ingestion.image.repository }}:{{ .Values.ingestion.image.tag }}"
+            imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+            command: ["python", "-m", "app.scripts.purge_unsigned"]
+            envFrom:
+            - configMapRef:
+                name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+            - secretRef:
+                name: db-secrets
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+{{- end }}
+

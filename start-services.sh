@@ -29,7 +29,7 @@ cd ../..
 echo "🐍 Configurando servicios Python con venv..."
 echo ""
 
-SERVICES=("gateway" "citizen" "ingestion" "metadata" "transfer" "mintic_client")
+SERVICES=("gateway" "citizen" "ingestion" "metadata" "transfer" "mintic_client" "signature" "sharing" "notification" "read_models" "auth")
 BASE_PORT=8000
 
 for i in "${!SERVICES[@]}"; do

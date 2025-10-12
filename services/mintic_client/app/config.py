@@ -26,9 +26,10 @@ class Settings(BaseSettings):
     redis_ssl: bool = Field(default=False)
     
     # Security
-    environment: str = Field(default="development")
+    environment: str = Field(default="development", alias="ENVIRONMENT")
     allow_insecure_operator_urls: bool = Field(
         default=True,
+        alias="ALLOW_INSECURE_OPERATOR_URLS",
         description="Allow http:// URLs in development (only https:// in production)"
     )
     

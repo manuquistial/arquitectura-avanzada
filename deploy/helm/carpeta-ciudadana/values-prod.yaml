@@ -1,0 +1,320 @@
+# Production Environment Values
+# Override default values.yaml for production deployments
+
+global:
+  environment: production
+  imageRegistry: "" # Will be set by CI/CD
+  imagePullPolicy: IfNotPresent
+  
+  # Hub Configuration
+  hubBaseUrl: "https://govcarpeta-apis-4905ff3c005b.herokuapp.com"
+  allowInsecureOperatorUrls: false  # Only https:// in production
+  sasTtlMinutes: 15
+  rateLimitToHub: 10
+  
+  # Circuit Breaker
+  circuitBreaker:
+    window: "60s"
+    threshold: 5
+    cooldown: "120s"
+  
+  # CORS
+  corsAllowedOrigins: "https://carpeta-ciudadana.example.com"  # Specific domain in production
+  
+  # Observability
+  otel:
+    enabled: true
+    endpoint: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
+    insecure: true
+  
+  logLevel: "INFO"
+
+# Replicas for production (higher availability)
+replicaCount: 3
+
+# Frontend
+frontend:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-frontend
+    tag: latest
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3000
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Gateway
+gateway:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-gateway
+    tag: latest
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+# Citizen Service
+citizen:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-citizen
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+# Ingestion Service
+ingestion:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-ingestion
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+# Metadata Service
+metadata:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-metadata
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+# Transfer Service
+transfer:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-transfer
+    tag: latest
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+
+# MinTIC Client
+minticClient:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-mintic-client
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+# Signature Service
+signature:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-signature
+    tag: latest
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+# Read Models Service
+readModels:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: carpeta-ciudadana-read-models
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+# Notification Service
+notification:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana-notification
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Sharing Service
+sharing:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana-sharing
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod  # Use production Let's Encrypt
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  tls:
+    enabled: true
+    secretName: carpeta-ciudadana-tls
+
+# PostgreSQL (external)
+postgresql:
+  enabled: false  # We use Azure PostgreSQL Flexible Server
+  external:
+    enabled: true
+    # Host will be set by CI/CD from Terraform outputs
+
+# Redis (external)
+redis:
+  enabled: false  # We use Azure Cache for Redis
+  external:
+    enabled: true
+    host: "redis.default.svc.cluster.local"
+    port: 6379
+    # Password will be set by CI/CD
+
+# OpenSearch (external)
+opensearch:
+  enabled: false  # Installed separately in 'search' namespace
+  external:
+    enabled: true
+    url: "http://opensearch-cluster-master.search.svc.cluster.local:9200"
+    # Username and password will be set by CI/CD
+
+# Service Bus (external)
+servicebus:
+  enabled: true
+  # Connection string will be set by CI/CD
+
+# Azure Storage (Managed Identity)
+azure:
+  storage:
+    useManagedIdentity: true
+    # Account name will be set by CI/CD
+
+# Database Migrations
+migrations:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network Policies
+networkPolicy:
+  enabled: true
+
+# Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+

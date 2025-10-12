@@ -4,6 +4,7 @@ global:
   environment: development
   imageRegistry: manuelquistial
   imagePullPolicy: IfNotPresent
+  logLevel: INFO
 
 # Frontend
 frontend:
@@ -13,15 +14,15 @@ frontend:
     repository: carpeta-frontend
     tag: latest
   service:
-    type: LoadBalancer
+    type: LoadBalancer  # Público - acceso directo
     port: 80
     targetPort: 3000
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "250m"
+      memory: "128Mi"  # Next.js puede correr con menos en dev
+      cpu: "100m"
     limits:
-      memory: "512Mi"
+      memory: "512Mi"  # Límite para evitar OOM
       cpu: "500m"
   autoscaling:
     enabled: true
@@ -30,7 +31,7 @@ frontend:
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
 
-# Gateway Service
+# Gateway Service - Alto tráfico, crítico
 gateway:
   enabled: true
   replicaCount: 3
@@ -38,22 +39,33 @@ gateway:
     repository: carpeta-gateway
     tag: latest
   service:
-    type: ClusterIP
+    type: ClusterIP  # Interno - expuesto vía Ingress
     port: 8000
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "250m"
+      memory: "256Mi"  # Rate limiter + proxying necesita más memoria
+      cpu: "200m"
     limits:
-      memory: "512Mi"
-      cpu: "500m"
+      memory: "512Mi"  # Límite para evitar OOM bajo alta carga
+      cpu: "1000m"     # Puede escalar CPU bajo carga
   autoscaling:
     enabled: true
     minReplicas: 3
     maxReplicas: 20
     targetCPUUtilizationPercentage: 70
+    # Metrics adicionales (requiere Prometheus Adapter)
+    customMetrics:
+      enabled: false  # Activar si tienes Prometheus Adapter
+      metrics:
+        - type: Pods
+          pods:
+            metric:
+              name: http_request_duration_seconds_p95
+            target:
+              type: AverageValue
+              averageValue: "500m"  # 500ms p95 latency
 
-# Citizen Service
+# Citizen Service - Moderado uso
 citizen:
   enabled: true
   replicaCount: 2
@@ -61,14 +73,14 @@ citizen:
     repository: carpeta-citizen
     tag: latest
   service:
-    type: ClusterIP
+    type: ClusterIP  # Interno - acceso vía gateway
     port: 8000
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "250m"
+      memory: "128Mi"  # CRUD simple, bajo consumo
+      cpu: "100m"
     limits:
-      memory: "512Mi"
+      memory: "256Mi"  # Límite conservador
       cpu: "500m"
   autoscaling:
     enabled: true
@@ -76,7 +88,7 @@ citizen:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
 
-# Ingestion Service
+# Ingestion Service - Genera SAS URLs, no sube archivos
 ingestion:
   enabled: true
   replicaCount: 2
@@ -84,14 +96,14 @@ ingestion:
     repository: carpeta-ingestion
     tag: latest
   service:
-    type: ClusterIP
+    type: ClusterIP  # Interno - acceso vía gateway
     port: 8000
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "250m"
+      memory: "128Mi"  # Solo genera presigned URLs, no procesa archivos
+      cpu: "100m"
     limits:
-      memory: "512Mi"
+      memory: "256Mi"  # Límite conservador
       cpu: "500m"
   autoscaling:
     enabled: true
@@ -99,145 +111,7 @@ ingestion:
     maxReplicas: 15
     targetCPUUtilizationPercentage: 70
 
-# Signature Service
-signature:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-ciudadana/signature
-    tag: latest
-  service:
-    type: ClusterIP
-    port: 8000
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "500m"
-    limits:
-      memory: "1Gi"
-      cpu: "1000m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-# Metadata Service
-metadata:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-metadata
-    tag: latest
-  service:
-    type: ClusterIP
-    port: 8000
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-# Transfer Service
-transfer:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-transfer
-    tag: latest
-  service:
-    type: LoadBalancer
-    port: 8000
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "500m"
-    limits:
-      memory: "1Gi"
-      cpu: "1000m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-# Sharing Service
-sharing:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-ciudadana/sharing
-    tag: latest
-  service:
-    type: ClusterIP
-    port: 8000
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-# Notification Service
-notification:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-ciudadana/notification
-    tag: latest
-  service:
-    type: ClusterIP
-    port: 8000
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-# MinTIC Client Service
-minticClient:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-mintic_client
-    tag: latest
-  service:
-    type: ClusterIP
-    port: 8000
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-
-# Signature Service
+# Signature Service - Alto CPU (criptografía)
 signature:
   enabled: true
   replicaCount: 2
@@ -245,14 +119,175 @@ signature:
     repository: carpeta-signature
     tag: latest
   service:
-    type: ClusterIP
+    type: ClusterIP  # Interno - acceso vía gateway
     port: 8000
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "250m"
+      memory: "256Mi"  # Operaciones criptográficas necesitan RAM
+      cpu: "200m"      # CPU importante para firmas
     limits:
-      memory: "512Mi"
+      memory: "512Mi"  # Límite para prevenir OOM
+      cpu: "1000m"     # Puede usar más CPU para operaciones intensivas
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Metadata Service - Búsquedas en OpenSearch
+metadata:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-metadata
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía gateway
+    port: 8000
+  resources:
+    requests:
+      memory: "128Mi"  # Búsquedas delegadas a OpenSearch
+      cpu: "100m"
+    limits:
+      memory: "256Mi"  # Límite conservador
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Transfer Service - Saga pattern, transaccional
+transfer:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-transfer
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía gateway (cambiar de LoadBalancer)
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"  # Saga pattern + DB transactions
+      cpu: "200m"
+    limits:
+      memory: "512Mi"  # Límite para evitar OOM durante sagas complejas
+      cpu: "1000m"     # Puede necesitar CPU para procesamiento concurrente
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Sharing Service - Shortlinks (bajo uso)
+sharing:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-sharing
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía gateway
+    port: 8000
+  resources:
+    requests:
+      memory: "64Mi"   # Servicio simple de shortlinks
+      cpu: "50m"
+    limits:
+      memory: "128Mi"  # Límite bajo
+      cpu: "200m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Notification Service - Email + webhooks (bajo uso típicamente)
+notification:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-notification
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - consumidor de eventos
+    port: 8010
+  resources:
+    requests:
+      memory: "64Mi"   # Servicio simple de notificaciones
+      cpu: "50m"
+    limits:
+      memory: "128Mi"  # Límite bajo, previene OOM
+      cpu: "200m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# MinTIC Client Service - Rate limiter + Hub calls
+minticClient:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-mintic_client
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - llamado por otros servicios
+    port: 8000
+  resources:
+    requests:
+      memory: "128Mi"  # HTTP client + rate limiter
+      cpu: "100m"
+    limits:
+      memory: "256Mi"  # Límite conservador
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Read Models Service (CQRS) - Consumidor de eventos
+readModels:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-read-models
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía gateway
+    port: 8007
+  resources:
+    requests:
+      memory: "128Mi"  # Event consumer + queries simples
+      cpu: "100m"
+    limits:
+      memory: "256Mi"  # Límite conservador
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Auth Service - OIDC Provider + Azure AD B2C
+auth:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-auth
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía gateway
+    port: 8011
+  resources:
+    requests:
+      memory: "128Mi"  # Token validation + session management
+      cpu: "100m"
+    limits:
+      memory: "256Mi"  # Límite conservador
       cpu: "500m"
   autoscaling:
     enabled: true
@@ -276,6 +311,32 @@ azure:
     accountName: "" # Set via --set azure.storage.accountName=xxx or secret
     accountKey: "" # Set via --set azure.storage.accountKey=xxx or secret
     containerName: "documents"
+    sasTtlMinutes: 15
+
+# Circuit Breaker Configuration
+circuitBreaker:
+  window: "60s"
+  threshold: 5
+  cooldown: "120s"
+
+# Service Bus Configuration
+serviceBus:
+  enabled: true
+  connectionString: "" # Set via --set serviceBus.connectionString or from Terraform output
+
+# Observability Configuration
+observability:
+  enabled: true
+  otel:
+    endpoint: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
+  prometheus:
+    enabled: true
+    scrapeInterval: 30s
+
+# CORS Configuration
+cors:
+  allowedOrigins: "*"  # Overridden in values-dev.yaml and values-prod.yaml
+  allowCredentials: false
 
 # OpenSearch Configuration
 opensearch:
@@ -317,27 +378,30 @@ opensearch:
   port: 9200
 
 # Configuration
-config:
-  database:
-    host: YOUR_RDS_ENDPOINT
-    port: 5432
-    name: carpeta_ciudadana
-    username: carpeta_admin
-  s3:
-    bucket: YOUR_S3_BUCKET
-  opensearch:
-    host: YOUR_OPENSEARCH_ENDPOINT
-    port: 443
-  cognito:
-    region: us-east-1
-    userPoolId: YOUR_USER_POOL_ID
-    clientId: YOUR_CLIENT_ID
-  sqs:
-    queueUrl: YOUR_SQS_QUEUE_URL
-  sns:
-    topicArn: YOUR_SNS_TOPIC_ARN
-  mintic:
-    baseUrl: https://hub.mintic.gov.co
+# OBSOLETE - AWS Configuration (migrated to Azure)
+# config:
+#   database:
+#     host: YOUR_RDS_ENDPOINT
+#     port: 5432
+#     name: carpeta_ciudadana
+#     username: carpeta_admin
+#   s3:
+#     bucket: YOUR_S3_BUCKET
+#   opensearch:
+#     host: YOUR_OPENSEARCH_ENDPOINT
+#     port: 443
+#   cognito:
+#     region: us-east-1
+#     userPoolId: YOUR_USER_POOL_ID
+#     clientId: YOUR_CLIENT_ID
+#   sqs:
+#     queueUrl: YOUR_SQS_QUEUE_URL
+#   sns:
+#     topicArn: YOUR_SNS_TOPIC_ARN
+#   mintic:
+    hubUrl: https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+    allowInsecureUrls: false
+    rateLimit: 10
     operatorId: YOUR_OPERATOR_ID
     operatorName: YOUR_OPERATOR_NAME
   otel:
@@ -350,23 +414,45 @@ serviceAccount:
   annotations: {}
   name: carpeta-ciudadana-sa
 
-# Ingress
+# Ingress - Solo expone frontend y gateway (público)
 ingress:
   enabled: true
-  className: alb
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/certificate-arn: YOUR_ACM_CERT_ARN
+  className: nginx  # Use 'nginx' for cert-manager, 'alb' for AWS ALB
+  annotations: {}
+    # For AWS ALB (if using ALB instead of nginx):
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
+    # alb.ingress.kubernetes.io/certificate-arn: YOUR_ACM_CERT_ARN
+    
+    # For Azure Application Gateway (if using Azure):
+    # appgw.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  # Rate limiting
+  rateLimitRps: 100  # Requests per second per IP
+  
+  tls:
+    enabled: false  # Set to true when domain is configured
+    secretName: carpeta-ciudadana-tls
+    certManager:
+      enabled: true
+      # Use 'letsencrypt-staging' for dev/testing
+      # Use 'letsencrypt-prod' for production
+      clusterIssuer: letsencrypt-staging
+      acmeChallenge: http01
+      
   hosts:
-    - host: carpeta-ciudadana.example.com
+    # If no domain available, leave host empty and TLS disabled
+    # The application will be accessible via LoadBalancer IP
+    - host: ""  # Set to your domain when available (e.g., carpeta-ciudadana.example.com)
       paths:
+        # Frontend (public) - Serves static assets and UI
         - path: /
           pathType: Prefix
           backend:
             service:
               name: frontend
               port: 80
+        # Gateway (public) - API endpoint, routes to internal services
         - path: /api
           pathType: Prefix
           backend:

@@ -42,3 +42,15 @@ variable "storage_mb" {
   default     = 32768
 }
 
+variable "aks_egress_ip" {
+  description = "AKS nodepool egress IP address (for firewall rule). Leave empty to skip firewall restriction."
+  type        = string
+  default     = ""
+}
+
+variable "allow_azure_services" {
+  description = "Allow Azure services to access PostgreSQL (for backups, monitoring). 0.0.0.0-0.0.0.0 is Azure-only, NOT public internet."
+  type        = bool
+  default     = false
+}
+

@@ -30,6 +30,7 @@ if CLOUD_PROVIDER == "azure":
         account_key=os.getenv("AZURE_STORAGE_ACCOUNT_KEY", ""),
         container_name=os.getenv("AZURE_STORAGE_CONTAINER_NAME", "documents"),
         connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
+        sas_ttl_minutes=int(os.getenv("SAS_TTL_MINUTES", "15")),
     )
 else:
     # AWS S3 (legacy/fallback - not actively used)
@@ -58,11 +59,12 @@ async def get_upload_url(
     )
 
     try:
+        # Use default TTL from storage_client (SAS_TTL_MINUTES from ConfigMap)
         result = storage_client.generate_presigned_put(
             citizen_id=request.citizen_id,
             filename=request.filename,
             content_type=request.content_type,
-            expires_in=3600,
+            # expires_in will use sas_ttl_minutes from client config
         )
 
         # Store metadata in database
@@ -89,11 +91,14 @@ async def get_upload_url(
         
         # TODO: Publish event to Service Bus/SQS for async processing
 
+        # Return TTL in seconds (SAS_TTL_MINUTES * 60)
+        sas_ttl_minutes = int(os.getenv("SAS_TTL_MINUTES", "15"))
+        
         return UploadURLResponse(
             upload_url=result["upload_url"],
             document_id=result["document_id"],
             s3_key=key,  # Compatible field name
-            expires_in=3600,
+            expires_in=sas_ttl_minutes * 60,
         )
 
     except Exception as e:

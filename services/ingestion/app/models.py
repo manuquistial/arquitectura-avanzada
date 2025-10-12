@@ -1,8 +1,8 @@
 """Database models for ingestion service."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -27,11 +27,49 @@ class DocumentMetadata(Base):
     blob_name: Mapped[str] = mapped_column(String(500), nullable=False)  # Azure blob name or S3 key
     storage_provider: Mapped[str] = mapped_column(String(20), nullable=False, default="azure")
     
-    # Status
+    # Status (deprecated, use 'state' instead)
     status: Mapped[str] = mapped_column(
         String(20), 
         nullable=False, 
         default="pending"  # pending, uploaded, verified, indexed
+    )
+    
+    # WORM and Retention (REQUERIMIENTO CRÍTICO)
+    state: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="UNSIGNED",  # UNSIGNED (editable, TTL 30d) | SIGNED (inmutable, 5y)
+        index=True
+    )
+    worm_locked: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,  # True = Write Once Read Many (inmutable)
+        index=True
+    )
+    signed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True  # Timestamp when document was signed
+    )
+    retention_until: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,  # Auto-calculated: UNSIGNED=created+30d, SIGNED=signed+5y
+        index=True
+    )
+    hub_signature_ref: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True  # Reference from hub authenticateDocument response
+    )
+    legal_hold: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False  # Prevents deletion even after retention expires
+    )
+    lifecycle_tier: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="Hot",  # Hot (0-90d) | Cool (90-365d) | Archive (365d+)
+        index=True
     )
     
     # Metadata

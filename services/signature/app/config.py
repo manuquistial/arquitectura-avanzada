@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Azure Blob Storage (for SAS tokens)
     azure_storage_account_name: str = Field(default="")
     azure_storage_account_key: str = Field(default="")
+    sas_ttl_minutes: int = Field(default=15, alias="SAS_TTL_MINUTES")
     azure_storage_container: str = Field(default="documents")
     
     # MinTIC Hub (public API, no authentication required)

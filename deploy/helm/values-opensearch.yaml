@@ -1,0 +1,194 @@
+# OpenSearch Helm Chart Values for Development
+# Single-node configuration with minimal resources
+
+# Number of replicas (single-node for dev)
+replicas: 1
+singleNode: true
+
+# Image configuration
+image:
+  repository: "opensearchproject/opensearch"
+  tag: "2.11.1"
+  pullPolicy: "IfNotPresent"
+
+# Security configuration
+# For dev, we disable the security plugin for simplicity
+# For production, enable security and configure proper certificates
+config:
+  opensearch.yml: |
+    cluster.name: opensearch-cluster
+    network.host: 0.0.0.0
+    plugins.security.disabled: true
+    discovery.type: single-node
+    bootstrap.memory_lock: false
+
+# Java heap size (should be ~50% of memory limit)
+opensearchJavaOpts: "-Xms1g -Xmx1g"
+
+# Resource limits (low for dev environment)
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+# Persistent storage configuration
+persistence:
+  enabled: true
+  size: "8Gi"
+  storageClass: "managed-premium"  # Azure Premium SSD
+  accessModes:
+    - ReadWriteOnce
+
+# Service configuration (ClusterIP, no public access)
+service:
+  type: ClusterIP
+  httpPort: 9200
+  transportPort: 9300
+  annotations: {}
+  labels: {}
+
+# Network policy (optional)
+networkPolicy:
+  create: false
+
+# Security context
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Pod disruption budget (disabled for single node)
+podDisruptionBudget:
+  enabled: false
+
+# Anti-affinity (disabled for single node)
+antiAffinityTopologyKey: "none"
+antiAffinity: "soft"
+
+# Node selector (use default nodes)
+nodeSelector: {}
+
+# Tolerations (none for dev)
+tolerations: []
+
+# Init containers to set vm.max_map_count
+sysctlInit:
+  enabled: true
+  
+sysctlVmMaxMapCount: 262144
+
+# Liveness and readiness probes
+livenessProbe:
+  tcpSocket:
+    port: 9200
+  initialDelaySeconds: 90
+  periodSeconds: 20
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 5
+
+readinessProbe:
+  tcpSocket:
+    port: 9200
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+# Startup probe
+startupProbe:
+  tcpSocket:
+    port: 9200
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 30
+
+# Extra environment variables
+extraEnvs:
+  - name: DISABLE_INSTALL_DEMO_CONFIG
+    value: "true"
+  - name: DISABLE_SECURITY_PLUGIN
+    value: "true"
+
+# Plugins to install (none for basic setup)
+plugins:
+  enabled: false
+  installList: []
+
+# Index State Management
+ism:
+  enabled: false
+
+# Performance Analyzer
+performanceAnalyzer:
+  enabled: false
+
+# Monitoring (Prometheus)
+prometheus:
+  enabled: false
+
+# Labels and annotations
+labels: {}
+annotations: {}
+
+# Priority class
+priorityClassName: ""
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+
+# Ingress (disabled - ClusterIP only)
+ingress:
+  enabled: false
+
+# Master-eligible settings (for single node)
+roles:
+  - master
+  - ingest
+  - data
+
+# Cluster initial master nodes
+clusterInitMasterNodes: "opensearch-cluster-master-0"
+
+# HTTP port configuration
+httpPort: 9200
+transportPort: 9300
+
+# SSL/TLS (disabled for dev)
+ssl:
+  http:
+    enabled: false
+  transport:
+    enabled: false
+
+# Snapshot configuration (disabled)
+snapshotRestore:
+  enabled: false
+
+# Index templates (none by default)
+indexTemplates: {}
+
+# Lifecycle policies (none by default)
+lifecyclePolicies: {}
+
+# Enable JSON logs
+opensearchLogging:
+  enabled: true
+  level: INFO
+

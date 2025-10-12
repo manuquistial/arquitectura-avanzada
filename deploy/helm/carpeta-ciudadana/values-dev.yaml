@@ -1,0 +1,260 @@
+# Development Environment Values
+# Override default values.yaml for development deployments
+
+global:
+  environment: development
+  imageRegistry: "" # Will be set by CI/CD
+  imagePullPolicy: Always
+  
+  # Hub Configuration
+  hubBaseUrl: "https://govcarpeta-apis-4905ff3c005b.herokuapp.com"
+  allowInsecureOperatorUrls: true  # Allow http:// in development
+  sasTtlMinutes: 15
+  rateLimitToHub: 10
+  
+  # Circuit Breaker
+  circuitBreaker:
+    window: "60s"
+    threshold: 5
+    cooldown: "120s"
+  
+  # CORS
+  corsAllowedOrigins: "*"  # Allow all in development
+  
+  # Observability
+  otel:
+    enabled: true
+    endpoint: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
+    insecure: true
+  
+  logLevel: "DEBUG"
+
+# Replicas for development (lower resources)
+replicaCount: 1
+
+# Frontend
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-frontend
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 3000
+
+# Gateway
+gateway:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-gateway
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# Citizen Service
+citizen:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-citizen
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Ingestion Service
+ingestion:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-ingestion
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Metadata Service
+metadata:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-metadata
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Transfer Service
+transfer:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-transfer
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# MinTIC Client
+minticClient:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-mintic-client
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Signature Service
+signature:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-signature
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Read Models Service
+readModels:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-read-models
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Notification Service
+notification:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-notification
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Sharing Service
+sharing:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-ciudadana-sharing
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging  # Use staging in dev
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  tls:
+    enabled: false  # Disable TLS in development
+
+# PostgreSQL (external)
+postgresql:
+  enabled: false  # We use Azure PostgreSQL Flexible Server
+  external:
+    enabled: true
+    # Host will be set by CI/CD from Terraform outputs
+
+# Redis (external)
+redis:
+  enabled: false  # We use Azure Cache for Redis or external
+  external:
+    enabled: true
+    host: "redis.default.svc.cluster.local"
+    port: 6379
+    # Password will be set by CI/CD
+
+# OpenSearch (external)
+opensearch:
+  enabled: false  # Installed separately in 'search' namespace
+  external:
+    enabled: true
+    url: "http://opensearch-cluster-master.search.svc.cluster.local:9200"
+    # Username and password will be set by CI/CD
+
+# Service Bus (external)
+servicebus:
+  enabled: true
+  # Connection string will be set by CI/CD
+
+# Azure Storage (Managed Identity)
+azure:
+  storage:
+    useManagedIdentity: true
+    # Account name will be set by CI/CD
+
+# Database Migrations
+migrations:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+

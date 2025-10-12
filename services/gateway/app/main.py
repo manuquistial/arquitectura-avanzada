@@ -74,17 +74,28 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS (using common utilities)
+    # CORS (from ConfigMap via environment variables)
+    import os
+    cors_origins = os.getenv("CORS_ORIGINS", "*")
+    cors_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
+    cors_methods = os.getenv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS,PATCH").split(",")
+    cors_headers = os.getenv("CORS_ALLOW_HEADERS", "Content-Type,Authorization,X-Request-ID").split(",")
+    
     if COMMON_AVAILABLE:
         setup_cors(app)
     else:
+        # Parse origins
+        origins = ["*"] if cors_origins == "*" else [o.strip() for o in cors_origins.split(",")]
+        
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
+            allow_origins=origins,
+            allow_credentials=cors_credentials,
+            allow_methods=cors_methods,
+            allow_headers=cors_headers,
         )
+    
+    logger.info(f"CORS configured: origins={cors_origins}, credentials={cors_credentials}")
 
     # Advanced rate limiter middleware
     app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
@@ -96,10 +107,30 @@ def create_app() -> FastAPI:
     proxy = ProxyService(settings)
     app.state.proxy = proxy
 
-    @app.get("/health")
-    async def health() -> dict[str, str]:
-        """Health check endpoint."""
-        return {"status": "healthy"}
+    # Health checks (liveness and readiness)
+    try:
+        from carpeta_common.health import create_health_router
+        
+        health_router = create_health_router(
+            check_database=False,  # Gateway no usa DB directamente
+            check_redis=True,
+            redis_host=settings.redis_host,
+            redis_port=settings.redis_port,
+            redis_password=settings.redis_password,
+        )
+        app.include_router(health_router, tags=["health"])
+        logger.info("✅ Health checks configured")
+    except ImportError:
+        # Fallback simple health check
+        @app.get("/health")
+        async def health() -> dict[str, str]:
+            """Simple health check."""
+            return {"status": "alive"}
+        
+        @app.get("/ready")
+        async def ready() -> dict[str, str]:
+            """Simple readiness check."""
+            return {"status": "ready"}
     
     @app.get("/ops/ratelimit/status")
     async def rate_limit_status(request: Request, ip: str = None) -> dict:

@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     # OpenSearch
     opensearch_host: str = Field(default="localhost")
     opensearch_port: int = Field(default=9200)
-    opensearch_username: str = Field(default="")
-    opensearch_password: str = Field(default="")
+    opensearch_username: str = Field(default="", alias="OS_USERNAME")
+    opensearch_password: str = Field(default="", alias="OS_PASSWORD")
+    opensearch_url: str = Field(default="", alias="OPENSEARCH_URL")
     opensearch_use_ssl: bool = Field(default=False)
     opensearch_verify_certs: bool = Field(default=False)
     opensearch_index: str = Field(default="documents")

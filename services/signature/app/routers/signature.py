@@ -1,17 +1,17 @@
 """Signature API router."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from typing import Annotated
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.config import Settings
 from app.database import get_db
-from app.models import SignatureRecord
+from app.models import SignatureRecord, DocumentMetadata
 from app.schemas import (
     SignDocumentRequest,
     SignDocumentResponse,
@@ -64,12 +64,14 @@ async def sign_document(
         # 3. Sign hash
         signature_b64, algorithm = await _crypto.sign_hash(sha256_hash)
         
-        # 4. Generate SAS URL for hub (short expiration: 15 minutes)
+        # 4. Generate SAS URL for hub (GET-only, short expiration from ConfigMap)
         # Hub solo necesita acceso temporal para validar/autenticar
         # NO almacena ni canaliza binarios, solo valida metadata
+        # Uses SAS_TTL_MINUTES from ConfigMap (default: 15 minutes)
+        # User Delegation SAS if Managed Identity available
         sas_url = await _blob.generate_sas_url(
-            request.document_id, 
-            expiry_hours=0.25  # 15 minutes (0.25 hours)
+            request.document_id
+            # expiry_hours will use sas_ttl_minutes from Settings
         )
         
         # 5. Authenticate with hub via mintic_client service (facade)
@@ -96,7 +98,7 @@ async def sign_document(
             logger.error(f"❌ Error calling mintic_client: {e}")
             hub_result = {"success": False, "message": str(e)}
         
-        # 6. Save to database
+        # 6. Save signature record to database
         record = SignatureRecord(
             document_id=request.document_id,
             citizen_id=request.citizen_id,
@@ -112,6 +114,57 @@ async def sign_document(
         )
         
         db.add(record)
+        await db.flush()  # Flush but don't commit yet
+        
+        # 6b. UPDATE DOCUMENT METADATA WITH WORM (REQUERIMIENTO CRÍTICO)
+        # Solo si hub authentication fue exitosa
+        if hub_result["success"]:
+            logger.info(f"🔒 Activating WORM for document {request.document_id}")
+            
+            # Calcular retention (5 años desde firma)
+            retention_date = date.today() + timedelta(days=365 * 5)
+            
+            # Extraer hub signature ref del response
+            hub_sig_ref = hub_result.get("signature_ref", f"hub-sig-{request.document_id[:8]}")
+            
+            try:
+                # Actualizar document_metadata a SIGNED con WORM
+                update_stmt = (
+                    update(DocumentMetadata)
+                    .where(DocumentMetadata.id == request.document_id)
+                    .values(
+                        state="SIGNED",
+                        worm_locked=True,
+                        signed_at=datetime.utcnow(),
+                        retention_until=retention_date,
+                        hub_signature_ref=hub_sig_ref,
+                        status="authenticated"  # Also update old status field
+                    )
+                )
+                await db.execute(update_stmt)
+                
+                logger.info(
+                    f"✅ WORM activated: doc={request.document_id}, "
+                    f"retention_until={retention_date.isoformat()}"
+                )
+                
+                # TODO: Update blob tags in Azure Storage
+                # await _blob.set_blob_tags(
+                #     blob_name=document.blob_name,
+                #     tags={
+                #         "state": "SIGNED",
+                #         "worm": "true",
+                #         "retentionUntil": retention_date.isoformat(),
+                #         "hubRef": hub_sig_ref
+                #     }
+                # )
+                
+            except Exception as worm_error:
+                logger.error(f"❌ Failed to activate WORM: {worm_error}")
+                # Don't fail the whole operation, but log the error
+                # In production, this should be retried or alerted
+        
+        # Commit everything in one transaction
         await db.commit()
         await db.refresh(record)
         

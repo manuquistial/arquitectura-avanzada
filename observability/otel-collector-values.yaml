@@ -1,0 +1,105 @@
+# OpenTelemetry Collector Configuration
+mode: deployment
+
+# Receivers - OTLP for traces, metrics, and logs
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  
+  processors:
+    batch:
+      timeout: 10s
+      send_batch_size: 1024
+    
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 512
+    
+    # Add resource attributes
+    resource:
+      attributes:
+        - key: service.namespace
+          value: carpeta-ciudadana
+          action: insert
+  
+  exporters:
+    # Export to Prometheus
+    prometheus:
+      endpoint: "0.0.0.0:8889"
+      namespace: carpeta
+      const_labels:
+        cluster: aks
+    
+    # Logging for debug
+    logging:
+      loglevel: info
+    
+    # Export to Prometheus RemoteWrite (optional)
+    prometheusremotewrite:
+      endpoint: http://prometheus-server.observability.svc.cluster.local/api/v1/write
+      tls:
+        insecure: true
+  
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, resource]
+        exporters: [logging]
+      
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, resource]
+        exporters: [prometheus, prometheusremotewrite]
+      
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, resource]
+        exporters: [logging]
+
+# Service configuration
+service:
+  type: ClusterIP
+  
+ports:
+  otlp:
+    enabled: true
+    containerPort: 4317
+    servicePort: 4317
+    protocol: TCP
+  otlp-http:
+    enabled: true
+    containerPort: 4318
+    servicePort: 4318
+    protocol: TCP
+  prometheus:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    protocol: TCP
+
+# Autoscaling
+autoscaling:
+  enabled: false
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8889"
+  prometheus.io/path: "/metrics"
+
