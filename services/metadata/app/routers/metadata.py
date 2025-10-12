@@ -120,7 +120,8 @@ async def search_documents(
         "page_size": page_size
     }
     cache_key_data = json.dumps(cache_params, sort_keys=True)
-    cache_key_hash = hashlib.md5(cache_key_data.encode()).hexdigest()
+        # Use SHA-256 for cache key (secure hashing, not for crypto purposes but best practice)
+        cache_key_hash = hashlib.sha256(cache_key_data.encode()).hexdigest()
     
     # Include citizen_id in key for targeted invalidation
     if citizen_id:

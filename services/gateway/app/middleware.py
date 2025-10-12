@@ -78,7 +78,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 token,
                 self.settings.jwt_secret,
                 algorithms=[self.settings.jwt_algorithm],
-                options={"verify_signature": False},  # TODO: Enable in production
+                options={"verify_signature": True},  # Signature verification enabled
             )
             return payload
         except JWTError as e:

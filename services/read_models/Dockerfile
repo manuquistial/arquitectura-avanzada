@@ -23,6 +23,10 @@ COPY app/ ./app/
 # Expose port
 EXPOSE 8007
 
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD python -c "import httpx; httpx.get('http://localhost:8007/health', timeout=2.0)" || exit 1

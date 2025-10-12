@@ -81,13 +81,16 @@ def create_app() -> FastAPI:
     if COMMON_AVAILABLE:
         setup_cors(app)
     else:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    # CORS configuration from environment or default to localhost
+    import os
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Trace-ID"],
+    )
 
     # Routers
     app.include_router(metadata.router, prefix="/api/metadata", tags=["metadata"])
