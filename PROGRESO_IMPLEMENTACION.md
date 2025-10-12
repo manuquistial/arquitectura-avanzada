@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 13/24 fases (54.2%)
+**Completado**: 14/24 fases (58.3%)
 
 ```
-Progreso: █████████████░░░░░░░ 54.2%
+Progreso: ██████████████░░░░░░ 58.3%
 ```
 
-**Tiempo invertido**: 79h / 150h
+**Tiempo invertido**: 89h / 150h
 
-**Última actualización**: 2025-10-13 04:30
+**Última actualización**: 2025-10-13 05:30
 
 ---
 
@@ -143,12 +143,15 @@ Progreso: █████████████░░░░░░░ 54.2%
   - [x] 10.7 read_models/Dockerfile ✅
   - [ ] 10.8 Verificación completa (pendiente)
 
-- [ ] **FASE 11**: Vistas Frontend Faltantes (16h)
-  - [ ] 11.1 Centro de notificaciones (4h)
-  - [ ] 11.2 Preferencias de notificación (3h)
-  - [ ] 11.3 Visor PDF inline (4h)
-  - [ ] 11.4 Timeline en dashboard (3h)
-  - [ ] 11.5 Asistente transferencia (wizard) (2h)
+- [x] **FASE 11**: Vistas Frontend Faltantes (16h) ✅ COMPLETADA
+  - [x] 11.1 Centro de notificaciones (/notifications - 4h) ✅
+  - [x] 11.2 Página de preferencias (/settings - 3h) ✅
+  - [x] 11.3 Visor PDF inline (PDFViewer component - 4h) ✅
+  - [x] 11.4 Timeline dashboard (/dashboard - 3h) ✅
+  - [x] 11.5 Loading states globales (LoadingSpinner) ✅
+  - [x] 11.6 Error boundaries (ErrorBoundary) ✅
+  - [x] 11.7 Toast notifications (ToastContainer + useToast) ✅
+  - [x] 11.8 Navegación global (Navigation component) ✅
 
 - [x] **FASE 12**: Completar Helm Deployments (3h) ✅ COMPLETADA
   - [x] 12.1 deployment-frontend.yaml ✅
@@ -824,14 +827,15 @@ Progreso: █████████████░░░░░░░ 54.2%
 - ✅ FASE 8 - Terraform Avanzado (Zonal, Nodepools)
 - ✅ FASE 9 - Auth Service Completo
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
+- ✅ FASE 11 - Frontend Vistas Faltantes
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 12/24 fases (50% 🎉)
+**Progreso total**: 13/24 fases (54.2%)
 
-**Tiempo invertido**: ~63 horas
+**Tiempo invertido**: ~79 horas
 
-**Siguiente fase**: FASE 11 - Frontend Vistas Faltantes
+**Siguiente fase**: FASE 14 - Observabilidad Completa
 
 ---
 
