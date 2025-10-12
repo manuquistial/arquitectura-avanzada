@@ -72,7 +72,7 @@ module "vnet" {
   subnet_cidrs        = var.subnet_cidrs
 }
 
-# AKS (Kubernetes)
+# AKS (Kubernetes) - Advanced configuration
 module "aks" {
   source = "./modules/aks"
 
@@ -81,8 +81,53 @@ module "aks" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = module.vnet.aks_subnet_id
-  node_count          = var.aks_node_count
-  vm_size             = var.aks_vm_size
+  
+  # Kubernetes version
+  kubernetes_version        = var.aks_kubernetes_version
+  automatic_channel_upgrade = var.aks_automatic_upgrade
+  
+  # Cluster configuration
+  private_cluster_enabled = var.aks_private_cluster
+  sku_tier                = var.aks_sku_tier
+  authorized_ip_ranges    = var.aks_authorized_ip_ranges
+  admin_group_object_ids  = var.aks_admin_groups
+  
+  # Availability zones (multi-AZ)
+  availability_zones = var.aks_availability_zones
+  
+  # System node pool (K8s controllers)
+  system_vm_size    = var.aks_system_vm_size
+  system_node_count = var.aks_system_node_count
+  system_node_min   = var.aks_system_node_min
+  system_node_max   = var.aks_system_node_max
+  
+  # User node pool (applications)
+  user_vm_size  = var.aks_user_vm_size
+  user_node_min = var.aks_user_node_min
+  user_node_max = var.aks_user_node_max
+  
+  # Spot node pool (workers)
+  enable_spot_nodepool = var.aks_enable_spot
+  spot_vm_size         = var.aks_spot_vm_size
+  spot_node_min        = var.aks_spot_node_min
+  spot_node_max        = var.aks_spot_node_max
+  spot_max_price       = var.aks_spot_max_price
+  
+  # Auto-scaling
+  enable_auto_scaling = var.aks_enable_autoscaling
+  
+  # Network
+  service_cidr   = var.aks_service_cidr
+  dns_service_ip = var.aks_dns_service_ip
+  outbound_type  = var.aks_outbound_type
+  
+  # Maintenance window
+  maintenance_window_day   = var.aks_maintenance_day
+  maintenance_window_hours = var.aks_maintenance_hours
+  
+  # Legacy (backward compatibility)
+  node_count = var.aks_node_count
+  vm_size    = var.aks_vm_size
 }
 
 # PostgreSQL Flexible Server

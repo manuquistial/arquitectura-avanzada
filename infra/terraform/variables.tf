@@ -34,17 +34,176 @@ variable "subnet_cidrs" {
   }
 }
 
-# AKS
+# AKS - Advanced Configuration
 variable "aks_node_count" {
-  description = "Number of AKS nodes"
+  description = "DEPRECATED: Number of AKS nodes (use aks_system_node_count)"
   type        = number
   default     = 1
 }
 
 variable "aks_vm_size" {
-  description = "AKS node VM size"
+  description = "DEPRECATED: AKS node VM size (use aks_system_vm_size)"
   type        = string
   default     = "Standard_B2s"
+}
+
+# Kubernetes version
+variable "aks_kubernetes_version" {
+  description = "Kubernetes version"
+  type        = string
+  default     = "1.28"
+}
+
+variable "aks_automatic_upgrade" {
+  description = "Automatic upgrade channel (patch, stable, rapid, node-image, none)"
+  type        = string
+  default     = "patch"
+}
+
+# Cluster configuration
+variable "aks_private_cluster" {
+  description = "Enable private cluster (API server not public)"
+  type        = bool
+  default     = false  # true for production
+}
+
+variable "aks_sku_tier" {
+  description = "AKS SKU tier (Free, Standard)"
+  type        = string
+  default     = "Free"  # Standard for production (99.95% SLA)
+}
+
+variable "aks_authorized_ip_ranges" {
+  description = "Authorized IP ranges for API server"
+  type        = list(string)
+  default     = []
+}
+
+variable "aks_admin_groups" {
+  description = "Azure AD group object IDs for cluster admins"
+  type        = list(string)
+  default     = []
+}
+
+# Availability zones (multi-AZ)
+variable "aks_availability_zones" {
+  description = "Availability zones for node pools"
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
+# System node pool (K8s controllers)
+variable "aks_system_vm_size" {
+  description = "VM size for system node pool"
+  type        = string
+  default     = "Standard_B2s"
+}
+
+variable "aks_system_node_count" {
+  description = "System node count (if autoscaling disabled)"
+  type        = number
+  default     = 1
+}
+
+variable "aks_system_node_min" {
+  description = "Minimum system nodes (autoscaling)"
+  type        = number
+  default     = 1
+}
+
+variable "aks_system_node_max" {
+  description = "Maximum system nodes (autoscaling)"
+  type        = number
+  default     = 3
+}
+
+# User node pool (applications)
+variable "aks_user_vm_size" {
+  description = "VM size for user node pool"
+  type        = string
+  default     = "Standard_D2s_v3"
+}
+
+variable "aks_user_node_min" {
+  description = "Minimum user nodes"
+  type        = number
+  default     = 2
+}
+
+variable "aks_user_node_max" {
+  description = "Maximum user nodes"
+  type        = number
+  default     = 10
+}
+
+# Spot node pool (KEDA workers)
+variable "aks_enable_spot" {
+  description = "Enable spot node pool"
+  type        = bool
+  default     = true
+}
+
+variable "aks_spot_vm_size" {
+  description = "VM size for spot node pool"
+  type        = string
+  default     = "Standard_D2s_v3"
+}
+
+variable "aks_spot_node_min" {
+  description = "Minimum spot nodes"
+  type        = number
+  default     = 0  # Can scale to zero
+}
+
+variable "aks_spot_node_max" {
+  description = "Maximum spot nodes"
+  type        = number
+  default     = 10
+}
+
+variable "aks_spot_max_price" {
+  description = "Max price for spot instances (-1 = regular price)"
+  type        = number
+  default     = -1
+}
+
+# Auto-scaling
+variable "aks_enable_autoscaling" {
+  description = "Enable cluster autoscaler"
+  type        = bool
+  default     = true
+}
+
+# Network
+variable "aks_service_cidr" {
+  description = "Kubernetes service CIDR"
+  type        = string
+  default     = "10.1.0.0/16"
+}
+
+variable "aks_dns_service_ip" {
+  description = "Kubernetes DNS service IP"
+  type        = string
+  default     = "10.1.0.10"
+}
+
+variable "aks_outbound_type" {
+  description = "Outbound type (loadBalancer, userDefinedRouting)"
+  type        = string
+  default     = "loadBalancer"
+}
+
+# Maintenance window
+variable "aks_maintenance_day" {
+  description = "Maintenance window day"
+  type        = string
+  default     = "Sunday"
+}
+
+variable "aks_maintenance_hours" {
+  description = "Maintenance window hours"
+  type        = list(number)
+  default     = [2, 3, 4]
 }
 
 # PostgreSQL

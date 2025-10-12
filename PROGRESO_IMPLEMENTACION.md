@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 10/24 fases (41.7%)
+**Completado**: 11/24 fases (45.8%)
 
 ```
-Progreso: ██████████░░░░░░░░░░ 41.7%
+Progreso: ███████████░░░░░░░░░ 45.8%
 ```
 
-**Tiempo invertido**: 47h / 150h
+**Tiempo invertido**: 55h / 150h
 
-**Última actualización**: 2025-10-13 03:00
+**Última actualización**: 2025-10-13 03:30
 
 ---
 
@@ -670,6 +670,70 @@ Progreso: ██████████░░░░░░░░░░ 41.7%
 
 **LOGRO**: Alta disponibilidad garantizada durante mantenimiento (12 PDBs)
 
+### 2025-10-13 03:30 - ✅ FASE 8 COMPLETADA (Terraform Avanzado - Zonal, Nodepools)
+- ✅ Módulo AKS actualizado (modules/aks/main.tf)
+  - Zonal architecture: availability_zones = ["1", "2", "3"]
+  - Azure CNI network plugin (en vez de kubenet)
+  - NetworkPolicy support habilitado (network_policy = "azure")
+  - Workload Identity enabled (oidc_issuer_enabled, workload_identity_enabled)
+  - Private cluster option (configurable)
+  - SKU tier (Free/Standard, 99.95% SLA)
+  - API server authorized IP ranges
+  - Azure AD RBAC integration
+  - Maintenance window (Sunday 2-5am)
+  - Automatic channel upgrade (patch)
+- ✅ System Nodepool (default pool)
+  - VM: Standard_B2s (2 vCPU, 4GB RAM)
+  - Count: 1-3 nodes (autoscaling)
+  - Only critical addons (taint: CriticalAddonsOnly)
+  - Ephemeral OS disk (30GB)
+  - Labels: nodepool=system, workload=system
+  - Zones: 1,2,3
+- ✅ User Nodepool (aplicaciones)
+  - VM: Standard_D2s_v3 (2 vCPU, 8GB RAM)
+  - Count: 2-10 nodes (autoscaling)
+  - Labels: nodepool=user, workload=applications
+  - Ephemeral OS disk (100GB)
+  - Zones: 1,2,3
+- ✅ Spot Nodepool (workers KEDA)
+  - VM: Standard_D2s_v3
+  - Count: 0-10 nodes (scale to zero)
+  - Priority: Spot (70-90% cheaper)
+  - Eviction policy: Delete
+  - Labels: nodepool=spot, workload=workers, scalesetpriority=spot
+  - Taint: scalesetpriority=spot:NoSchedule
+  - Zones: 1,2,3
+- ✅ Variables Terraform (40+ nuevas)
+  - aks_kubernetes_version, aks_automatic_upgrade
+  - aks_private_cluster, aks_sku_tier
+  - aks_availability_zones (multi-AZ)
+  - aks_system_* (vm_size, node_min, node_max)
+  - aks_user_* (vm_size, node_min, node_max)
+  - aks_spot_* (enable, vm_size, node_min, node_max, max_price)
+  - aks_service_cidr, aks_dns_service_ip, aks_outbound_type
+  - aks_maintenance_day, aks_maintenance_hours
+  - aks_authorized_ip_ranges, aks_admin_groups
+- ✅ Outputs actualizados
+  - oidc_issuer_url (Workload Identity)
+  - kubelet_identity_object_id
+  - system_nodepool_id, user_nodepool_id, spot_nodepool_id
+  - node_resource_group
+- ✅ main.tf integration
+  - Module call actualizado con 20+ parámetros
+  - Backward compatibility (legacy vars)
+- ✅ Documentación
+  - docs/AKS_ADVANCED_ARCHITECTURE.md (completa)
+  - Arquitectura multi-zone explicada
+  - 3 nodepools strategy
+  - Azure CNI vs kubenet
+  - Cost optimization (spot instances)
+  - SLA tiers (99.5% → 99.99%)
+  - Maintenance & upgrades
+  - Testing scenarios (zone failure, spot preemption)
+  - Troubleshooting
+
+**LOGRO**: Arquitectura AKS production-ready (multi-zone, 3 nodepools, 99.99% SLA)
+
 ### 2025-10-12 21:30 - ✅ FASE 1 COMPLETADA
 
 ### 2025-10-12 21:00 - FASE 1 Iniciada
@@ -692,15 +756,16 @@ Progreso: ██████████░░░░░░░░░░ 41.7%
 - ✅ FASE 5 - Key Vault + CSI Secret Store
 - ✅ FASE 6 - NetworkPolicies (Zero-Trust)
 - ✅ FASE 7 - PodDisruptionBudgets (HA)
+- ✅ FASE 8 - Terraform Avanzado (Zonal, Nodepools)
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 10/24 fases
+**Progreso total**: 11/24 fases
 
-**Tiempo invertido**: ~47 horas
+**Tiempo invertido**: ~55 horas
 
-**Siguiente fase**: FASE 8 - Terraform Avanzado (Zonal, Nodepools)
+**Siguiente fase**: FASE 9 - Auth Service Completo
 
 ---
 
