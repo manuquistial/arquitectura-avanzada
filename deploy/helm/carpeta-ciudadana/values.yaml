@@ -57,6 +57,9 @@ frontend:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
 
 # Gateway Service - Alto tráfico, crítico
 gateway:
@@ -80,6 +83,8 @@ gateway:
     minReplicas: 3
     maxReplicas: 20
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 2  # Gateway is critical, keep 2 available
     # Metrics adicionales (requiere Prometheus Adapter)
     customMetrics:
       enabled: false  # Activar si tienes Prometheus Adapter
@@ -114,6 +119,8 @@ citizen:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # Ingestion Service - Genera SAS URLs, no sube archivos
 ingestion:
@@ -137,6 +144,8 @@ ingestion:
     minReplicas: 2
     maxReplicas: 15
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # Signature Service - Alto CPU (criptografía)
 signature:
@@ -160,6 +169,8 @@ signature:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1  # Critical for WORM activation
 
 # Metadata Service - Búsquedas en OpenSearch
 metadata:
@@ -183,6 +194,8 @@ metadata:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # Transfer Service - Saga pattern, transaccional
 transfer:
@@ -206,6 +219,8 @@ transfer:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1  # Critical for saga orchestration
 
 # Sharing Service - Shortlinks (bajo uso)
 sharing:
@@ -229,6 +244,8 @@ sharing:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # Notification Service - Email + webhooks (bajo uso típicamente)
 notification:
@@ -252,6 +269,8 @@ notification:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # MinTIC Client Service - Rate limiter + Hub calls
 minticClient:
@@ -275,6 +294,8 @@ minticClient:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # Read Models Service (CQRS) - Consumidor de eventos
 readModels:
@@ -298,6 +319,8 @@ readModels:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 # Auth Service - OIDC Provider + Azure AD B2C
 auth:
@@ -424,6 +447,12 @@ transferWorker:
     prometheus.io/scrape: "true"
     prometheus.io/port: "8012"
     prometheus.io/path: "/metrics"
+  
+  # Pod Disruption Budget (KEDA-aware)
+  podDisruptionBudget:
+    minAvailable: 0  # Allow scaling to zero
+    useMaxUnavailable: true
+    maxUnavailable: 50%  # During operation, allow disrupting 50% at a time
 
 # PostgreSQL Configuration (Azure Database for PostgreSQL)
 postgresql:
@@ -551,6 +580,12 @@ networkPolicies:
   denyAllByDefault: true  # Deny all traffic by default, allow only specific
   allowDNS: true  # Always allow DNS resolution
   allowObservability: true  # Allow Prometheus scraping
+
+# Pod Disruption Budgets (High Availability)
+podDisruptionBudget:
+  enabled: true  # Recommended for production
+  # Global defaults (can be overridden per service)
+  defaultMinAvailable: 1  # At least 1 pod must be available during disruptions
 
 # Ingress - Solo expone frontend y gateway (público)
 ingress:
