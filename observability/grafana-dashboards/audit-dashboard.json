@@ -1,0 +1,227 @@
+{
+  "dashboard": {
+    "title": "Carpeta Ciudadana - Audit & Compliance",
+    "tags": ["carpeta-ciudadana", "audit", "compliance", "security"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "📊 Total Audit Events (24h)",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(audit_events_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "✅ Success Rate",
+        "type": "gauge",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "(sum(rate(audit_events_total{status=\"success\"}[1h])) / sum(rate(audit_events_total[1h]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "❌ Failures (24h)",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(audit_events_total{status=\"failure\"}[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "👥 Active Users (24h)",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "count(count by (user_id) (audit_events_total{user_id!=\"\"}[24h]))",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "📈 Events Over Time",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(audit_events_total[5m])) by (action)",
+            "legendFormat": "{{action}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "📊 Events by Action",
+        "type": "piechart",
+        "gridPos": {"x": 12, "y": 4, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (action) (increase(audit_events_total[24h]))",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "📂 Events by Resource Type",
+        "type": "piechart",
+        "gridPos": {"x": 18, "y": 4, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (resource_type) (increase(audit_events_total[24h]))",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "🚨 Recent Failures",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 12, "w": 24, "h": 8},
+        "targets": [
+          {
+            "expr": "audit_events{status=\"failure\"}",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "renameByName": {
+                "timestamp": "Timestamp",
+                "event_type": "Event Type",
+                "user_id": "User",
+                "action": "Action",
+                "resource_type": "Resource",
+                "error_message": "Error"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "👤 Top 10 Most Active Users",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 20, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "topk(10, sum by (user_id, user_email) (increase(audit_events_total[24h])))",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "🔥 Most Accessed Resources",
+        "type": "table",
+        "gridPos": {"x": 12, "y": 20, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "topk(10, sum by (resource_type, resource_id) (increase(audit_events_total{action=\"read\"}[24h])))",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "🔒 Security Events",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 26, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(rate(audit_events_total{event_type=~\".*LOGIN.*|.*PERMISSION.*\"}[5m])) by (event_type)",
+            "legendFormat": "{{event_type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "📝 WORM Operations",
+        "type": "timeseries",
+        "gridPos": {"x": 12, "y": 26, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(rate(audit_events_total{event_type=~\".*SIGN.*|.*WORM.*\"}[5m])) by (status)",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ]
+      }
+    ]
+  }
+}
+
