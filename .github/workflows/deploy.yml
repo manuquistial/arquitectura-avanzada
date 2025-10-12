@@ -3,7 +3,6 @@ name: Deploy to AKS
 on:
   push:
     branches:
-      - main
       - master
   workflow_dispatch:
     inputs:

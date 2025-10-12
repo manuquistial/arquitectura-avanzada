@@ -130,7 +130,7 @@ jobs:
     name: Deploy Azure Infrastructure
     runs-on: ubuntu-latest
     needs: [frontend-test, backend-test]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     
     outputs:
       resource_group: ${{ steps.terraform-output.outputs.resource_group }}
@@ -243,7 +243,7 @@ jobs:
     name: Install Platform Components
     runs-on: ubuntu-latest
     needs: [infra-apply]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     
     steps:
       - name: Checkout code
@@ -474,7 +474,7 @@ jobs:
     name: Bootstrap Secrets and ConfigMaps
     runs-on: ubuntu-latest
     needs: [platform-install]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
     
     steps:
       - name: Checkout code
@@ -488,7 +488,7 @@ jobs:
             echo "environment=development" >> $GITHUB_OUTPUT
             echo "allow_insecure_urls=true" >> $GITHUB_OUTPUT
             echo "cors_origins=*" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          elif [ "${{ github.ref }}" = "refs/heads/master" ]; then
             echo "namespace=carpeta-ciudadana-prod" >> $GITHUB_OUTPUT
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "allow_insecure_urls=false" >> $GITHUB_OUTPUT
@@ -726,7 +726,7 @@ jobs:
     name: Run Database Migrations
     runs-on: ubuntu-latest
     needs: [bootstrap-config]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
     
     steps:
       - name: Checkout code
@@ -737,7 +737,7 @@ jobs:
         run: |
           if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
             echo "namespace=carpeta-ciudadana-dev" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          elif [ "${{ github.ref }}" = "refs/heads/master" ]; then
             echo "namespace=carpeta-ciudadana-prod" >> $GITHUB_OUTPUT
           else
             echo "namespace=carpeta-ciudadana-dev" >> $GITHUB_OUTPUT
@@ -1365,7 +1365,7 @@ jobs:
             echo "values_file=values-dev.yaml" >> $GITHUB_OUTPUT
             echo "allow_insecure=true" >> $GITHUB_OUTPUT
             echo "environment=development" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          elif [ "${{ github.ref }}" = "refs/heads/master" ]; then
             echo "namespace=carpeta-ciudadana-prod" >> $GITHUB_OUTPUT
             echo "values_file=values-prod.yaml" >> $GITHUB_OUTPUT
             echo "allow_insecure=false" >> $GITHUB_OUTPUT
