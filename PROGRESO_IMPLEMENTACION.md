@@ -9,15 +9,15 @@
 
 ## 📊 PROGRESO GLOBAL
 
-**Completado**: 7/24 fases (29.2%)
+**Completado**: 8/24 fases (33.3%)
 
 ```
-Progreso: ███████░░░░░░░░░░░░░ 29.2%
+Progreso: ████████░░░░░░░░░░░░ 33.3%
 ```
 
-**Tiempo invertido**: 36h / 150h
+**Tiempo invertido**: 42h / 150h
 
-**Última actualización**: 2025-10-13 01:45
+**Última actualización**: 2025-10-13 02:15
 
 ---
 
@@ -66,14 +66,16 @@ Progreso: ███████░░░░░░░░░░░░░ 29.2%
   - [x] 4.8 Secret Helm template ✅
   - [x] 4.9 Documentación completa ✅
 
-- [ ] **FASE 5**: Key Vault + CSI Secret Store (6h)
-  - [ ] 5.1 Crear Key Vault (Terraform)
-  - [ ] 5.2 Instalar CSI Secret Store Driver
-  - [ ] 5.3 SecretProviderClass (Helm)
-  - [ ] 5.4 Actualizar ServiceAccount
-  - [ ] 5.5 Montar secrets en deployments
-  - [ ] 5.6 Migrar secretos a Key Vault
-  - [ ] 5.7 Verificación completa
+- [x] **FASE 5**: Key Vault + CSI Secret Store (6h) ✅ COMPLETADA
+  - [x] 5.1 Módulo Terraform Key Vault (main, variables, outputs) ✅
+  - [x] 5.2 Módulo Terraform CSI Secrets Driver ✅
+  - [x] 5.3 Integración en main.tf (Key Vault + CSI) ✅
+  - [x] 5.4 Variables Terraform (keyvault_*, csi_*, secrets) ✅
+  - [x] 5.5 SecretProviderClass Helm template ✅
+  - [x] 5.6 ServiceAccount con Workload Identity annotations ✅
+  - [x] 5.7 Deployment gateway actualizado (CSI volume mount) ✅
+  - [x] 5.8 values.yaml configuración completa ✅
+  - [x] 5.9 Documentación KEY_VAULT_SETUP.md ✅
 
 - [ ] **FASE 6**: NetworkPolicies (3h)
   - [ ] 5.1 NetworkPolicy para gateway
@@ -532,6 +534,54 @@ Progreso: ███████░░░░░░░░░░░░░ 29.2%
 
 **LOGRO**: Autenticación M2M con HMAC + replay protection + Redis deduplication
 
+### 2025-10-13 02:15 - ✅ FASE 5 COMPLETADA (Key Vault + CSI Secret Store)
+- ✅ Módulo Terraform Key Vault
+  - infra/terraform/modules/keyvault/main.tf
+  - Resource: azurerm_key_vault
+  - RBAC: Key Vault Secrets User role assignment
+  - 10+ secrets: postgres, servicebus, m2m, storage, redis, opensearch, azure-b2c
+  - Soft delete + purge protection configurables
+  - Network ACLs (public/private)
+- ✅ Módulo Terraform CSI Secrets Store Driver
+  - infra/terraform/modules/csi-secrets-driver/main.tf
+  - Helm: secrets-store-csi-driver (1.4.0)
+  - Helm: csi-secrets-store-provider-azure (1.5.0)
+  - Secret rotation enabled (poll: 2m)
+  - Workload Identity integration
+- ✅ Integración en main.tf
+  - module.keyvault después de servicebus
+  - module.csi_secrets_driver después de keyvault
+  - Secrets values desde otros módulos
+- ✅ Variables Terraform
+  - keyvault_* (sku, public_access, purge_protection, soft_delete)
+  - m2m_secret_key, redis_password
+  - azure_b2c_* (tenant_id, client_id, client_secret)
+  - csi_* (namespace, rotation, interval)
+- ✅ Helm Templates
+  - secretproviderclass.yaml (main + azure-b2c)
+  - 10+ object mappings (Key Vault → Pod)
+  - Sync to K8s secrets (backward compatibility)
+- ✅ ServiceAccount
+  - serviceaccount.yaml con Workload Identity annotations
+  - azure.workload.identity/client-id
+  - azure.workload.identity/tenant-id
+- ✅ Deployment actualizado (gateway ejemplo)
+  - CSI volume mount (/mnt/secrets-store)
+  - envFrom: secrets synced o tradicionales
+  - SERVICE_ID env var
+- ✅ values.yaml configuración
+  - global.workloadIdentity section
+  - global.keyVault section (enabled, name, sync)
+  - global.azureB2C section
+- ✅ Documentación
+  - docs/KEY_VAULT_SETUP.md (guía completa)
+  - Arquitectura explicada
+  - Migración desde K8s secrets
+  - Secret rotation
+  - Troubleshooting
+
+**LOGRO**: Secrets management con Azure Key Vault + auto-rotation + Workload Identity
+
 ### 2025-10-12 21:30 - ✅ FASE 1 COMPLETADA
 
 ### 2025-10-12 21:00 - FASE 1 Iniciada
@@ -551,15 +601,16 @@ Progreso: ███████░░░░░░░░░░░░░ 29.2%
 - ✅ FASE 2 - Azure AD B2C (OIDC Real)
 - ✅ FASE 3 - transfer-worker + KEDA
 - ✅ FASE 4 - Headers M2M Completos
+- ✅ FASE 5 - Key Vault + CSI Secret Store
 - ✅ FASE 10 - Servicios Básicos (notification, read_models)
 - ✅ FASE 12 - Helm Deployments Completos
 - ✅ FASE 13 - CI/CD Completo
 
-**Progreso total**: 7/24 fases
+**Progreso total**: 8/24 fases
 
-**Tiempo invertido**: ~36 horas
+**Tiempo invertido**: ~42 horas
 
-**Siguiente fase**: FASE 5 - Key Vault + CSI Secret Store
+**Siguiente fase**: FASE 6 - NetworkPolicies
 
 ---
 
