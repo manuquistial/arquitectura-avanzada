@@ -156,9 +156,8 @@ class CircuitBreaker(Generic[T]):
                     self._failure_count = 0
                     self._success_count = 0
                     self._last_failure_time = None
-            
             elif self._state == CircuitState.CLOSED:
-                # Reset failure count on success
+                # Reset failure count on success in CLOSED state
                 self._failure_count = 0
     
     def _record_failure(self):
@@ -225,10 +224,10 @@ class CircuitBreaker(Generic[T]):
         Args:
             func: Function to call
             *args, **kwargs: Function arguments
-        
+            
         Returns:
             Function result
-        
+            
         Raises:
             CircuitBreakerError: If circuit is open
             Exception: If call fails and circuit remains closed
@@ -256,7 +255,7 @@ class CircuitBreaker(Generic[T]):
                 return self.fallback(*args, **kwargs)
             
             raise
-    
+        
     def __call__(self, func: Callable[..., T]) -> Callable[..., T]:
         """Decorator for circuit breaker."""
         @wraps(func)
@@ -370,7 +369,7 @@ class CircuitBreakerRegistry:
     def get_all_stats(self) -> dict[str, dict]:
         """Get statistics for all circuit breakers."""
         with self._lock:
-            return {
+        return {
                 name: breaker.get_stats()
                 for name, breaker in self._breakers.items()
             }
