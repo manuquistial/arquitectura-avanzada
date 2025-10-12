@@ -3,19 +3,33 @@
 > Sistema de Carpeta Ciudadana con arquitectura de microservicios event-driven  
 > **Cloud:** Azure (AKS) | **Python** 3.13 | **Node.js** 22 | **FastAPI** + **Next.js**
 
-📖 **[Ver Guía Completa](./GUIA_COMPLETA.md)** - Documentación detallada del proyecto
+[![CI/CD](https://github.com/manuquistial/arquitectura-avanzada/actions/workflows/ci.yml/badge.svg)](https://github.com/manuquistial/arquitectura-avanzada/actions)
+
+---
+
+## 📖 Documentación
+
+- **[GUIA_COMPLETA.md](./GUIA_COMPLETA.md)** ⭐ - Guía completa del proyecto
+- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitectura técnica detallada
+- **[OBSERVABILITY_GUIDE.md](./OBSERVABILITY_GUIDE.md)** - OpenTelemetry y métricas
+- **[RATE_LIMITER_GUIDE.md](./RATE_LIMITER_GUIDE.md)** - Rate limiting avanzado
+- **[scripts/secrets/README.md](./scripts/secrets/README.md)** - Rotación de secretos
+- **[observability/README.md](./observability/README.md)** - Dashboards y alertas
+
+---
 
 ## 🚀 Quick Start
 
-```bash
-# Desarrollo local (venv - más rápido)
-docker-compose up -d           # Infraestructura
-./start-services.sh            # Servicios
-open http://localhost:3000
+### Desarrollo Local (venv - recomendado)
 
-# Stack completo en Docker (simula producción)
-./build-all.sh                 # Build imágenes
-make dev-docker                # Levanta todo
+```bash
+# 1. Levantar infraestructura (Postgres, Redis, OpenSearch)
+docker-compose up -d
+
+# 2. Iniciar servicios backend y frontend
+./start-services.sh
+
+# 3. Abrir en navegador
 open http://localhost:3000
 
 # Detener
@@ -23,205 +37,269 @@ open http://localhost:3000
 docker-compose down
 ```
 
-## 📚 Documentación
+### Stack Completo en Docker
 
-- **[GUIA_COMPLETA.md](./GUIA_COMPLETA.md)** ⭐ - Documento maestro con todo lo necesario
-- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitectura técnica detallada
+```bash
+# Build todas las imágenes
+./build-all.sh
+
+# Levantar stack completo
+docker-compose --profile app up -d
+
+# Ver logs
+docker-compose logs -f gateway
+
+# Detener
+docker-compose down
+```
+
+---
 
 ## 🏗️ Arquitectura
 
-- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind
-- **Backend**: 6 microservicios FastAPI (Python 3.13)
-- **Infraestructura**: Azure (AKS, PostgreSQL, Blob Storage, Service Bus)
-- **CI/CD**: GitHub Actions con Federated Credentials
-- **Deploy**: Kubernetes (Helm charts)
-- **Integración**: GovCarpeta APIs (hub MinTIC)
+### Stack Tecnológico
 
-## Estructura del Proyecto
+**Frontend:**
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Fuente: Montserrat
 
-```
-.
-├── apps/
-│   └── frontend/          # Next.js App Router
-├── services/
-│   ├── gateway/           # API Gateway, rate limiting
-│   ├── iam/              # OIDC/ABAC
-│   ├── citizen/          # Gestión de ciudadanos
-│   ├── ingestion/        # Ingesta de documentos
-│   ├── signature/        # Firma digital (XAdES/CAdES/PAdES)
-│   ├── metadata/         # Metadatos de documentos
-│   ├── transfer/         # Transferencia P2P
-│   ├── sharing/          # Compartir documentos
-│   ├── notification/     # Notificaciones
-│   └── mintic_client/    # Cliente hub MinTIC
-├── infra/
-│   └── terraform/        # IaC para AWS
-├── deploy/
-│   └── helm/             # Charts de Kubernetes
-├── docs/
-│   ├── openapi/          # Especificaciones OpenAPI
-│   └── asyncapi/         # Especificaciones AsyncAPI
-└── Makefile              # Comandos de desarrollo
+**Backend:**
+- FastAPI (Python 3.13)
+- PostgreSQL (Azure Database)
+- Redis (Azure Cache)
+- Azure Blob Storage
+- Service Bus (eventos)
+- OpenSearch (búsqueda)
 
-```
+**Cloud:**
+- Azure Kubernetes Service (AKS)
+- Terraform (IaC)
+- Helm (deploy)
+- GitHub Actions (CI/CD)
 
-## Microservicios
+### Microservicios (12)
 
-### Gateway Service
-- Rate limiting
-- Validación de tokens JWT
-- Routing a microservicios
+| Servicio | Puerto | Descripción |
+|----------|--------|-------------|
+| **frontend** | 3000 | Next.js UI |
+| **gateway** | 8000 | API Gateway + Rate Limiting |
+| **citizen** | 8001 | Gestión ciudadanos |
+| **ingestion** | 8002 | Upload/download documentos |
+| **metadata** | 8003 | Búsqueda y metadata |
+| **transfer** | 8004 | Transferencias P2P |
+| **mintic_client** | 8005 | Cliente hub MinTIC |
+| **signature** | 8006 | Firma y autenticación |
+| **read_models** | 8007 | CQRS read models |
+| **auth** | 8008 | OIDC provider |
+| **iam** | 8009 | ABAC authorization |
+| **notification** | 8010 | Email + webhooks |
+| **sharing** | 8011 | Compartición shortlinks |
 
-### IAM Service
-- Gestión OIDC
-- ABAC (Attribute-Based Access Control)
-- Emisión de tokens B2B
+---
 
-### Citizen Service
-- Registro de ciudadanos
-- Afiliación a operador
-- Validación de ciudadanos
+## 🔧 Requisitos
 
-### Ingestion Service
-- Ingesta de documentos
-- Generación de URLs pre-firmadas (PUT)
-- Validación de metadatos
-
-### Signature Service
-- Firma digital: XAdES, CAdES, PAdES
-- Integración con TSA (Time Stamp Authority)
-- Verificación de firmas
-
-### Metadata Service
-- Almacenamiento de metadatos en PostgreSQL
-- Indexación en OpenSearch
-- Búsqueda avanzada
-
-### Transfer Service
-- Transferencia P2P entre operadores
-- Gestión de idempotencia
-- Confirmación de transferencias
-
-### Sharing Service
-- Compartir paquetes de documentos
-- URLs de descarga pre-firmadas (GET)
-- Control de acceso temporal
-
-### Notification Service
-- Notificaciones por email
-- Webhooks
-- Eventos de sistema
-
-### MinTIC Client Service
-- Integración con hub MinTIC
-- Registro de ciudadanos/operadores
-- Autenticación de documentos
-
-## Integración Hub MinTIC
-
-### Endpoints Implementados
-
-- `POST /apis/registerCitizen` - Registrar ciudadano en MinTIC
-- `DELETE /apis/unregisterCitizen` - Desafiliar ciudadano
-- `PUT /apis/authenticateDocument` - Autenticar documento
-- `GET /apis/validateCitizen/{id}` - Validar ciudadano
-- `POST /apis/registerOperator` - Registrar operador
-- `PUT /apis/registerTransferEndPoint` - Registrar endpoint de transferencia
-- `GET /apis/getOperators` - Obtener operadores
-
-## P2P Transfer
-
-### Flujo de Transferencia
-
-1. Operador origen inicia transferencia
-2. Operador destino recibe: `POST /api/transferCitizen`
-3. Destino descarga documentos con URLs pre-firmadas
-4. Destino confirma: `POST /api/transferCitizenConfirm`
-5. Origen elimina datos tras confirmación exitosa
-
-## Frontend
-
-### Funcionalidades
-
-- Login OIDC con Cognito
-- Registro y afiliación de ciudadanos
-- Subida de documentos (presigned PUT directo a S3)
-- Bandeja de documentos
-- Búsqueda en OpenSearch
-- Compartir paquetes
-- Flujo de transferencia entre operadores
-
-## Desarrollo
-
-### Requisitos
-
-- Node.js 22+
-- Python 3.11+
-- Docker & Docker Compose
-- Terraform
-- kubectl & Helm
-- AWS CLI
-
-### Comandos
+### Local Development
 
 ```bash
-# Desarrollo local
-make dev-up          # Levantar servicios locales
-make dev-down        # Detener servicios
+# Node.js 22
+nvm use 22
 
-# Testing
-make test            # Ejecutar todos los tests
-make test-unit       # Tests unitarios
-make test-contract   # Tests de contrato
-make test-e2e        # Tests E2E
+# Python 3.13
+python --version  # 3.13.7
 
-# Linting
-make lint            # Linter
-make format          # Formatear código
+# Poetry 2.2.1
+poetry --version
 
-# Build
-make build           # Build de todos los servicios
-make docker-build    # Build imágenes Docker
+# Docker
+docker --version
 
-# Deploy
-make deploy-dev      # Deploy a desarrollo
-make deploy-staging  # Deploy a staging
-make deploy-prod     # Deploy a producción
+# Kubernetes tools
+kubectl version
+helm version
 ```
 
-## Seguridad
+### Azure Setup
 
-- **Autenticación usuarios**: OIDC Authorization Code + PKCE
-- **Autenticación B2B**: OAuth 2.1 client_credentials + mTLS
-- **Documentos**: URLs pre-firmadas con expiración
-- **Eventos**: Firmados con JWS
-- **Auditoría**: OpenTelemetry completo
-- **Integridad**: SHA-256 para documentos
+- Cuenta Azure for Students ($100 créditos)
+- Azure CLI instalado y autenticado
+- Terraform 1.6+
+- kubectl configurado con AKS
 
-## Observabilidad
+---
 
-- **Trazas**: OpenTelemetry traces
-- **Métricas**: OpenTelemetry metrics
-- **Logs**: OpenTelemetry logs
-- **Eventos auditables**: Firmados con JWS
+## 🧪 Testing
 
-## Despliegue
+```bash
+# Unit tests (backend)
+cd services/gateway
+pytest tests/ -v
 
-### EKS (Kubernetes)
+# E2E tests (Playwright)
+cd tests/e2e
+npx playwright test
 
-- Helm charts para cada servicio
-- HPA (Horizontal Pod Autoscaler)
-- Service Mesh (Istio opcional)
-- Ingress con ALB
+# Load tests (k6)
+cd tests/load
+k6 run k6-load-test.js
 
-### CI/CD
+# Load tests (Locust)
+locust -f locustfile.py
+```
 
-- GitHub Actions
-- Build automático de imágenes
-- Tests automáticos
-- Deploy automático por ambiente
+---
 
-## Licencia
+## 🚢 Deployment
 
-Propiedad de [Tu Organización]
+### Local
 
+```bash
+# Con venv
+./start-services.sh
+
+# Con Docker
+docker-compose --profile app up -d
+```
+
+### Azure (AKS)
+
+```bash
+# 1. Deploy infraestructura
+cd infra/terraform
+terraform init
+terraform apply
+
+# 2. Deploy aplicación
+cd ../../
+helm upgrade --install carpeta-ciudadana \
+  deploy/helm/carpeta-ciudadana \
+  --namespace carpeta-ciudadana \
+  --create-namespace
+
+# 3. Verificar
+kubectl get pods -n carpeta-ciudadana
+```
+
+### CI/CD (Automático)
+
+GitHub Actions despliega automáticamente en cada push a `master`:
+- Lint + tests
+- Build Docker images
+- Push a Docker Hub
+- Deploy a AKS con Helm
+
+---
+
+## 📊 Características Principales
+
+### ✅ Implementado
+
+- [x] 12 microservicios con FastAPI
+- [x] Frontend Next.js 14 con TypeScript
+- [x] API Gateway con rate limiting avanzado
+- [x] Integración con hub MinTIC (GovCarpeta)
+- [x] Upload directo a Azure Blob Storage (presigned URLs)
+- [x] Búsqueda full-text con OpenSearch
+- [x] Transferencias P2P entre operadores
+- [x] Compartición de documentos con shortlinks
+- [x] Sistema de eventos con Azure Service Bus
+- [x] CQRS con read models
+- [x] Saga pattern con compensación
+- [x] Circuit breakers para resilencia
+- [x] OpenTelemetry (traces, metrics, logs)
+- [x] Redis para cache, locks, idempotencia
+- [x] Rotación automática de secretos (30 días)
+- [x] Backups automáticos (PostgreSQL, OpenSearch)
+- [x] Dashboards Grafana predefinidos
+- [x] Alertas Prometheus configuradas
+- [x] Tests E2E con Playwright
+- [x] Tests de carga con k6 y Locust
+- [x] CI/CD completo con GitHub Actions
+
+### 🔄 Próximas Mejoras
+
+- [ ] OIDC authentication completa (Auth service)
+- [ ] ABAC policies en IAM service
+- [ ] Azure Key Vault + CSI driver
+- [ ] Multi-región con geo-replication
+- [ ] CDN para assets estáticos
+
+---
+
+## 🌐 Integración Hub MinTIC
+
+**Hub GovCarpeta:**
+- URL: https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+- API pública (sin OAuth ni mTLS)
+
+**Endpoints integrados:**
+- Register/unregister citizen
+- Authenticate document
+- Validate citizen
+- Register operator
+- Get operators list
+- Register transfer endpoint
+
+---
+
+## 📈 Observabilidad
+
+**OpenTelemetry instrumentación completa:**
+- Trazas distribuidas con `traceparent`
+- Métricas: latencia p95, error rate, cache hit/miss, DLQ length
+- 4 dashboards Grafana (API Latency, Transfers Saga, Queue Health, Cache Efficiency)
+- 11 alertas configuradas (p95>2s, 5xx>1%, DLQ>10, etc.)
+
+**Exporters:**
+- Console (stdout) para desarrollo
+- Azure Monitor para producción
+- Prometheus + Grafana
+
+---
+
+## 🔐 Seguridad
+
+- **Rate Limiting**: Por rol (ciudadano: 60rpm, operador: 200rpm, services: 400rpm)
+- **Ban System**: 5 violaciones → ban 120s
+- **Allowlist**: IPs hub MinTIC bypass límites
+- **Secretos**: Rotación automática cada 30 días
+- **Backups**: Encriptados con AES-256-CBC
+- **Eventos**: Deduplicación con Redis
+
+---
+
+## 💾 Backup & Recovery
+
+**RPO:** 24 horas  
+**RTO:** < 2 horas
+
+- PostgreSQL: Backups diarios (retención 7 días)
+- OpenSearch: Snapshots diarios
+- Blobs: Replicación LRS nativa de Azure
+- Cleanup de huérfanos: Semanal
+
+---
+
+## 📞 Soporte
+
+Para problemas:
+1. Ver logs: `docker-compose logs -f {service}`
+2. Consultar [GUIA_COMPLETA.md](./GUIA_COMPLETA.md)
+3. Revisar [GitHub Actions](https://github.com/manuquistial/arquitectura-avanzada/actions)
+4. Verificar [Troubleshooting](./GUIA_COMPLETA.md#troubleshooting)
+
+---
+
+## 🔗 Enlaces
+
+- **Repositorio**: https://github.com/manuquistial/arquitectura-avanzada
+- **Docker Hub**: https://hub.docker.com/u/manuelquistial
+- **GovCarpeta API**: https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+
+---
+
+**Versión:** 2.0.0  
+**Última actualización:** 12 Octubre 2025  
+**Autor:** Manuel Jurado (Proyecto Universitario - Arquitectura Avanzada)

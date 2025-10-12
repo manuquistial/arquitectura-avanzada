@@ -16,7 +16,8 @@
 7. [Deployment](#deployment)
 8. [Testing](#testing)
 9. [Configuración](#configuración)
-10. [Troubleshooting](#troubleshooting)
+10. [Observabilidad](#observabilidad)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -106,8 +107,14 @@ Sistema que permite a los ciudadanos:
 | **citizen** | 8001 | Gestión de ciudadanos | PostgreSQL |
 | **ingestion** | 8002 | Upload/download documentos | PostgreSQL |
 | **metadata** | 8003 | Metadata y búsqueda | PostgreSQL + OpenSearch |
-| **transfer** | 8004 | Transferencias P2P | PostgreSQL |
-| **mintic_client** | 8005 | Cliente hub MinTIC (GovCarpeta) | - |
+| **transfer** | 8004 | Transferencias P2P | PostgreSQL + Redis |
+| **mintic_client** | 8005 | Cliente hub MinTIC (GovCarpeta) | Redis (cache) |
+| **signature** | 8006 | Firma y autenticación documentos | PostgreSQL + Redis |
+| **read_models** | 8007 | CQRS read models (proyecciones) | PostgreSQL + Redis |
+| **auth** | 8008 | OIDC provider (JWT emisor) | - |
+| **iam** | 8009 | ABAC authorization | - |
+| **notification** | 8010 | Email + Webhook notifications | PostgreSQL |
+| **sharing** | 8011 | Compartición vía shortlinks | PostgreSQL + Redis |
 
 ### Patrones de Arquitectura
 
@@ -126,21 +133,49 @@ Sistema que permite a los ciudadanos:
 
 **Responsabilidades:**
 - Routing a microservicios backend
-- Rate limiting (60 req/min)
+- **Advanced Rate Limiting** con límites por rol
+- Sistema de penalización y bans automáticos
 - Validación JWT (OIDC)
 - CORS habilitado
+- Propagación de traces (OpenTelemetry)
+- Endpoint de monitoreo `/ops/ratelimit/status`
+
+**Rate Limiting Avanzado:**
+
+| Rol | Límite (rpm) | Uso |
+|-----|--------------|-----|
+| `ciudadano` | 60 | Usuarios finales (default) |
+| `operador` | 200 | Operadores registrados |
+| `mintic_client` | 400 | Cliente hub MinTIC |
+| `transfer` | 400 | Servicio de transferencias |
+
+**Características:**
+- ✅ Sliding window con Redis (buckets de 60s)
+- ✅ Penalización: 5 violaciones en 10 min → ban IP por 120s
+- ✅ Allowlist: IPs del hub MinTIC bypass todos los límites
+- ✅ Métricas OpenTelemetry: `rate_limit.requests`, `rate_limit.rejected`, `rate_limit.banned`
 
 **Configuración:**
 ```bash
 # Variables de entorno
 ENVIRONMENT=development
-RATE_LIMIT_PER_MINUTE=60
+
+# Redis (requerido para rate limiting)
 REDIS_HOST=localhost
 REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_SSL=false
+
+# Service URLs (auto-discovery)
 CITIZEN_SERVICE_URL=http://localhost:8001
 INGESTION_SERVICE_URL=http://localhost:8002
 METADATA_SERVICE_URL=http://localhost:8003
-...
+SIGNATURE_SERVICE_URL=http://localhost:8006
+SHARING_SERVICE_URL=http://localhost:8011
+
+# JWT
+JWT_SECRET_KEY=dev-secret-key
+JWT_ALGORITHM=HS256
 ```
 
 **Rutas Públicas (sin auth):**
@@ -148,6 +183,35 @@ METADATA_SERVICE_URL=http://localhost:8003
 - `/docs`
 - `/api/citizens/register`
 - `/api/auth/login`
+- `/api/auth/token`
+- `/ops/ratelimit/status`
+
+**Monitoreo Rate Limiter:**
+```bash
+# Ver status propio
+curl http://localhost:8000/ops/ratelimit/status
+
+# Ver status de IP específica
+curl http://localhost:8000/ops/ratelimit/status?ip=192.168.1.100
+
+# Response incluye:
+# - Configuración de límites
+# - Estado de ban
+# - Contadores actuales por rol
+# - Número de violaciones
+```
+
+**Ejemplo de Penalización:**
+```
+1. Request 61/60 → Violación 1
+2. Request 61/60 → Violación 2
+3. Request 61/60 → Violación 3
+4. Request 61/60 → Violación 4
+5. Request 61/60 → Violación 5 → BAN por 120 segundos
+6. Cualquier request → 429 "IP banned"
+```
+
+Ver **`RATE_LIMITER_GUIDE.md`** para documentación completa y troubleshooting.
 
 ### 2. Citizen Service
 
@@ -174,25 +238,48 @@ METADATA_SERVICE_URL=http://localhost:8003
 ### 3. Ingestion Service
 
 **Responsabilidades:**
-- Generar presigned URLs para upload (PUT)
-- Generar presigned URLs para download (GET)
-- Guardar metadata de documentos
-- Confirmar uploads y verificar integridad
+- Generar presigned URLs para upload (PUT) - Frontend → Storage
+- Generar presigned URLs para download (GET) - Frontend ← Storage
+- Guardar metadata de documentos en PostgreSQL
+- Confirmar uploads y verificar integridad (SHA-256)
+- **NO canaliza binarios** - Todo directo a storage
 
-**Flujo de Upload:**
+**Flujo de Upload (sin binarios en backend):**
 ```
 1. Frontend solicita → POST /api/documents/upload-url
-2. Ingestion genera presigned URL (Azure Blob o S3)
-3. Ingestion guarda metadata en PostgreSQL (status=pending)
-4. Frontend sube archivo directo a storage con PUT
-5. Frontend confirma → POST /api/documents/confirm-upload
-6. Ingestion actualiza status=uploaded y hash SHA-256
+   ↓
+2. Ingestion genera presigned PUT URL (1 hora)
+   │  Guarda metadata en DB (status=pending)
+   ↓
+3. Frontend → PUT directo a Azure Blob Storage
+   │  (NO pasa por backend)
+   ↓
+4. Frontend confirma → POST /api/documents/confirm-upload
+   │  Envía: document_id, sha256_hash, size_bytes
+   ↓
+5. Ingestion actualiza status=uploaded
+   │  Verifica hash y tamaño
+```
+
+**⚠️ IMPORTANTE: Upload Directo**
+```
+❌ INCORRECTO (no escalable):
+Frontend → Backend (upload) → Storage
+           ↑ Bottleneck
+
+✅ CORRECTO (presigned URL):
+Frontend ─────→ Storage (directo con SAS/presigned)
+    ↓
+Backend (solo metadata)
 ```
 
 **Cloud Provider:**
 - Detecta via `CLOUD_PROVIDER` env var
 - Soporta Azure Blob Storage y AWS S3
-- Presigned URLs con expiración de 1 hora
+- Presigned URLs:
+  - Upload (PUT): 1 hora
+  - Download (GET): 1 hora (usuarios normales)
+  - Hub (GET): 15 minutos (solo para authenticateDocument)
 
 ### 4. Metadata Service (✨ NUEVO)
 
@@ -215,39 +302,373 @@ METADATA_SERVICE_URL=http://localhost:8003
 ### 5. Transfer Service
 
 **Responsabilidades:**
-- Transferencias P2P entre operadores
-- Gestión de idempotencia
-- Confirmación de transferencias
+- Transferencias P2P seguras entre operadores
+- Idempotencia con Redis (previene duplicados)
+- Locks distribuidos (previene race conditions)
+- Desregistro del hub SOLO después de confirmación
+- Background retry para PENDING_UNREGISTER
 
-**Flujo P2P:**
+**⚠️ CRÍTICO - Flujo Seguro (No Pérdida de Datos):**
 ```
-1. Operador A inicia transferencia
-2. POST /api/transferCitizen a operador B
-3. Operador B descarga docs con presigned URLs
-4. Operador B confirma: POST /api/transferCitizenConfirm
-5. Operador A elimina datos tras confirmación
+❌ INSEGURO:
+Origen elimina → Hub unregister → Destino recibe
+         ↑ Si destino falla, se pierden todos los datos
+
+✅ SEGURO (implementado):
+Origen espera → Destino confirma → Origen elimina → Hub unregister
+         ↑ Datos seguros hasta confirmación
 ```
+
+**Estados:**
+- `PENDING`: Iniciado, destino procesando
+- `CONFIRMED`: Destino confirmó recepción
+- `PENDING_UNREGISTER`: Esperando desregistro del hub
+- `SUCCESS`: Completado (desregistrado del hub)
+- `FAILED`: Transfer falló
+
+**Flujo Completo:**
+```
+1. Origen → POST /api/transferCitizen (destino)
+   - Idempotency-Key en header
+   - Status: PENDING
+   
+2. Destino descarga documentos
+   - Check: xfer:idemp:{key} (Redis SETNX)
+   - Download from presigned URLs
+   - Save locally
+   - Return 201
+
+3. Destino → POST /api/transferCitizenConfirm (origen)
+   - Body: {citizenId, token, req_status: 1}
+   
+4. Origen recibe confirmación (CON LOCK):
+   a. Acquire lock: lock:delete:{citizenId}
+   b. Update: status = PENDING_UNREGISTER
+   c. Delete: Citizen data from DB
+   d. Delete: Documents from storage
+   e. Call: mintic_client.unregister_citizen()
+   f. Si OK: status = SUCCESS
+   g. Si falla: retry_count++, keep PENDING_UNREGISTER
+   h. Release lock
+   
+5. Background job: Retry PENDING_UNREGISTER cada 5min
+```
+
+**Redis Keys:**
+- `xfer:idemp:{key}`: Idempotency (TTL 900s)
+- `lock:delete:{citizenId}`: Distributed lock (TTL 120s)
 
 ### 6. MinTIC Client Service
 
 **Responsabilidades:**
-- Integración con hub MinTIC (GovCarpeta APIs)
+- **ÚNICA FACADE** al hub MinTIC (GovCarpeta APIs)
+- Centraliza TODAS las llamadas al hub (sin duplicación)
 - Registro de ciudadanos y operadores
 - Autenticación de documentos
+- Cache y retry automático
+
+**Arquitectura:**
+```
+citizen service ─┐
+signature service├─→ mintic_client (facade) ─→ Hub MinTIC
+transfer service ─┘         ↓                    (público)
+                    No auth, passthrough
+                    Cache + retry + logs
+```
 
 **Hub MinTIC (GovCarpeta):**
 - URL: `https://govcarpeta-apis-4905ff3c005b.herokuapp.com`
-- Autenticación: API pública (sin OAuth ni mTLS)
-- Operator ID: `operator-demo` (configurable)
+- **API completamente pública** (sin autenticación)
+- No requiere: OAuth, API keys, mTLS, JWKS, certificados
+- Solo HTTP/HTTPS simple con SSL
+- Timeout: 10s
+- Respuestas: Texto plano o JSON (parsing flexible)
 
-**Endpoints Implementados:**
-- `POST /apis/registerCitizen` - Registrar ciudadano
-- `DELETE /apis/unregisterCitizen` - Desafiliar ciudadano
-- `PUT /apis/authenticateDocument` - Autenticar documento
-- `GET /apis/validateCitizen/{id}` - Validar ciudadano
-- `POST /apis/registerOperator` - Registrar operador
-- `PUT /apis/registerTransferEndPoint` - Registrar endpoint P2P
-- `GET /apis/getOperators` - Listar operadores
+**Retry Inteligente:**
+- Retry en: 5xx (excepto 501) y timeouts
+- NO retry en: 2xx, 3xx, 4xx, 501
+- Exponential backoff + jitter (random 0-2s)
+- 501 = error de parámetros o estado (no cambiará con retry)
+
+**DTO Unificado:**
+```json
+{
+  "ok": true/false,      // True si 2xx
+  "status": 200,         // HTTP status code
+  "message": "...",      // Texto del hub
+  "data": {...} | null   // JSON si disponible
+}
+```
+
+**Facade Endpoints (passthrough sin transformación):**
+
+| Endpoint Interno | Hub Endpoint | Usado por |
+|-----------------|--------------|-----------|
+| `POST /register-citizen` | `/apis/registerCitizen` | citizen |
+| `DELETE /unregister-citizen` | `/apis/unregisterCitizen` | citizen |
+| `PUT /authenticate-document` | `/apis/authenticateDocument` | signature |
+| `GET /validate-citizen/{id}` | `/apis/validateCitizen/{id}` | citizen |
+| `POST /register-operator` | `/apis/registerOperator` | startup |
+| `PUT /register-transfer-endpoint` | `/apis/registerTransferEndPoint` | startup |
+| `GET /operators` | `/apis/getOperators` | transfer |
+
+**Cache Redis:**
+
+**1. Anti-Stampede (getOperators):**
+- Cache: `mintic:operators` (TTL: 300s)
+- Lock: `lock:mintic:operators` (TTL: 10s)
+- Solo un pod fetchea, otros esperan
+- Evita thundering herd al hub
+
+**2. Idempotencia (operaciones de escritura):**
+
+Evita duplicados en reintentos:
+
+| Operación | Redis Key | TTL | Cachea si |
+|-----------|-----------|-----|-----------|
+| registerCitizen | `hub:registerCitizen:{id}` | 900s | 2xx, 204, 501 |
+| unregisterCitizen | `hub:unregisterCitizen:{id}` | 300s | 2xx, 204, 501 |
+| authenticateDocument | `hub:authdoc:{citizenId}:{urlHash}` | 900s | 2xx, 204, 501 |
+
+**Flow:**
+```
+1. Check Redis: hub:registerCitizen:123
+2. Si existe y status terminal (2xx/204/501) → return cached
+3. Si no existe → call hub
+4. Si hub response es terminal → save in Redis
+5. Si hub response es 5xx → NO cachear (retry)
+```
+
+**Beneficios:**
+- ✅ Evita duplicados en hub (ciudadano ya registrado)
+- ✅ Safe retries (si 1er intento OK, retries usan cache)
+- ✅ Reduce carga al hub
+- ✅ Consistencia en reintentos
+
+**Circuit Breakers:**
+
+Cada endpoint tiene su propio circuit breaker:
+
+| Endpoint | Failure Threshold | Recovery Time | Behavior when OPEN |
+|----------|-------------------|---------------|-------------------|
+| registerCitizen | 5 fallos | 60s | Return 202 + queue |
+| authenticateDocument | 5 fallos | 60s | Return 202 + queue |
+| getOperators | 5 fallos | 60s | Return 202 + queue |
+| ... | 5 fallos | 60s | Return 202 + queue |
+
+**Estados:**
+- **CLOSED**: Normal (todas las requests pasan)
+- **OPEN**: Demasiados fallos (return 202, encola operación)
+- **HALF_OPEN**: Testing recovery (máx 3 requests de prueba)
+
+**Flow:**
+```
+5 fallos consecutivos (5xx o timeout) → Circuit OPEN
+  ↓
+Siguiente request → Return 202 Accepted
+  ↓
+Enqueue to hub-retry-queue
+  ↓
+Después de 60s → Circuit HALF_OPEN
+  ↓
+3 requests de prueba → Si OK → CLOSED
+                    → Si fallan → OPEN again
+```
+
+**Métricas OpenTelemetry:**
+```
+hub.calls{endpoint, status, success}      # Total calls
+hub.latency{endpoint}                     # Latency (histogram)
+hub.cb_open{endpoint}                     # 0=CLOSED, 1=OPEN, 2=HALF_OPEN
+```
+
+**Normalización de Operadores:**
+- Tolera missing fields, whitespace extra, casing inconsistente
+- Mapea: `operatorId|operator_id|id` → `OperatorId`
+- Mapea: `operatorName|name` → `OperatorName`  
+- Mapea: `transferAPIURL|transfer_api_url|url` → `transferAPIURL`
+- Filtra operadores sin `transferAPIURL`
+
+**Validación de URLs:**
+- **Producción**: Solo `https://` (rechaza `http://`)
+- **Desarrollo**: Permite `http://` con warning
+- Flag: `ALLOW_INSECURE_OPERATOR_URLS=true` en dev
+
+**Configuración:**
+```bash
+MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+MINTIC_OPERATOR_ID=operator-demo
+MINTIC_OPERATOR_NAME=Carpeta Ciudadana Demo
+REQUEST_TIMEOUT=10
+MAX_RETRIES=3
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+# Security
+ENVIRONMENT=development
+ALLOW_INSECURE_OPERATOR_URLS=true  # false en producción
+```
+
+**Ejemplo de Response:**
+```json
+// Raw from hub (puede variar):
+[
+  {
+    "OperatorId": "op1",
+    "operatorName": "  Operador 1  ",  // whitespace
+    "transferAPIURL": "https://op1.com/transfer"
+  },
+  {
+    "operator_id": "op2",  // different casing
+    "name": "Operador 2",
+    "url": null  // missing URL - será filtrado
+  },
+  {
+    "OperatorId": "op3",
+    "OperatorName": "Operador 3",
+    "transferAPIURL": "http://localhost:8000"  // http:// - warning en dev, reject en prod
+  }
+]
+
+// Normalizado y filtrado:
+[
+  {
+    "OperatorId": "op1",
+    "OperatorName": "Operador 1",  // trimmed
+    "transferAPIURL": "https://op1.com/transfer"
+  },
+  {
+    "OperatorId": "op3",
+    "OperatorName": "Operador 3",
+    "transferAPIURL": "http://localhost:8000"  // solo en dev
+  }
+]
+// op2 filtrado (no transferAPIURL)
+```
+
+### 7. Signature Service (✍️ NUEVO)
+
+**Responsabilidades:**
+- Calcular hashes SHA-256 de documentos
+- Firmar hashes (mock RSA o K8s secret)
+- Generar SAS URLs temporales para Azure Blob
+- Autenticar documentos en hub MinTIC
+- Almacenar registros de firma en PostgreSQL
+- Cache de idempotencia en Redis
+
+**Endpoints:**
+- `POST /sign` - Firmar documento y autenticar con hub
+- `POST /verify` - Verificar firma
+
+### 8. Read Models Service (🔄 CQRS - NUEVO)
+
+**Responsabilidades:**
+- Consumir eventos de Service Bus
+- Proyectar read models denormalizados
+- Proveer queries rápidas con cache Redis
+- Deduplicación con `event_id`
+
+**Endpoints:**
+- `GET /read/documents?citizenId=...` - Listar documentos optimizado
+- `GET /read/transfers?citizenId=...` - Listar transferencias
+
+### 9. Auth Service (🔐 OIDC - NUEVO)
+
+**Responsabilidades:**
+- Proveedor OIDC mínimo viable
+- Emisión de JWT RS256
+- Publicación de JWKS
+
+**Endpoints:**
+- `/.well-known/openid-configuration` - Configuración OIDC
+- `/.well-known/jwks.json` - Claves públicas
+- `POST /auth/token` - Obtener JWT
+- `GET /auth/userinfo` - Info del usuario
+
+### 10. IAM Service (🛡️ ABAC - NUEVO)
+
+**Responsabilidades:**
+- Evaluador de políticas ABAC (YAML)
+- Control de acceso granular
+- Contexto dinámico
+
+**Endpoints:**
+- `POST /authorize` - Evaluar autorización
+
+### 11. Notification Service (📧 NUEVO)
+
+**Responsabilidades:**
+- Consumir eventos `document.authenticated` y `transfer.confirmed`
+- Enviar emails (SMTP simulado o console)
+- Enviar webhooks HTTP
+- Registro en `delivery_logs` con reintentos
+
+**Endpoints:**
+- `POST /notify/test` - Prueba de notificación
+- `GET /metrics` - Métricas OpenTelemetry
+
+### 12. Sharing Service (📤 NUEVO)
+
+**Responsabilidades:**
+- Crear paquetes de compartición con múltiples documentos
+- Generar shortlinks (tokens aleatorios de 12 chars)
+- Validar permisos con ABAC (IAM)
+- Generar SAS URLs temporales para acceso
+- Cache de shortlinks en Redis (TTL = expiración)
+- Logging de accesos con IP y user agent
+- Soporte opcional para watermarks en PDFs
+
+**Endpoints:**
+- `POST /share/packages` - Crear paquete compartido
+- `GET /s/{token}` - Acceder paquete via shortlink
+
+**Flujo de Compartición:**
+```
+1. Usuario crea paquete (owner_email, document_ids[], expires_at, audience)
+2. ABAC verifica permisos para cada documento
+3. Genera token único (12 chars alphanumeric)
+4. Almacena en PostgreSQL (share_packages)
+5. Cache en Redis (share:{token}, TTL = tiempo hasta expiración)
+6. Publica evento share.package.created
+7. Retorna shortlink: https://carpeta.local/s/{token}
+```
+
+**Flujo de Acceso:**
+```
+1. Usuario accede GET /s/{token}
+2. Busca en Redis cache (share:{token})
+3. Si no está → consulta PostgreSQL
+4. Valida expiración y estado activo
+5. ABAC verifica consentimiento (si audience != public)
+6. Genera SAS URLs temporales con expiración corta
+7. Log en share_access_logs (IP, user_agent, resultado)
+8. Retorna documentos con SAS URLs activas
+```
+
+**Database Tables:**
+```sql
+-- share_packages: paquetes de documentos compartidos
+-- share_access_logs: registro de accesos y denegaciones
+```
+
+**Error Handling:**
+- `404` - Token no encontrado
+- `410 Gone` - Token expirado
+- `403` - Token revocado o no autorizado (ABAC)
+- `400` - Fecha expiración en pasado
+
+**Configuración:**
+```bash
+AZURE_STORAGE_ACCOUNT_NAME=carpetastorage
+AZURE_STORAGE_ACCOUNT_KEY=xxx
+SHORTLINK_BASE_URL=https://carpeta.ciudadana.gov.co
+SHORTLINK_TOKEN_LENGTH=12
+SAS_DEFAULT_EXPIRY_HOURS=24
+WATERMARK_ENABLED=false
+IAM_SERVICE_URL=http://carpeta-ciudadana-iam:8000
+```
 
 ---
 
@@ -536,6 +957,7 @@ kubectl port-forward svc/carpeta-ciudadana-frontend 3000:80 -n carpeta-ciudadana
 
 ### Unit Tests
 
+**Backend (Python):**
 ```bash
 # Todos los servicios
 make test-unit
@@ -546,7 +968,12 @@ poetry run pytest tests/unit -v
 
 # Con coverage
 poetry run pytest --cov=app tests/unit
+
+# Específico
+pytest tests/test_rate_limiter.py -v
 ```
+
+**Cobertura target:** 80%+
 
 ### Integration Tests
 
@@ -554,27 +981,345 @@ poetry run pytest --cov=app tests/unit
 # Levantar stack completo
 docker-compose --profile app up -d
 
-# Testing manual
+# Testing manual de endpoints
 curl http://localhost:8000/health
 
 # Register citizen
 curl -X POST http://localhost:8000/api/citizens/register \
   -H "Content-Type: application/json" \
   -d '{
-    "id": 123456,
+    "identification": "1234567890",
     "name": "Test User",
     "address": "Test Address",
     "email": "test@example.com",
-    "operator_id": "operator-demo",
-    "operator_name": "Carpeta Demo"
+    "phone": "3001234567"
   }'
+
+# Upload document
+curl -X POST http://localhost:8000/api/documents/upload-url \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "test.pdf", "contentType": "application/pdf", "citizenId": "1234567890"}'
 ```
+
+### E2E Tests (Playwright)
+
+**Ubicación:** `tests/e2e/`
+
+**Flow completo:**
+```
+1. Register citizen → 2. Login → 3. Upload document →
+4. Sign document → 5. Authenticate hub → 6. Search →
+7. Share (shortlink) → 8. Access share → 9. Transfer →
+10. Confirm transfer
+```
+
+**Instalar:**
+```bash
+cd tests/e2e
+npm install
+npx playwright install
+```
+
+**Ejecutar:**
+```bash
+# Todos los tests
+npx playwright test
+
+# Ver en browser
+npx playwright test --headed
+
+# Solo Chrome
+npx playwright test --project=chromium
+
+# Ver reporte HTML
+npx playwright show-report
+
+# Debug mode
+npx playwright test --debug
+```
+
+**Features:**
+- ✅ Mock de MinTIC hub
+- ✅ Multi-browser (Chrome, Firefox, Safari, Mobile)
+- ✅ Screenshots en fallos
+- ✅ Video recording
+- ✅ Trace on retry
+- ✅ Parallel execution
+
+### Load Tests
+
+**k6 (JavaScript):**
+
+Ubicación: `tests/load/k6-load-test.js`
+
+**Ejecutar:**
+```bash
+cd tests/load
+
+# Install k6
+brew install k6  # macOS
+# o descargar de https://k6.io/
+
+# Run test
+k6 run k6-load-test.js
+
+# Custom load
+k6 run --vus 100 --duration 5m k6-load-test.js
+
+# Con output a JSON
+k6 run k6-load-test.js --out json=results.json
+```
+
+**Scenarios:**
+- 50% Document upload
+- 30% Search
+- 20% P2P transfer
+
+**Thresholds:**
+```javascript
+'http_req_duration': ['p(95)<2000', 'p(99)<5000']
+'http_req_failed': ['rate<0.05']  // Error < 5%
+```
+
+**Locust (Python):**
+
+Ubicación: `tests/load/locustfile.py`
+
+**Ejecutar:**
+```bash
+cd tests/load
+
+# Install locust
+pip install locust
+
+# Run with Web UI
+locust -f locustfile.py
+
+# Headless mode
+locust -f locustfile.py \
+  --users 100 \
+  --spawn-rate 10 \
+  --run-time 5m \
+  --headless
+
+# Custom host
+locust -f locustfile.py --host=https://api.carpeta.ciudadana.gov.co
+```
+
+**Web UI:** http://localhost:8089
+
+**Tasks:**
+- Upload document (50% weight)
+- Search (30% weight)
+- Transfer (20% weight)
+- List documents (10% weight)
+
+**Performance Targets:**
+
+| Métrica | Target | Threshold |
+|---------|--------|-----------|
+| API latency (p95) | < 1s | < 2s |
+| API latency (p99) | < 2s | < 5s |
+| Error rate | < 1% | < 5% |
+| Upload (p95) | < 2s | < 3s |
+| Search (p95) | < 500ms | < 1s |
+| Transfer (p95) | < 3s | < 5s |
 
 ### E2E Tests (Frontend)
 
 ```bash
 cd apps/frontend
 npm run test:e2e
+```
+
+---
+
+## 💾 Backup & Disaster Recovery
+
+### RPO y RTO
+
+**Recovery Point Objective (RPO):**
+- PostgreSQL: **24 horas** (backups diarios)
+- OpenSearch: **24 horas** (snapshots diarios)
+- Azure Blob Storage: **0** (replicado LRS por Azure)
+
+**Recovery Time Objective (RTO):**
+- PostgreSQL: **< 30 minutos**
+- OpenSearch: **< 1 hora**
+- Aplicación completa: **< 2 horas**
+
+### PostgreSQL Backups
+
+**Backup manual:**
+```bash
+cd scripts/backup
+./backup-postgres.sh
+
+# Custom retention
+./backup-postgres.sh --retention-days 14
+```
+
+**Restore:**
+```bash
+./restore-postgres.sh backups/postgres/postgres_backup_20251012_150000.sql.gz
+
+# Sin confirmación (cuidado!)
+./restore-postgres.sh backups/postgres/postgres_backup_20251012_150000.sql.gz --yes
+```
+
+**Backup automático (CronJob):**
+```bash
+# Deploy CronJob (diario a las 2:00 AM)
+kubectl apply -f deploy/kubernetes/cronjob-backup-postgres.yaml
+
+# Ver estado
+kubectl get cronjob backup-postgres -n carpeta-ciudadana
+
+# Ver ejecuciones
+kubectl get jobs -n carpeta-ciudadana -l app=backup-postgres
+
+# Forzar backup
+kubectl create job backup-postgres-manual \
+  --from=cronjob/backup-postgres -n carpeta-ciudadana
+```
+
+**Características:**
+- Compresión gzip
+- Checksum SHA-256
+- Retención 7 días
+- Log de backups
+
+### OpenSearch Snapshots
+
+**Scripts:** `scripts/backup/backup-opensearch.sh`
+
+**Manual:**
+```bash
+cd scripts/backup
+./backup-opensearch.sh
+```
+
+**Restore:**
+```bash
+./restore-opensearch.sh snapshot_20251012_150000
+```
+
+**Solo cuando uso < 80%** (evita impacto en performance)
+
+### Cleanup de Blobs Huérfanos
+
+**Script:** `scripts/backup/cleanup-orphan-blobs.sh`
+
+**Proceso:**
+1. Lista todos los blobs en Azure Storage
+2. Consulta PostgreSQL por document_metadata
+3. Identifica blobs sin metadata (huérfanos)
+4. Soft delete de blobs huérfanos
+5. Log de cleanup
+
+**Ejecutar:**
+```bash
+cd scripts/backup
+
+# Preview (dry-run)
+./cleanup-orphan-blobs.sh --dry-run
+
+# Execute
+./cleanup-orphan-blobs.sh
+```
+
+**CronJob (semanal):**
+```bash
+kubectl apply -f deploy/kubernetes/cronjob-cleanup-orphans.yaml
+```
+
+### Retención de Datos
+
+**Políticas:**
+
+| Data Type | Soft Delete | Hard Delete | Backup Retention |
+|-----------|-------------|-------------|------------------|
+| Citizens | 30 días | 90 días | 7 días |
+| Documents | 30 días | 90 días | 7 días |
+| Transfers | No | 1 año | 7 días |
+| Logs | No | 30 días | No backup |
+| Blobs huérfanos | 7 días | 14 días | - |
+
+**Soft Delete:**
+- Campo `is_deleted=true` en PostgreSQL
+- Fecha `deleted_at`
+- No mostrado en UI
+- Recuperable por admin
+
+**Hard Delete (GC):**
+```bash
+# Deploy GC CronJob (mensual)
+kubectl apply -f deploy/kubernetes/cronjob-gc-soft-deleted.yaml
+```
+
+### Disaster Recovery Plan
+
+**Escenario 1: Corrupción de PostgreSQL**
+```bash
+# 1. Detener aplicación
+kubectl scale deployment --all --replicas=0 -n carpeta-ciudadana
+
+# 2. Restore último backup
+cd scripts/backup
+./restore-postgres.sh backups/postgres/postgres_backup_latest.sql.gz --yes
+
+# 3. Verificar integridad
+psql -c "SELECT COUNT(*) FROM citizens;"
+psql -c "SELECT COUNT(*) FROM document_metadata WHERE is_deleted=false;"
+
+# 4. Reiniciar aplicación
+kubectl scale deployment --all --replicas=2 -n carpeta-ciudadana
+
+# RTO: ~30 minutos
+```
+
+**Escenario 2: Pérdida de región Azure**
+```bash
+# 1. Provisionar nueva región
+cd infra/terraform
+terraform apply -var="azure_region=eastus"
+
+# 2. Restore backups
+./restore-postgres.sh offsite/postgres_backup_latest.sql.gz
+./restore-opensearch.sh offsite/snapshot_latest
+
+# 3. Deploy aplicación
+cd ../../
+helm upgrade --install carpeta-ciudadana deploy/helm/carpeta-ciudadana
+
+# RTO: 4-6 horas
+```
+
+**Checklist de Restore:**
+- [ ] PostgreSQL restaurado y verificado
+- [ ] Tablas presentes (citizens, document_metadata, etc.)
+- [ ] Conteos de registros correctos
+- [ ] OpenSearch índices restaurados
+- [ ] Documentos buscables
+- [ ] Azure Blobs accesibles
+- [ ] Login funciona
+- [ ] Upload/download funciona
+- [ ] Búsqueda funciona
+- [ ] Transferencias funcionan
+- [ ] Métricas y logs operativos
+
+**Verificación:**
+```bash
+# Database integrity
+psql -c "SELECT table_name, pg_size_pretty(pg_total_relation_size(quote_ident(table_name))) 
+         FROM information_schema.tables WHERE table_schema = 'public';"
+
+# OpenSearch health
+curl -X GET "localhost:9200/_cluster/health"
+
+# Application health
+curl http://localhost:8000/health
+curl http://localhost:3000/
 ```
 
 ---
@@ -647,6 +1392,385 @@ MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
 MINTIC_OPERATOR_ID=operator-demo
 MINTIC_OPERATOR_NAME=Carpeta Ciudadana Demo
 ```
+
+### 🔐 Gestión de Secretos
+
+**Sistema de Rotación Automática:**
+
+Implementado con CronJob de Kubernetes que ejecuta cada 30 días.
+
+**Secretos Rotados Automáticamente:**
+
+| Secret | Key | Frecuencia | Servicios Afectados |
+|--------|-----|------------|---------------------|
+| `jwt-secret` | `JWT_SECRET_KEY` | 30 días | gateway, auth |
+| `api-keys` | `OPERATOR_API_KEY` | 30 días | transfer (P2P) |
+
+**Desplegar CronJob:**
+```bash
+kubectl apply -f deploy/kubernetes/cronjob-rotate-secrets.yaml
+```
+
+**Rotación Manual:**
+```bash
+cd scripts/secrets
+
+# Rotación completa
+./rotate-secrets.sh
+
+# Preview (dry run)
+./rotate-secrets.sh --dry-run
+
+# Especificar namespace
+./rotate-secrets.sh --namespace carpeta-ciudadana-prod
+```
+
+**Backup y Restore:**
+```bash
+# Crear backup encriptado
+./backup-secrets.sh
+
+# Restaurar desde backup
+./restore-secrets.sh backups/secrets_backup_20251012_150000.yaml.enc
+
+# Preview restore
+./restore-secrets.sh backups/secrets_backup_20251012_150000.yaml.enc --dry-run
+```
+
+**Backups Encriptados:**
+- Encriptación AES-256-CBC con master key local
+- Checksum SHA-256 para integridad
+- ⚠️ **CRÍTICO**: Guardar `master.key` en lugar seguro
+- Backups automáticos antes de cada rotación
+
+**Secretos de Azure (Rotación Manual):**
+
+```bash
+# Service Bus SAS
+# 1. Azure Portal → Service Bus → Shared access policies
+# 2. Regenerate primary key
+# 3. Actualizar secret:
+kubectl patch secret servicebus-connection -n carpeta-ciudadana \
+  -p '{"data":{"SERVICEBUS_CONNECTION_STRING":"'$(echo -n 'NEW_SAS' | base64)'"}}'
+
+# PostgreSQL password
+# 1. Azure Portal → PostgreSQL → Reset password
+# 2. Actualizar secret:
+kubectl patch secret postgresql-auth -n carpeta-ciudadana \
+  -p '{"data":{"POSTGRESQL_PASSWORD":"'$(echo -n 'NEW_PASS' | base64)'"}}'
+
+# Redis password
+# 1. Azure Portal → Redis → Access keys → Regenerate
+# 2. Actualizar secret:
+kubectl patch secret redis-auth -n carpeta-ciudadana \
+  -p '{"data":{"REDIS_PASSWORD":"'$(echo -n 'NEW_KEY' | base64)'"}}'
+
+# Storage Account key
+# 1. Azure Portal → Storage → Access keys → Rotate key
+# 2. Actualizar secret:
+kubectl patch secret azure-storage-secret -n carpeta-ciudadana \
+  -p '{"data":{"AZURE_STORAGE_ACCOUNT_KEY":"'$(echo -n 'NEW_KEY' | base64)'"}}'
+```
+
+**Forzar Rotación Inmediata:**
+```bash
+kubectl create job rotate-secrets-manual \
+  --from=cronjob/rotate-secrets \
+  -n carpeta-ciudadana
+```
+
+**Verificar Estado:**
+```bash
+# Ver CronJob
+kubectl get cronjob rotate-secrets -n carpeta-ciudadana
+
+# Ver últimas ejecuciones
+kubectl get jobs -n carpeta-ciudadana -l app.kubernetes.io/name=secret-rotator
+
+# Ver logs
+kubectl logs -n carpeta-ciudadana -l job-name=rotate-secrets-<timestamp>
+```
+
+**Migración Futura (con presupuesto):**
+- Azure Key Vault + CSI Driver
+- Rotación integrada con Azure
+- Versionado automático
+- Auditoría completa
+
+Ver **`scripts/secrets/README.md`** para documentación completa.
+
+---
+
+## 🧪 Testing Completo
+
+### Suite de Tests del MinTIC Client
+
+**Ubicación:** `services/mintic_client/tests/unit/`
+
+#### 1. test_client_responses.py - Manejo de Respuestas
+
+**Propósito:** Verificar que el cliente maneja correctamente todos los tipos de respuestas del hub.
+
+**Tests:**
+
+```python
+# (a) Procesa texto plano y 204
+test_client_handles_plain_text_response()
+  ✅ Respuestas no-JSON (texto plano)
+  ✅ status=201, body="Ciudadano registrado exitosamente"
+
+test_client_handles_204_no_content()
+  ✅ 204 No Content con body vacío
+  ✅ message="Sin contenido"
+
+test_client_handles_mixed_json_and_text()
+  ✅ JSON con campo "message"
+  ✅ status=501, json={"message": "Error..."}
+
+# (b) No reintenta en 501
+test_no_retry_on_501_invalid_parameters()
+  ✅ Exactamente 1 llamada
+  ✅ No reintentos para 501 (parámetros inválidos)
+
+test_no_retry_on_4xx_client_errors()
+  ✅ No reintentos para 400, 404, etc.
+
+# (c) Reintenta en 5xx
+test_retry_on_500_server_error()
+  ✅ Reintenta en 500 (max 3 intentos)
+  ✅ Falla 2 veces, éxito en el 3er intento
+
+test_retry_on_503_service_unavailable()
+  ✅ Reintenta en 503
+  ✅ Backoff exponencial + jitter
+
+test_max_retries_exhausted_on_5xx()
+  ✅ Para después de 3 intentos
+  ✅ Lanza excepción
+
+test_retry_on_timeout()
+  ✅ Reintenta en timeouts
+  ✅ Reintenta en errores de conexión
+```
+
+**Ejecutar:**
+```bash
+cd services/mintic_client
+pytest tests/unit/test_client_responses.py -v
+```
+
+#### 2. test_get_operators.py - Normalización de Operadores
+
+**Propósito:** Verificar que `getOperators` tolera y normaliza datos malformados.
+
+**Tests:**
+
+```python
+# (d) Tolerancia y filtrado
+test_get_operators_tolerates_missing_transfer_url()
+  ✅ Filtra operadores sin transferAPIURL
+  ✅ Filtra URLs vacías
+  ✅ Solo retorna operadores válidos
+
+test_get_operators_filters_http_in_production()
+  ✅ Rechaza http:// en producción
+  ✅ Solo permite https://
+  ✅ environment="production"
+
+test_get_operators_allows_http_in_development()
+  ✅ Permite http:// en desarrollo
+  ✅ Log warning para http://
+  ✅ environment="development", allow_insecure_operator_urls=True
+
+test_get_operators_normalizes_whitespace()
+  ✅ Trim espacios en blanco
+  ✅ operatorName y transferAPIURL limpios
+
+test_get_operators_handles_empty_list()
+  ✅ Lista vacía → []
+  ✅ No errores
+
+test_get_operators_handles_malformed_entries()
+  ✅ Sin operatorName → filtrado
+  ✅ operatorName vacío → filtrado
+  ✅ Entradas null → filtradas
+  ✅ Retorna solo operadores válidos
+```
+
+**Ejecutar:**
+```bash
+pytest tests/unit/test_get_operators.py -v
+```
+
+#### 3. test_idempotency.py - Prevención de Duplicados
+
+**Propósito:** Verificar que la idempotencia evita llamadas duplicadas al hub.
+
+**Tests:**
+
+```python
+# (e) Idempotencia
+test_idempotency_prevents_duplicate_register_citizen()
+  ✅ Primera llamada: ejecuta y cachea
+  ✅ Segunda llamada: retorna del cache
+  ✅ call_count == 1 (no segunda llamada)
+
+test_idempotency_different_citizens_not_cached()
+  ✅ ID diferente = clave diferente
+  ✅ No colisiones de cache
+
+test_idempotency_works_for_unregister()
+  ✅ Funciona para DELETE operations
+  ✅ key: hub:unregisterCitizen:{id}
+
+test_idempotency_works_for_authenticate_document()
+  ✅ Funciona para PUT operations
+  ✅ key: hub:authdoc:{citizenId}:{docHash}
+
+test_idempotency_only_caches_terminal_statuses()
+  ✅ Cachea: 2xx, 204, 501
+  ✅ NO cachea: 5xx (pueden recuperarse)
+
+test_idempotency_key_generation_is_consistent()
+  ✅ Mismo input = misma clave
+  ✅ Diferente input = diferente clave
+```
+
+**Ejecutar:**
+```bash
+pytest tests/unit/test_idempotency.py -v
+```
+
+### Suite de Tests del Transfer Service
+
+**Ubicación:** `services/transfer/tests/unit/`
+
+#### 4. test_transfer_order.py - Orden Seguro de Transferencia
+
+**Propósito:** Verificar el flujo seguro: confirmar → borrar local → unregisterCitizen.
+
+**Tests:**
+
+```python
+# (f) Orden seguro de transferencia
+test_transfer_waits_for_confirmation_before_delete()
+  ✅ status=PENDING hasta confirmar
+  ✅ confirmed_at=None mientras espera
+  ✅ NO borra datos hasta CONFIRMED
+
+test_local_deletion_after_confirmation()
+  ✅ Borra DB solo después de CONFIRMED
+  ✅ Borra blobs solo después de CONFIRMED
+  ✅ Atómico con lock distribuido
+
+test_hub_unregister_after_local_deletion()
+  ✅ Llama hub SOLO después de borrar local
+  ✅ Si éxito → status=SUCCESS
+  ✅ unregistered_at actualizado
+
+test_pending_unregister_state_if_hub_fails()
+  ✅ Si hub falla → status=PENDING_UNREGISTER
+  ✅ retry_count++
+  ✅ unregistered_at=None (no completado)
+
+test_background_job_retries_pending_unregister()
+  ✅ Job procesa PENDING_UNREGISTER
+  ✅ Reintenta hub unregister
+  ✅ Si éxito → status=SUCCESS
+
+test_max_retries_for_pending_unregister()
+  ✅ Máximo 10 reintentos
+  ✅ Después: intervención manual
+  ✅ Alerta para ops
+
+test_distributed_lock_prevents_race_condition()
+  ✅ Redis lock: lock:delete:{citizen_id}
+  ✅ SETNX con TTL 120s
+  ✅ Token UUID para verificación
+  ✅ Previene borrados duplicados
+
+test_idempotency_for_transfer_confirm()
+  ✅ Header: Idempotency-Key
+  ✅ Redis: xfer:idemp:{key} EX 900
+  ✅ Segunda llamada → 409 Conflict
+
+test_complete_safe_transfer_flow()
+  ✅ PENDING → (espera)
+  ✅ CONFIRMED → (borra local)
+  ✅ SUCCESS → (unregister hub)
+  ✅ Timestamps completos
+```
+
+**Ejecutar:**
+```bash
+cd services/transfer
+pytest tests/unit/test_transfer_order.py -v
+```
+
+### Garantías de Seguridad Verificadas
+
+**1. Seguridad de Datos:**
+- ✅ Sin pérdida si destino falla (datos permanecen en origen)
+- ✅ Sin pérdida si hub unregister falla (mecanismo de reintentos)
+- ✅ Borrado atómico con locks distribuidos
+
+**2. Contrato API:**
+- ✅ Maneja todos los formatos de respuesta del hub
+- ✅ Reintentos inteligentes solo cuando es seguro
+- ✅ Idempotencia previene operaciones duplicadas
+
+**3. Producción:**
+- ✅ Seguridad de URLs (enforcement de https://)
+- ✅ Validación y normalización de operadores
+- ✅ Degradación elegante ante datos malformados
+
+**4. Orden de Operaciones:**
+- ✅ Confirmación → Borrado Local → Hub Unregister
+- ✅ Estado PENDING_UNREGISTER si hub falla
+- ✅ Reintentos automáticos en background
+- ✅ Límite de reintentos con alerta manual
+
+### Ejecutar Todos los Tests
+
+**Backend completo:**
+```bash
+# Todos los servicios
+make test
+
+# Solo MinTIC client
+cd services/mintic_client
+pytest tests/unit/ -v --cov=app --cov-report=html
+
+# Solo Transfer
+cd services/transfer
+pytest tests/unit/ -v --cov=app --cov-report=html
+
+# Con coverage
+pytest tests/unit/ -v --cov=app --cov-report=term-missing
+```
+
+**Coverage esperado:**
+- MinTIC client: >90% en `client.py`
+- Transfer: >85% en `transfer_safe.py`
+
+### CI/CD - Tests Automáticos
+
+Los tests se ejecutan automáticamente en cada push:
+
+**.github/workflows/ci-azure-federated.yml:**
+```yaml
+backend-test:
+  strategy:
+    matrix:
+      service: [gateway, citizen, ingestion, metadata, transfer, mintic_client]
+  steps:
+    - name: Run tests
+      run: |
+        cd services/${{ matrix.service }}
+        poetry run pytest tests/ -v --cov=app
+```
+
+**Umbral de cobertura:** Mínimo 80% para merge a master
 
 ---
 
@@ -869,6 +1993,197 @@ El proyecto está optimizado para maximizar el uso del free tier:
 6. ✅ Frontend moderno con Next.js 14
 7. ✅ Observabilidad con OpenTelemetry
 8. ✅ Multi-cloud ready (AWS + Azure)
+
+---
+
+## 📊 Observabilidad
+
+Sistema completo de **OpenTelemetry** con trazas, métricas, dashboards y alertas.
+
+### Arquitectura de Observabilidad
+
+```
+┌──────────────────┐
+│   Frontend       │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐  traceparent
+│   Gateway        │─────────────────────┐
+└────────┬─────────┘                     │
+         │ propagates                    │
+         ▼                                │
+┌────────────────────────────────────────┴─────┐
+│  12 Microservicios Instrumentados            │
+│  • FastAPI spans                             │
+│  • httpx spans (external)                    │
+│  • SQLAlchemy spans (DB)                     │
+│  • Redis spans (cache)                       │
+│  • Service Bus spans                         │
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+         ┌─────────────────────┐
+         │  OTLP Exporters     │
+         ├─────────────────────┤
+         │ • Console (stdout)  │
+         │ • Azure Monitor     │
+         │ • Prometheus        │
+         └─────────────────────┘
+```
+
+### Métricas Implementadas
+
+**HTTP Metrics:**
+- `http.server.request.duration` - Latencia p50/p95/p99 por endpoint
+- `http.server.request.count` - Total requests
+- `http.server.error.count` - Errores 5xx
+
+**Cache Metrics:**
+- `cache.hits` / `cache.misses`
+- `redis.command.duration`
+- Cache hit rate
+
+**Queue Metrics:**
+- `queue.message.published` / `consumed` / `failed`
+- `queue.dlq.length` - Dead Letter Queue
+- `queue.processing.duration`
+
+**External Calls:**
+- `external.call.duration` - MinTIC Hub, otros operadores
+- `external.call.errors`
+
+**Rate Limit:**
+- `rate_limit.exceeded`
+
+**Circuit Breaker:**
+- `circuit_breaker.state` (0=CLOSED, 1=OPEN, 2=HALF_OPEN)
+- `saga.compensation.executed`
+
+### Dashboards Grafana
+
+**4 Dashboards JSON** en `observability/grafana-dashboards/`:
+
+1. **api-latency.json** - HTTP latency p95, error rate, request rate
+2. **transfers-saga.json** - Transfer latency, success rate, circuit breakers
+3. **queue-health.json** - Messages, DLQ, processing failures
+4. **cache-efficiency.json** - Hit rate, Redis latency, locks
+
+**Importar a Grafana:**
+```bash
+# Via UI
+Grafana → Dashboards → Import → Upload JSON
+
+# Via API
+curl -X POST http://grafana:3000/api/dashboards/db \
+  -H "Content-Type: application/json" \
+  -d @observability/grafana-dashboards/api-latency.json
+```
+
+### Alertas
+
+**11 Alertas Configuradas** en `observability/alerts/prometheus-alerts.yaml`:
+
+- ⚠️ API latency p95 > 2s (5min)
+- 🔴 API latency p95 > 5s (2min)
+- ⚠️ Error rate > 1% (2min)
+- 🔴 Error rate > 5% (1min)
+- ⚠️ Transfer intra-region p95 > 2s (5min)
+- ⚠️ Transfer inter-region p95 > 5s (5min)
+- ⚠️ DLQ length > 10 (2min)
+- ⚠️ Queue failures > 10% (5min)
+- ℹ️ Cache hit rate < 50% (10min)
+- ⚠️ Redis pool > 90% (2min)
+- ⚠️ Circuit breaker OPEN (1min)
+
+**Deploy Alertas:**
+```bash
+# Prometheus
+kubectl apply -f observability/alerts/prometheus-alerts.yaml
+
+# Azure Monitor
+az monitor metrics alert create \
+  --name "High API Latency" \
+  --condition "avg http.server.request.duration > 2" \
+  --window-size 5m
+```
+
+### Configuración
+
+**Local Development (stdout):**
+```bash
+# .env
+OTEL_USE_CONSOLE=true
+OTEL_EXPORTER_OTLP_ENDPOINT=
+ENVIRONMENT=development
+```
+
+**Production (Azure Monitor):**
+```bash
+# .env
+OTEL_USE_CONSOLE=false
+APPLICATIONINSIGHTS_CONNECTION_STRING=InstrumentationKey=xxx;...
+ENVIRONMENT=production
+```
+
+**Kubernetes:**
+```yaml
+# Deploy OTEL Collector
+kubectl apply -f observability/k8s/otel-collector.yaml
+
+# En cada servicio
+env:
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://otel-collector:4317"
+```
+
+### Queries Útiles
+
+**Prometheus:**
+```promql
+# Latencia p95 gateway
+histogram_quantile(0.95, 
+  sum(rate(http_server_request_duration_bucket{service_name="gateway"}[5m])) by (le)
+)
+
+# Error rate
+sum(rate(http_server_error_count[5m])) / sum(rate(http_server_request_count[5m])) * 100
+
+# Cache hit rate
+sum(rate(cache_hits[5m])) / (sum(rate(cache_hits[5m])) + sum(rate(cache_misses[5m]))) * 100
+
+# Rate limit rejections por rol
+sum(rate(rate_limit_rejected{reason="rate_limit"}[5m])) by (role)
+
+# IPs baneadas por minuto
+sum(rate(rate_limit_banned[1m]))
+
+# Tasa de rechazo global
+sum(rate(rate_limit_rejected[5m])) / sum(rate(rate_limit_requests[5m])) * 100
+```
+
+**Azure Monitor (KQL):**
+```kusto
+// Latencia p95
+customMetrics
+| where name == "http.server.request.duration"
+| summarize percentile(value, 95) by tostring(customDimensions.service_name)
+
+// Trace distribuida
+traces
+| where operation_Id == "00-abc123-def456-01"
+| project timestamp, message, customDimensions.service_name
+| order by timestamp asc
+```
+
+### Documentación Completa
+
+Ver **`OBSERVABILITY_GUIDE.md`** y **`observability/README.md`** para:
+- Guía de implementación paso a paso
+- Cómo agregar métricas custom
+- Deploy completo de OpenTelemetry Collector
+- Integración con Azure Monitor
+- Ejemplos de código y queries
 
 ---
 

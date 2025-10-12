@@ -1,0 +1,123 @@
+{
+  "alertRules": [
+    {
+      "name": "High API Latency P95",
+      "description": "Alert when API p95 latency exceeds 2 seconds for 5 minutes",
+      "severity": 2,
+      "enabled": true,
+      "evaluationFrequency": "PT1M",
+      "windowSize": "PT5M",
+      "criteria": {
+        "allOf": [
+          {
+            "metricName": "http.server.request.duration",
+            "metricNamespace": "carpeta-ciudadana",
+            "operator": "GreaterThan",
+            "threshold": 2,
+            "timeAggregation": "Percentile95"
+          }
+        ]
+      },
+      "actions": []
+    },
+    {
+      "name": "High Error Rate",
+      "description": "Alert when 5xx error rate exceeds 1% for 2 minutes",
+      "severity": 2,
+      "enabled": true,
+      "evaluationFrequency": "PT1M",
+      "windowSize": "PT2M",
+      "criteria": {
+        "allOf": [
+          {
+            "query": "customMetrics | where name == 'http.server.error.count' | summarize ErrorRate = (sum(value) / sum(customMetrics | where name == 'http.server.request.count' | project value)) * 100 | where ErrorRate > 1",
+            "operator": "GreaterThan",
+            "threshold": 1,
+            "timeAggregation": "Average"
+          }
+        ]
+      },
+      "actions": []
+    },
+    {
+      "name": "Transfer Intra-Region Latency",
+      "description": "Alert when transfer p95 latency > 2s (intra-region)",
+      "severity": 2,
+      "enabled": true,
+      "evaluationFrequency": "PT1M",
+      "windowSize": "PT5M",
+      "criteria": {
+        "allOf": [
+          {
+            "metricName": "external.call.duration",
+            "metricNamespace": "carpeta-ciudadana",
+            "dimensions": [
+              {
+                "name": "external.service",
+                "operator": "Include",
+                "values": ["transfer"]
+              }
+            ],
+            "operator": "GreaterThan",
+            "threshold": 2,
+            "timeAggregation": "Percentile95"
+          }
+        ]
+      },
+      "actions": []
+    },
+    {
+      "name": "Transfer Inter-Region Latency",
+      "description": "Alert when transfer p95 latency > 5s (inter-region)",
+      "severity": 2,
+      "enabled": true,
+      "evaluationFrequency": "PT1M",
+      "windowSize": "PT5M",
+      "criteria": {
+        "allOf": [
+          {
+            "metricName": "external.call.duration",
+            "metricNamespace": "carpeta-ciudadana",
+            "dimensions": [
+              {
+                "name": "external.service",
+                "operator": "Include",
+                "values": ["transfer"]
+              },
+              {
+                "name": "external.region",
+                "operator": "Exclude",
+                "values": ["northcentralus"]
+              }
+            ],
+            "operator": "GreaterThan",
+            "threshold": 5,
+            "timeAggregation": "Percentile95"
+          }
+        ]
+      },
+      "actions": []
+    },
+    {
+      "name": "Messages in DLQ",
+      "description": "Alert when DLQ has more than 10 messages",
+      "severity": 2,
+      "enabled": true,
+      "evaluationFrequency": "PT1M",
+      "windowSize": "PT2M",
+      "criteria": {
+        "allOf": [
+          {
+            "metricName": "queue.dlq.length",
+            "metricNamespace": "carpeta-ciudadana",
+            "operator": "GreaterThan",
+            "threshold": 10,
+            "timeAggregation": "Maximum"
+          }
+        ]
+      },
+      "actions": []
+    }
+  ]
+}
+

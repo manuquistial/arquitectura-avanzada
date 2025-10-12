@@ -140,6 +140,26 @@ services:
       - MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
       - MINTIC_OPERATOR_ID=operator-demo
       - MINTIC_OPERATOR_NAME=Carpeta Ciudadana Demo
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_SSL=false
+
+  signature:
+    profiles: ["app"]
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-signature:${TAG:-local}
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
+      - AZURE_STORAGE_ACCOUNT_KEY=${AZURE_STORAGE_ACCOUNT_KEY}
+      - MINTIC_HUB_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_SSL=false
+      - SERVICE_BUS_ENABLED=false
+    depends_on:
+      - postgres
+      - redis
 
 volumes:
   postgres_data:

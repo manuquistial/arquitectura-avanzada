@@ -17,5 +17,22 @@ class Settings(BaseSettings):
     # Retry configuration
     max_retries: int = Field(default=3)
     retry_backoff_factor: float = Field(default=2.0)
-    request_timeout: int = Field(default=30)
+    request_timeout: int = Field(default=10)
+    
+    # Redis cache
+    redis_host: str = Field(default="localhost")
+    redis_port: int = Field(default=6379)
+    redis_password: str = Field(default="")
+    redis_ssl: bool = Field(default=False)
+    
+    # Security
+    environment: str = Field(default="development")
+    allow_insecure_operator_urls: bool = Field(
+        default=True,
+        description="Allow http:// URLs in development (only https:// in production)"
+    )
+    
+    # Hub rate limiting (protect public hub from saturation)
+    hub_rate_limit_per_minute: int = Field(default=10, env="HUB_RATE_LIMIT_PER_MINUTE")
+    hub_rate_limit_enabled: bool = Field(default=True, env="HUB_RATE_LIMIT_ENABLED")
 

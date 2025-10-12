@@ -1,0 +1,159 @@
+{{- if .Values.opensearch.enabled -}}
+---
+# PersistentVolumeClaim for OpenSearch data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-opensearch-pvc
+  labels:
+    app: opensearch
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.opensearch.storage.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.opensearch.storage.size }}
+
+---
+# Secret for OpenSearch credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opensearch-secret
+  labels:
+    app: opensearch
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ .Values.opensearch.auth.username | quote }}
+  password: {{ .Values.opensearch.auth.password | quote }}
+
+---
+# ConfigMap for OpenSearch configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opensearch-config
+  labels:
+    app: opensearch
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+data:
+  opensearch.yml: |
+    cluster.name: carpeta-cluster
+    node.name: carpeta-node
+    network.host: 0.0.0.0
+    discovery.type: single-node
+    plugins.security.disabled: {{ not .Values.opensearch.security.enabled }}
+    
+---
+# StatefulSet for OpenSearch
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-opensearch
+  labels:
+    app: opensearch
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  serviceName: opensearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensearch
+  template:
+    metadata:
+      labels:
+        app: opensearch
+    spec:
+      initContainers:
+      - name: set-permissions
+        image: busybox:latest
+        command: ['sh', '-c', 'chown -R 1000:1000 /usr/share/opensearch/data']
+        volumeMounts:
+        - name: opensearch-data
+          mountPath: /usr/share/opensearch/data
+      - name: increase-vm-max-map
+        image: busybox:latest
+        command: ['sysctl', '-w', 'vm.max_map_count=262144']
+        securityContext:
+          privileged: true
+      containers:
+      - name: opensearch
+        image: {{ .Values.opensearch.image.repository }}:{{ .Values.opensearch.image.tag }}
+        imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+        env:
+        - name: cluster.name
+          value: "carpeta-cluster"
+        - name: node.name
+          value: "carpeta-node"
+        - name: discovery.type
+          value: "single-node"
+        - name: bootstrap.memory_lock
+          value: "true"
+        - name: "OPENSEARCH_JAVA_OPTS"
+          value: "-Xms{{ .Values.opensearch.javaOpts.xms }} -Xmx{{ .Values.opensearch.javaOpts.xmx }}"
+        - name: DISABLE_SECURITY_PLUGIN
+          value: "{{ not .Values.opensearch.security.enabled }}"
+        {{- if .Values.opensearch.security.enabled }}
+        - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: opensearch-secret
+              key: password
+        {{- end }}
+        ports:
+        - containerPort: 9200
+          name: http
+        - containerPort: 9600
+          name: performance
+        resources:
+          {{- toYaml .Values.opensearch.resources | nindent 10 }}
+        volumeMounts:
+        - name: opensearch-data
+          mountPath: /usr/share/opensearch/data
+        - name: opensearch-config
+          mountPath: /usr/share/opensearch/config/opensearch.yml
+          subPath: opensearch.yml
+        livenessProbe:
+          tcpSocket:
+            port: 9200
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: opensearch-data
+        persistentVolumeClaim:
+          claimName: {{ include "carpeta-ciudadana.fullname" . }}-opensearch-pvc
+      - name: opensearch-config
+        configMap:
+          name: opensearch-config
+
+---
+# Service for OpenSearch
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-opensearch
+  labels:
+    app: opensearch
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9200
+    targetPort: 9200
+    name: http
+  - port: 9600
+    targetPort: 9600
+    name: performance
+  selector:
+    app: opensearch
+{{- end }}
+

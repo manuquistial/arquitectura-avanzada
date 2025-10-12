@@ -10,6 +10,9 @@ fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.23"}
 asyncpg = "^0.30.0"
+opensearch-py = "^2.4.0"
+redis = {extras = ["hiredis"], version = "^5.0.1"}
+carpeta-common = {path = "../common", develop = true}
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
 httpx = ">=0.26.0,<0.27.0"

@@ -237,6 +237,29 @@ minticClient:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
 
+# Signature Service
+signature:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-signature
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
 # PostgreSQL Configuration (Azure Database for PostgreSQL)
 postgresql:
   enabled: true
@@ -244,8 +267,54 @@ postgresql:
   port: 5432
   auth:
     username: carpeta_admin
-    password: "" # Set via --set postgresql.auth.password=xxx
+    password: "" # Set via --set postgresql.auth.password=xxx or secret
     database: carpeta_ciudadana
+
+# Azure Storage Configuration
+azure:
+  storage:
+    accountName: "" # Set via --set azure.storage.accountName=xxx or secret
+    accountKey: "" # Set via --set azure.storage.accountKey=xxx or secret
+    containerName: "documents"
+
+# OpenSearch Configuration
+opensearch:
+  enabled: true
+  image:
+    repository: opensearchproject/opensearch
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  
+  # Authentication
+  auth:
+    username: "admin"
+    password: "Admin@123"  # Change in production
+  
+  security:
+    enabled: false  # Set to true for production
+  
+  # Storage
+  storage:
+    size: "8Gi"
+    storageClass: "managed-premium"  # Azure Premium SSD
+  
+  # Java heap size
+  javaOpts:
+    xms: "512m"
+    xmx: "512m"
+  
+  # Resources
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  
+  # Service endpoint (for metadata service)
+  host: "carpeta-ciudadana-opensearch"
+  port: 9200
 
 # Configuration
 config:

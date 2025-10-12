@@ -32,9 +32,11 @@ spec:
         - name: DATABASE_URL
           value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
         - name: AZURE_STORAGE_ACCOUNT_NAME
-          value: {{ .Values.azure.storage.accountName }}
+          value: {{ .Values.azure.storage.accountName | quote }}
+        - name: AZURE_STORAGE_ACCOUNT_KEY
+          value: {{ .Values.azure.storage.accountKey | quote }}
         - name: AZURE_STORAGE_CONTAINER_NAME
-          value: {{ .Values.azure.storage.containerName }}
+          value: {{ .Values.azure.storage.containerName | quote }}
         resources:
           {{- toYaml .Values.ingestion.resources | nindent 10 }}
         livenessProbe:
