@@ -4,7 +4,8 @@ resource "azurerm_storage_account" "main" {
   location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  
+  min_tls_version          = "TLS1_2"
+
   blob_properties {
     versioning_enabled = true
     
@@ -12,12 +13,12 @@ resource "azurerm_storage_account" "main" {
       days = 7
     }
     
-    # CORS para permitir uploads desde frontend
+    # CORS restrictivo - Solo orígenes específicos en producción
     cors_rule {
-      allowed_origins    = ["*"]
-      allowed_methods    = ["GET", "PUT", "POST", "DELETE", "HEAD"]
-      allowed_headers    = ["*"]
-      exposed_headers    = ["*"]
+      allowed_origins    = ["https://${var.domain_name}", "http://localhost:3000"]
+      allowed_methods    = ["GET", "PUT", "HEAD"]
+      allowed_headers    = ["Content-Type", "x-ms-blob-type", "x-ms-blob-content-type"]
+      exposed_headers    = ["x-ms-request-id", "x-ms-version"]
       max_age_in_seconds = 3600
     }
   }

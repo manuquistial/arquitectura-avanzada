@@ -43,6 +43,10 @@ spec:
           - name: purge-unsigned
             image: manuelquistial/carpeta-ingestion:latest
             imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 1000
             
             command:
             - python

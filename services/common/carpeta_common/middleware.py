@@ -21,12 +21,17 @@ def setup_cors(
         allow_methods: Allowed HTTP methods (default: ["*"])
         allow_headers: Allowed headers (default: ["*"])
     """
+    # Default to localhost if not provided (secure default)
+    default_origins = ["http://localhost:3000", "http://localhost:8000"]
+    default_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    default_headers = ["Content-Type", "Authorization", "X-Request-ID", "X-Trace-ID"]
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allow_origins or ["*"],
+        allow_origins=allow_origins or default_origins,
         allow_credentials=allow_credentials,
-        allow_methods=allow_methods or ["*"],
-        allow_headers=allow_headers or ["*"],
+        allow_methods=allow_methods or default_methods,
+        allow_headers=allow_headers or default_headers,
     )
 
 
