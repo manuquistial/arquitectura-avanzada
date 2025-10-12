@@ -1,0 +1,12 @@
+# Trivy ignore file
+# Vulnerabilities to ignore with justification
+
+# Example: Ignore specific CVE with expiration
+# CVE-2023-12345 expires:2024-12-31
+
+# Low severity issues in dev dependencies
+# CVE-2023-XXXXX
+
+# Known false positives
+# Add specific CVEs here with comments explaining why they're ignored
+
