@@ -29,22 +29,73 @@ const API_KEY = __ENV.API_KEY || 'test-api-key';
 
 // Test scenarios
 export const options = {
-  stages: [
-    { duration: '30s', target: 10 },  // Ramp up to 10 users
-    { duration: '1m', target: 50 },   // Ramp up to 50 users
-    { duration: '2m', target: 50 },   // Stay at 50 users
-    { duration: '30s', target: 100 }, // Spike to 100 users
-    { duration: '1m', target: 100 },  // Stay at 100 users
-    { duration: '30s', target: 0 },   // Ramp down to 0 users
-  ],
+  scenarios: {
+    // Scenario 1: Normal Load (baseline)
+    normal_load: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '1m', target: 20 },   // Ramp up
+        { duration: '3m', target: 20 },   // Sustain
+        { duration: '1m', target: 0 },    // Ramp down
+      ],
+      gracefulRampDown: '30s',
+    },
+    
+    // Scenario 2: Peak Load (lunch hour)
+    peak_load: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      startTime: '5m',
+      stages: [
+        { duration: '2m', target: 100 },  // Ramp up to peak
+        { duration: '5m', target: 100 },  // Sustain peak
+        { duration: '2m', target: 0 },    // Ramp down
+      ],
+      gracefulRampDown: '30s',
+    },
+    
+    // Scenario 3: Stress Test (find breaking point)
+    stress_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      startTime: '14m',
+      stages: [
+        { duration: '2m', target: 100 },
+        { duration: '2m', target: 200 },
+        { duration: '2m', target: 300 },
+        { duration: '2m', target: 400 },
+        { duration: '5m', target: 0 },
+      ],
+      gracefulRampDown: '30s',
+    },
+    
+    // Scenario 4: Spike Test (sudden traffic)
+    spike_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      startTime: '27m',
+      stages: [
+        { duration: '10s', target: 200 },  // Sudden spike
+        { duration: '1m', target: 200 },   // Hold spike
+        { duration: '10s', target: 0 },    // Drop
+      ],
+    },
+  },
   
   thresholds: {
-    'http_req_duration': ['p(95)<2000', 'p(99)<5000'], // 95% < 2s, 99% < 5s
-    'http_req_failed': ['rate<0.05'],                   // Error rate < 5%
-    'errors': ['rate<0.05'],
-    'document_upload_duration': ['p(95)<3000'],
-    'search_duration': ['p(95)<1000'],
-    'transfer_duration': ['p(95)<5000'],
+    // SLO-based thresholds (from SLOS_SLIS.md)
+    'http_req_duration': ['p(95)<500', 'p(99)<2000'],  // P95 < 500ms, P99 < 2s
+    'http_req_failed': ['rate<0.001'],                 // Error rate < 0.1%
+    'errors': ['rate<0.001'],
+    
+    // Specific operation thresholds
+    'document_upload_duration': ['p(95)<3000'],        // Upload < 3s
+    'search_duration': ['p(95)<500'],                  // Search < 500ms
+    'transfer_duration': ['p(95)<2000'],               // Transfer < 2s
+    
+    // Rate limiting
+    'rate_limit_hits': ['count<100'],                  // < 100 rate limit hits
   },
 };
 

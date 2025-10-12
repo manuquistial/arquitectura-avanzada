@@ -1,0 +1,136 @@
+name: Load Tests
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Test scenario to run'
+        required: true
+        default: 'baseline'
+        type: choice
+        options:
+          - baseline
+          - stress
+          - spike
+          - full
+
+jobs:
+  k6-load-test:
+    name: k6 Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Start services
+        run: |
+          docker-compose up -d
+          sleep 60  # Wait for all services to be ready
+      
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      
+      - name: Run k6 baseline test
+        if: github.event.inputs.scenario == 'baseline' || github.event.inputs.scenario == 'full'
+        working-directory: tests/load
+        run: |
+          k6 run scenarios/api-baseline.js \
+            --out json=results/baseline.json \
+            --summary-export=results/baseline-summary.json
+        env:
+          BASE_URL: http://localhost:8000
+      
+      - name: Run k6 stress test
+        if: github.event.inputs.scenario == 'stress' || github.event.inputs.scenario == 'full'
+        working-directory: tests/load
+        run: |
+          k6 run scenarios/stress-test.js \
+            --out json=results/stress.json \
+            --summary-export=results/stress-summary.json
+        env:
+          BASE_URL: http://localhost:8000
+      
+      - name: Run k6 spike test
+        if: github.event.inputs.scenario == 'spike' || github.event.inputs.scenario == 'full'
+        working-directory: tests/load
+        run: |
+          k6 run scenarios/spike-test.js \
+            --out json=results/spike.json \
+            --summary-export=results/spike-summary.json
+        env:
+          BASE_URL: http://localhost:8000
+      
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: k6-results
+          path: tests/load/results/
+          retention-days: 30
+      
+      - name: Check thresholds
+        working-directory: tests/load
+        run: |
+          # Analyze results
+          if [ -f results/baseline-summary.json ]; then
+            python3 ../scripts/analyze-load-results.py results/baseline-summary.json
+          fi
+      
+      - name: Stop services
+        if: always()
+        run: docker-compose down
+  
+  locust-load-test:
+    name: Locust Load Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      
+      - name: Install Locust
+        run: pip install locust
+      
+      - name: Start services
+        run: |
+          docker-compose up -d
+          sleep 60
+      
+      - name: Run Locust (headless)
+        working-directory: tests/load
+        run: |
+          locust -f locustfile.py \
+            --host=http://localhost:8000 \
+            --users 100 \
+            --spawn-rate 10 \
+            --run-time 5m \
+            --headless \
+            --html=results/locust-report.html \
+            --csv=results/locust
+      
+      - name: Upload Locust results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: locust-results
+          path: tests/load/results/
+          retention-days: 30
+      
+      - name: Stop services
+        if: always()
+        run: docker-compose down
+
