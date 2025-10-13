@@ -369,7 +369,7 @@ class CircuitBreakerRegistry:
     def get_all_stats(self) -> dict[str, dict]:
         """Get statistics for all circuit breakers."""
         with self._lock:
-        return {
+            return {
                 name: breaker.get_stats()
                 for name, breaker in self._breakers.items()
             }
