@@ -141,6 +141,26 @@ jobs:
         working-directory: infra/terraform
         run: terraform validate
       
+      - name: Import existing resources
+        working-directory: infra/terraform
+        run: |
+          echo "🔍 Checking for existing resources to import..."
+          
+          # Get subscription ID
+          SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          RG_NAME="carpeta-ciudadana-dev-rg"
+          
+          # Import resource group if exists
+          if az group show --name "$RG_NAME" &>/dev/null; then
+            echo "📦 Resource group exists, importing to Terraform state..."
+            terraform import azurerm_resource_group.main "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}" || echo "⚠️ Already imported or import failed (continuing)"
+          else
+            echo "✅ Resource group doesn't exist yet, will be created"
+          fi
+          
+          echo "✅ Import check completed"
+        continue-on-error: true
+      
       - name: Terraform Plan
         working-directory: infra/terraform
         run: terraform plan -out=tfplan
