@@ -5,12 +5,12 @@ output "namespace" {
 
 output "letsencrypt_staging_issuer" {
   description = "Let's Encrypt staging ClusterIssuer name"
-  value       = kubernetes_manifest.letsencrypt_staging.manifest.metadata.name
+  value       = length(kubernetes_manifest.letsencrypt_staging) > 0 ? kubernetes_manifest.letsencrypt_staging[0].manifest.metadata.name : "letsencrypt-staging"
 }
 
 output "letsencrypt_prod_issuer" {
   description = "Let's Encrypt production ClusterIssuer name"
-  value       = kubernetes_manifest.letsencrypt_prod.manifest.metadata.name
+  value       = length(kubernetes_manifest.letsencrypt_prod) > 0 ? kubernetes_manifest.letsencrypt_prod[0].manifest.metadata.name : "letsencrypt-prod"
 }
 
 output "cert_manager_version" {
