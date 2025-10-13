@@ -91,9 +91,6 @@ resource "azurerm_kubernetes_cluster" "main" {
     }
   }
   
-  # Auto-upgrade
-  automatic_channel_upgrade = var.automatic_channel_upgrade
-  
   # SKU tier
   sku_tier = var.sku_tier
   
