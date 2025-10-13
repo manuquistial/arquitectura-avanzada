@@ -154,9 +154,12 @@ module "postgresql" {
 module "storage" {
   source = "./modules/storage"
 
+  project_name        = "carpeta-ciudadana"
   environment         = var.environment
+  azure_region        = var.azure_region
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
+  domain_name         = var.domain_name
 }
 
 # Azure Cognitive Search (equivalente a OpenSearch)
@@ -175,10 +178,14 @@ module "storage" {
 module "servicebus" {
   source = "./modules/servicebus"
 
-  environment         = var.environment
+  namespace_name      = "${var.environment}-carpeta-sb"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  sku                 = var.servicebus_sku
+  
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }
 
 # KEDA (Kubernetes Event-Driven Autoscaling)
@@ -190,7 +197,7 @@ module "keda" {
   app_namespace                 = "${var.project_name}-${var.environment}"
   replica_count                 = var.keda_replica_count
   enable_servicebus_trigger     = true
-  enable_prometheus_monitoring  = var.observability_enabled
+  enable_prometheus_monitoring  = true  # Always enable for production
 
   depends_on = [module.aks, module.servicebus]
 }
@@ -207,7 +214,7 @@ module "keyvault" {
   aks_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
   
   # Secrets values
-  postgres_host                 = module.postgresql.postgresql_fqdn
+  postgres_host                 = module.postgresql.fqdn
   postgres_username             = var.db_admin_username
   postgres_password             = var.db_admin_password
   postgres_database             = "carpeta_ciudadana"

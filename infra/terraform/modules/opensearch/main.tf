@@ -37,7 +37,7 @@ resource "helm_release" "opensearch" {
   create_namespace = true
 
   values = [
-    file("${path.module}/../../../deploy/helm/values-opensearch.yaml")
+    file("${path.module}/../../../../deploy/helm/values-opensearch.yaml")
   ]
 
   # Override values for single-node dev environment
