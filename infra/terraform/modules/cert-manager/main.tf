@@ -108,6 +108,7 @@ resource "helm_release" "cert_manager" {
 }
 
 # ClusterIssuer para Let's Encrypt Staging
+# Using time_sleep to ensure cert-manager CRDs are ready
 resource "kubernetes_manifest" "letsencrypt_staging" {
   manifest = {
     apiVersion = "cert-manager.io/v1"
@@ -140,10 +141,11 @@ resource "kubernetes_manifest" "letsencrypt_staging" {
     }
   }
 
-  depends_on = [helm_release.cert_manager]
+  depends_on = [time_sleep.wait_for_cert_manager]
 }
 
-# ClusterIssuer para Let's Encrypt Production
+# ClusterIssuer para Let's Encrypt Production  
+# Using time_sleep to ensure cert-manager CRDs are ready
 resource "kubernetes_manifest" "letsencrypt_prod" {
   manifest = {
     apiVersion = "cert-manager.io/v1"
