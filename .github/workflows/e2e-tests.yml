@@ -96,22 +96,35 @@ jobs:
       
       - name: Start services
         run: |
-          # Start infrastructure + application services
-          docker compose --profile app up -d
+          # Start only infrastructure (postgres, redis, opensearch)
+          # No need for full app in smoke tests - just test frontend
+          docker compose up -d postgres redis opensearch
           
-          # Wait for services to be healthy
-          echo "Waiting for services to be ready..."
+          echo "Waiting for infrastructure to be ready..."
           sleep 10
           
-          # Check if frontend is accessible
-          timeout 120 bash -c 'until curl -f http://localhost:3000 > /dev/null 2>&1; do sleep 2; done' || {
+          echo "✅ Infrastructure ready"
+      
+      - name: Build and start frontend
+        working-directory: apps/frontend
+        run: |
+          # Build frontend locally for testing
+          npm run build
+          
+          # Start frontend in background
+          npm start &
+          
+          # Wait for frontend to be ready
+          echo "Waiting for frontend to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:3000 > /dev/null 2>&1; do 
+            echo "Waiting for frontend..."
+            sleep 2
+          done' || {
             echo "Frontend not ready after 2 minutes"
-            docker compose ps
-            docker compose logs frontend
             exit 1
           }
           
-          echo "✅ Services are ready"
+          echo "✅ Frontend is ready"
       
       - name: Run smoke tests
         working-directory: tests/e2e
