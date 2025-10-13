@@ -91,7 +91,10 @@ jobs:
       
       - name: Install Python audit tools
         run: |
-          pip install safety pip-audit
+          pip install pip-audit
+      
+      - name: Create security reports directory
+        run: mkdir -p security-reports
       
       - name: Audit frontend dependencies (npm)
         working-directory: apps/frontend
@@ -99,25 +102,15 @@ jobs:
           npm audit --audit-level=moderate || true
           npm audit --json > ../../security-reports/npm-audit.json || true
       
-      - name: Audit Python dependencies (safety)
-        run: |
-          # Check all service requirements
-          for service in services/*/; do
-            if [ -f "$service/pyproject.toml" ]; then
-              echo "Checking $service"
-              cd $service
-              poetry export -f requirements.txt --output requirements.txt --without-hashes || true
-              safety check --file requirements.txt --json > ../../security-reports/safety-$(basename $service).json || true
-              cd ../..
-            fi
-          done
-      
       - name: Audit Python dependencies (pip-audit)
         run: |
+          # Audit directly from pyproject.toml (no need for requirements.txt)
           for service in services/*/; do
-            if [ -f "$service/requirements.txt" ]; then
-              echo "Auditing $service"
-              pip-audit -r "$service/requirements.txt" --format json > security-reports/pip-audit-$(basename $service).json || true
+            if [ -f "$service/pyproject.toml" ]; then
+              service_name=$(basename $service)
+              echo "Auditing $service_name..."
+              # pip-audit can read pyproject.toml directly
+              pip-audit --requirement "$service/pyproject.toml" --format json > security-reports/pip-audit-${service_name}.json || true
             fi
           done
       
