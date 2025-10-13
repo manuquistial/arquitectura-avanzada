@@ -92,6 +92,31 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
       
+      - name: Create dummy kubeconfig for Helm/K8s providers
+        run: |
+          echo "🔧 Creating dummy kubeconfig for provider initialization..."
+          mkdir -p ~/.kube
+          cat > ~/.kube/config << 'EOF'
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: https://localhost:8443
+              insecure-skip-tls-verify: true
+            name: dummy-cluster
+          contexts:
+          - context:
+              cluster: dummy-cluster
+              user: dummy-user
+            name: dummy-context
+          current-context: dummy-context
+          users:
+          - name: dummy-user
+            user:
+              token: dummy-token
+          EOF
+          echo "✅ Dummy kubeconfig created (will be replaced after AKS creation)"
+      
       - name: Terraform Init
         working-directory: infra/terraform
         run: terraform init
@@ -141,24 +166,23 @@ jobs:
         working-directory: infra/terraform
         run: terraform validate
       
-      - name: Import existing resources
+      - name: Check for existing resources
         working-directory: infra/terraform
         run: |
-          echo "🔍 Checking for existing resources to import..."
+          echo "🔍 Checking for existing resources..."
           
           # Get subscription ID
           SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           RG_NAME="carpeta-ciudadana-dev-rg"
           
-          # Import resource group if exists
+          # Check if resource group exists
           if az group show --name "$RG_NAME" &>/dev/null; then
-            echo "📦 Resource group exists, importing to Terraform state..."
-            terraform import azurerm_resource_group.main "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}" || echo "⚠️ Already imported or import failed (continuing)"
+            echo "📦 Resource group '$RG_NAME' exists - Terraform will update existing resources"
+            echo "Note: If you need to import manually, run:"
+            echo "  terraform import azurerm_resource_group.main /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}"
           else
-            echo "✅ Resource group doesn't exist yet, will be created"
+            echo "✅ Resource group doesn't exist yet - Terraform will create new resources"
           fi
-          
-          echo "✅ Import check completed"
         continue-on-error: true
       
       - name: Terraform Plan (Infrastructure Only)
@@ -184,6 +208,18 @@ jobs:
           echo "🚀 Applying infrastructure resources (Stage 1)..."
           terraform apply -auto-approve tfplan-infra
           echo "✅ Infrastructure created successfully"
+      
+      - name: Configure kubectl for Terraform Helm provider
+        run: |
+          echo "🔧 Configuring kubectl for Helm/Kubernetes providers..."
+          az aks get-credentials \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
+          
+          # Verify connection
+          kubectl cluster-info || echo "⚠️ Cluster not accessible yet"
+          echo "✅ kubectl configured"
       
       - name: Terraform Plan (Helm Charts - Stage 2)
         working-directory: infra/terraform
