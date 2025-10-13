@@ -10,6 +10,12 @@ on:
     - cron: '0 3 * * 1'
   workflow_dispatch:
 
+# Permisos necesarios para subir resultados a GitHub Security
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   trivy-scan:
     name: Trivy Container Scan
