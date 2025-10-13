@@ -178,7 +178,7 @@ module "storage" {
 module "servicebus" {
   source = "./modules/servicebus"
 
-  namespace_name      = "${var.environment}-carpeta-sb"
+  namespace_name      = "${var.environment}-carpeta-servicebus"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   
