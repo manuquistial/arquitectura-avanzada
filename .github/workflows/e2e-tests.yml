@@ -105,6 +105,10 @@ jobs:
           
           echo "✅ Infrastructure ready"
       
+      - name: Install frontend dependencies
+        working-directory: apps/frontend
+        run: npm ci
+      
       - name: Build and start frontend
         working-directory: apps/frontend
         run: |
