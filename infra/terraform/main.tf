@@ -144,7 +144,6 @@ module "postgresql" {
   storage_mb          = var.db_storage_mb
   
   # Firewall configuration
-  enable_public_access = var.db_enable_public_access
   aks_egress_ip        = var.db_aks_egress_ip
   allow_azure_services = var.db_allow_azure_services
   
