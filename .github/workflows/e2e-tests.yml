@@ -39,7 +39,7 @@ jobs:
       
       - name: Start services (Docker Compose)
         run: |
-          docker compose up -d
+          docker compose --profile app up -d
           sleep 30  # Wait for services to be ready
       
       - name: Wait for frontend

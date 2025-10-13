@@ -22,7 +22,7 @@ def config():
         failure_threshold=3,
         success_threshold=2,
         timeout=0.5,  # Short timeout for tests
-        half_open_max_calls=1,
+        half_open_max_calls=3,  # Must be >= success_threshold to allow transition
         sliding_window_size=5,
         failure_rate_threshold=0.6
     )

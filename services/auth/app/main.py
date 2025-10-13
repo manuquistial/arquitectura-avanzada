@@ -5,7 +5,7 @@ Handles authentication, token validation, and session management
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -85,7 +85,7 @@ def create_app() -> FastAPI:
         }
     
     @app.get("/")
-    async def root() -> dict[str, str]:
+    async def root() -> dict[str, Any]:
         """Root endpoint"""
         return {
             "service": "auth",

@@ -161,9 +161,10 @@ class CircuitBreaker(Generic[T]):
                 # Reset failure count on success in CLOSED state
                 self._failure_count = 0
                 # If we had failures but now succeeded, the system has recovered
-                # Reset call history to avoid false positives from old failures
-                if self._call_history and not all(self._call_history):
-                    self._call_history.clear()
+                # Keep only the current success to maintain meaningful failure rate calculation
+                if len(self._call_history) > 1 and not all(self._call_history[:-1]):
+                    # Had previous failures, keep only current success
+                    self._call_history = [True]
     
     def _record_failure(self):
         """Record failed call."""
