@@ -36,4 +36,7 @@ class Settings(BaseSettings):
     
     # Environment
     environment: str = Field(default="development")
+    
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 

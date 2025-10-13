@@ -1,39 +1,28 @@
 FROM python:3.13-slim
 
-WORKDIR /app
+WORKDIR /app/services/read_models
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
 RUN pip install --no-cache-dir poetry==2.2.1
 
-# Copy files from project root context
+# Copy common package to ../common (as expected by pyproject.toml)
+COPY services/common ../common/
+
+# Copy poetry files (pyproject.toml expects ../common)
 COPY services/read_models/pyproject.toml services/read_models/poetry.lock* ./
-COPY services/common ./common/
 
-# Adjust common path
-RUN sed -i 's|path = "../common"|path = "./common"|g' pyproject.toml || true
-
-# Install dependencies
+# Install dependencies (no sed needed, paths match)
 RUN poetry config virtualenvs.create false \
     && poetry install --without dev --no-root --no-interaction --no-ansi
 
 # Copy application code
 COPY services/read_models/app/ ./app/
 
-# Expose port
-EXPOSE 8007
-
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD python -c "import httpx; httpx.get('http://localhost:8007/health', timeout=2.0)" || exit 1
+# Expose port (varies by service)
+EXPOSE 8007
 
 # Run application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8007"]

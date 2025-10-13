@@ -3,6 +3,9 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+    
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
 class Settings(BaseSettings):
     """MinTIC Client settings."""
@@ -36,4 +39,3 @@ class Settings(BaseSettings):
     # Hub rate limiting (protect public hub from saturation)
     hub_rate_limit_per_minute: int = Field(default=10, env="HUB_RATE_LIMIT_PER_MINUTE")
     hub_rate_limit_enabled: bool = Field(default=True, env="HUB_RATE_LIMIT_ENABLED")
-

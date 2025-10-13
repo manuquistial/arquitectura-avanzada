@@ -53,22 +53,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"❌ Failed to start projectors: {e}")
     else:
-        logger.warning("⚠️  Service Bus not configured (SERVICEBUS_CONNECTION_STRING missing)")
-        logger.info("💡 Running in query-only mode (no event projections)")
-    
-    yield
-    
+            logger.warning("⚠️  Service Bus not configured (SERVICEBUS_CONNECTION_STRING missing)")
+            logger.info("💡 Running in query-only mode (no event projections)")
+        
+        yield
+        
     # Shutdown
-    if consumer_task:
-        logger.info("Shutting down event projectors...")
-        consumer_task.cancel()
-        try:
-            await consumer_task
-        except asyncio.CancelledError:
-            pass
-    
-    await engine.dispose()
-    logger.info("👋 Shutting down Read Models Service...")
+        if consumer_task:
+            logger.info("Shutting down event projectors...")
+            consumer_task.cancel()
+            try:
+                await consumer_task
+            except asyncio.CancelledError:
+                pass
+        
+        await engine.dispose()
+        logger.info("👋 Shutting down Read Models Service...")
 
 
 # Create FastAPI app
@@ -84,15 +84,15 @@ if COMMON_AVAILABLE:
     setup_cors(app)
 else:
     # CORS configuration from environment or default to localhost
-    import os
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-        allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Trace-ID"],
-    )
+        from app.config import settings
+        cors_origins = settings.cors_origins.split(",")
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+            allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Trace-ID"],
+        )
 
 # Import and include routers
 try:

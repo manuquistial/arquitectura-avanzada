@@ -50,8 +50,8 @@ try:
 except ImportError:
     from fastapi.middleware.cors import CORSMiddleware
     # CORS configuration from environment or default to localhost
-    import os
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+    from app.config import settings
+    cors_origins = settings.cors_origins.split(",")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
