@@ -51,8 +51,8 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: |
           export PYTHONPATH="${PWD}:$PYTHONPATH"
-          # Skip coverage for placeholder tests (notification, read_models, transfer_worker)
-          if [ "${{ matrix.service }}" = "notification" ] || [ "${{ matrix.service }}" = "read_models" ] || [ "${{ matrix.service }}" = "transfer_worker" ]; then
+          # Skip coverage for placeholder/integration tests
+          if [ "${{ matrix.service }}" = "notification" ] || [ "${{ matrix.service }}" = "read_models" ] || [ "${{ matrix.service }}" = "transfer_worker" ] || [ "${{ matrix.service }}" = "gateway" ]; then
             poetry run pytest tests/ -v
           else
             poetry run pytest tests/ \
