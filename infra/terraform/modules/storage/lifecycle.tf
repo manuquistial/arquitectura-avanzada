@@ -71,33 +71,8 @@ resource "azurerm_storage_management_policy" "document_lifecycle" {
   }
 }
 
-# Optional: Enable blob versioning for immutability
-# This is complementary to WORM trigger in PostgreSQL
-resource "azurerm_storage_account" "main" {
-  # ... existing configuration ...
-  
-  # Enable blob features for WORM compliance
-  blob_properties {
-    # Enable versioning (keeps history of modifications)
-    versioning_enabled = var.enable_blob_versioning
-    
-    # Soft delete (7 days retention before permanent deletion)
-    delete_retention_policy {
-      days = 7
-    }
-    
-    # Container soft delete
-    container_delete_retention_policy {
-      days = 7
-    }
-    
-    # Optional: Change feed for audit
-    change_feed_enabled = var.enable_change_feed
-    
-    # Note: Immutable storage (WORM at blob level) requires Premium
-    # We enforce WORM at application level (PostgreSQL trigger)
-  }
-}
+# Note: blob_properties (versioning, soft delete) are configured in main.tf
+# Lifecycle policy here only handles tier transitions and deletion
 
 # Outputs
 output "lifecycle_policy_id" {
