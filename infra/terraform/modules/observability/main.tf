@@ -31,7 +31,7 @@ resource "helm_release" "otel_collector" {
   namespace  = kubernetes_namespace.observability.metadata[0].name
 
   values = [
-    file("${path.module}/../../../observability/otel-collector-values.yaml")
+    file("${path.module}/../../../../observability/otel-collector-values.yaml")
   ]
 
   set {
@@ -76,7 +76,7 @@ resource "helm_release" "prometheus" {
   namespace  = kubernetes_namespace.observability.metadata[0].name
 
   values = [
-    file("${path.module}/../../../observability/prometheus-values.yaml")
+    file("${path.module}/../../../../observability/prometheus-values.yaml")
   ]
 
   set {

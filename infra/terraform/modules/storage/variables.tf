@@ -20,6 +20,18 @@ variable "resource_group_name" {
   type        = string
 }
 
+variable "location" {
+  description = "Azure location/region"
+  type        = string
+  default     = ""
+}
+
+variable "domain_name" {
+  description = "Domain name for CORS configuration"
+  type        = string
+  default     = "localhost"
+}
+
 variable "container_name" {
   description = "Blob container name"
   type        = string
