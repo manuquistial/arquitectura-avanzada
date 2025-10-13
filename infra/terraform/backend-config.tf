@@ -6,5 +6,6 @@ terraform {
     storage_account_name = "tfstatecarpeta"
     container_name       = "tfstate"
     key                  = "carpeta-ciudadana.tfstate"
+    use_oidc             = true
   }
 }
