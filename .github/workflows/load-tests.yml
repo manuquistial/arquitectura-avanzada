@@ -107,7 +107,7 @@ jobs:
       
       - name: Start services
         run: |
-          docker-compose up -d
+          docker compose up -d
           sleep 60
       
       - name: Run Locust (headless)
