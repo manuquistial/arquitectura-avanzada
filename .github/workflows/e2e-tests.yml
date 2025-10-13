@@ -37,6 +37,11 @@ jobs:
         working-directory: tests/e2e
         run: npx playwright install --with-deps ${{ matrix.browser }}
       
+      - name: Build Docker images locally
+        run: |
+          # Build all service images locally instead of pulling from registry
+          docker compose --profile app build
+      
       - name: Start services (Docker Compose)
         run: |
           docker compose --profile app up -d
