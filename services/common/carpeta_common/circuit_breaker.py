@@ -139,6 +139,7 @@ class CircuitBreaker(Generic[T]):
                     logger.info(f"Circuit breaker {self.name}: OPEN → HALF_OPEN (timeout elapsed)")
                     self._state = CircuitState.HALF_OPEN
                     self._half_open_calls = 0
+                    self._success_count = 0
     
     def _record_success(self):
         """Record successful call."""
@@ -159,6 +160,10 @@ class CircuitBreaker(Generic[T]):
             elif self._state == CircuitState.CLOSED:
                 # Reset failure count on success in CLOSED state
                 self._failure_count = 0
+                # If we had failures but now succeeded, the system has recovered
+                # Reset call history to avoid false positives from old failures
+                if self._call_history and not all(self._call_history):
+                    self._call_history.clear()
     
     def _record_failure(self):
         """Record failed call."""
