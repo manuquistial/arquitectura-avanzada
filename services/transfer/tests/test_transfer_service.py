@@ -22,7 +22,7 @@ def test_health_endpoint(client):
     assert response.status_code == 200
 
 
-@patch('app.routers.transfer.get_db')
+@patch('app.database.get_db')
 def test_initiate_transfer(mock_get_db, client):
     """Test initiating document transfer."""
     # Mock database
@@ -45,7 +45,7 @@ def test_initiate_transfer(mock_get_db, client):
     assert response.status_code in [200, 201, 422]
 
 
-@patch('app.routers.transfer.get_db')
+@patch('app.database.get_db')
 def test_accept_transfer(mock_get_db, client):
     """Test accepting transfer."""
     # Mock database
@@ -71,7 +71,7 @@ def test_accept_transfer(mock_get_db, client):
     assert response.status_code in [200, 404]
 
 
-@patch('app.routers.transfer.get_db')
+@patch('app.database.get_db')
 def test_reject_transfer(mock_get_db, client):
     """Test rejecting transfer."""
     # Mock database
@@ -96,7 +96,7 @@ def test_reject_transfer(mock_get_db, client):
     assert response.status_code in [200, 404]
 
 
-@patch('app.routers.transfer.get_db')
+@patch('app.database.get_db')
 def test_list_transfers(mock_get_db, client):
     """Test listing transfers."""
     # Mock database
@@ -122,7 +122,7 @@ def test_list_transfers(mock_get_db, client):
     assert response.status_code == 200
 
 
-@patch('app.routers.transfer.get_db')
+@patch('app.database.get_db')
 def test_transfer_already_accepted(mock_get_db, client):
     """Test accepting already accepted transfer."""
     # Mock database
