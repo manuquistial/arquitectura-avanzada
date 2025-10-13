@@ -1,23 +1,24 @@
-name: E2E Tests
+name: E2E Tests (Standalone)
 
 on:
   pull_request:
-    branches: [master]
-  push:
-    branches: [master]
+    branches: [master, develop]
   workflow_dispatch:
+  # Note: For push to master/develop, E2E tests run in ci.yml after build-and-push
 
 jobs:
   e2e-tests:
-    name: E2E Tests (Playwright)
+    name: E2E Tests (PR - Local Build)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: []  # Will be populated if running after build-and-push
+    # Only runs on PRs and manual triggers
+    # For master/develop pushes, E2E runs in ci.yml with registry images
     
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit]
+        # Only chromium for PRs to save CI minutes
+        browser: [chromium]
     
     steps:
       - name: Checkout code
@@ -45,37 +46,22 @@ jobs:
         working-directory: tests/e2e
         run: npx playwright install --with-deps ${{ matrix.browser }}
       
-      - name: Pull or Build Docker images
+      - name: Build Docker images locally
         run: |
-          # Set environment variables for Docker Compose
-          export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME || 'manuelquistial' }}
-          export TAG=latest
-          
-          echo "🔍 Attempting to pull images from Docker Hub..."
-          echo "   Registry: $DOCKER_USERNAME/carpeta-*:$TAG"
-          
-          # Try to pull images from registry
-          if docker compose --profile app pull 2>/dev/null; then
-            echo "✅ Successfully pulled images from Docker Hub"
-          else
-            echo "⚠️  Pull failed or images not available"
-            echo "🔨 Building images locally as fallback..."
-            docker compose --profile app build
-            echo "✅ Local build completed"
-          fi
+          echo "🔨 Building images locally for PR testing..."
+          echo "   This ensures tests run against current code changes"
+          docker compose --profile app build
+          echo "✅ Local build completed"
         env:
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME || 'manuelquistial' }}
-          TAG: latest
+          # Use local tag to avoid confusion with registry images
+          TAG: pr-${{ github.event.pull_request.number || 'local' }}
       
       - name: Start services (Docker Compose)
         run: |
-          export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME || 'manuelquistial' }}
-          export TAG=latest
           docker compose --profile app up -d
           sleep 30  # Wait for services to be ready
         env:
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME || 'manuelquistial' }}
-          TAG: latest
+          TAG: pr-${{ github.event.pull_request.number || 'local' }}
       
       - name: Wait for frontend
         run: |
@@ -174,83 +160,3 @@ jobs:
         run: docker compose down
 
 
-  # E2E tests that run after images are pushed (for master/develop only)
-  e2e-tests-post-build:
-    name: E2E Tests (After Build)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: []  # In ci.yml this would be: needs: [build-and-push]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium]  # Only chromium for speed
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: tests/e2e/package-lock.json
-      
-      - name: Install dependencies
-        working-directory: tests/e2e
-        run: npm ci
-      
-      - name: Install Playwright Browsers
-        working-directory: tests/e2e
-        run: npx playwright install --with-deps ${{ matrix.browser }}
-      
-      - name: Pull images from registry
-        run: |
-          export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          export TAG=latest
-          echo "🔍 Pulling images from Docker Hub..."
-          docker compose --profile app pull
-          echo "✅ All images pulled successfully"
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          TAG: latest
-      
-      - name: Start services
-        run: |
-          export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          export TAG=latest
-          docker compose --profile app up -d
-          sleep 30
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          TAG: latest
-      
-      - name: Wait for frontend
-        run: npx wait-on http://localhost:3000 --timeout 120000
-      
-      - name: Run Playwright tests
-        working-directory: tests/e2e
-        run: npx playwright test --project=${{ matrix.browser }}
-        env:
-          BASE_URL: http://localhost:3000
-          API_URL: http://localhost:8000
-      
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-results-post-build-${{ matrix.browser }}
-          path: tests/e2e/test-results/
-          retention-days: 7
-      
-      - name: Stop services
-        if: always()
-        run: docker compose down

@@ -1597,3 +1597,112 @@ jobs:
             || echo "No vulnerabilities found or scan failed" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
+
+  # E2E Tests (After images are built and pushed)
+  e2e-tests-registry:
+    name: E2E Tests (From Registry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-and-push]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium]  # Only chromium for speed in CI
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tests/e2e/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: tests/e2e
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        working-directory: tests/e2e
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      
+      - name: Pull images from Docker Hub
+        run: |
+          export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          export TAG=latest
+          echo "🔍 Pulling images from Docker Hub registry..."
+          echo "   Registry: $DOCKER_USERNAME/carpeta-*:$TAG"
+          docker compose --profile app pull
+          echo "✅ All images pulled successfully from registry"
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          TAG: latest
+      
+      - name: Start services
+        run: |
+          export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          export TAG=latest
+          docker compose --profile app up -d
+          sleep 30  # Wait for services to initialize
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          TAG: latest
+      
+      - name: Wait for frontend
+        run: npx wait-on http://localhost:3000 --timeout 120000
+      
+      - name: Show service status
+        if: always()
+        run: |
+          echo "=== Docker Compose Services ==="
+          docker compose ps
+          echo ""
+          echo "=== Frontend Logs (last 50 lines) ==="
+          docker compose logs --tail=50 frontend || echo "Frontend logs not available"
+      
+      - name: Run Playwright E2E tests
+        working-directory: tests/e2e
+        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          BASE_URL: http://localhost:3000
+          API_URL: http://localhost:8000
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results-registry-${{ matrix.browser }}
+          path: tests/e2e/test-results/
+          retention-days: 7
+      
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report-registry-${{ matrix.browser }}
+          path: tests/e2e/playwright-report/
+          retention-days: 7
+      
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose --profile app down -v
+          docker compose logs > docker-compose-logs.txt || true
+      
+      - name: Upload Docker logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-logs-${{ matrix.browser }}
+          path: docker-compose-logs.txt
+          retention-days: 3
