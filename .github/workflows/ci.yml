@@ -117,6 +117,52 @@ jobs:
           EOF
           echo "✅ Dummy kubeconfig created (will be replaced after AKS creation)"
       
+      - name: Setup Terraform Backend
+        run: |
+          echo "🔧 Setting up Terraform backend (Azure Storage)..."
+          
+          RESOURCE_GROUP="terraform-state-rg"
+          STORAGE_ACCOUNT="tfstatecarpeta"
+          CONTAINER_NAME="tfstate"
+          LOCATION="northcentralus"
+          
+          # Crear Resource Group si no existe
+          if ! az group show --name "$RESOURCE_GROUP" &>/dev/null; then
+            echo "Creating Resource Group for Terraform state..."
+            az group create \
+              --name "$RESOURCE_GROUP" \
+              --location "$LOCATION" \
+              --tags Purpose="Terraform State Storage" Environment="Shared"
+          fi
+          
+          # Crear Storage Account si no existe
+          if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            echo "Creating Storage Account for Terraform state..."
+            az storage account create \
+              --name "$STORAGE_ACCOUNT" \
+              --resource-group "$RESOURCE_GROUP" \
+              --location "$LOCATION" \
+              --sku Standard_LRS \
+              --encryption-services blob \
+              --https-only true \
+              --min-tls-version TLS1_2 \
+              --allow-blob-public-access false
+          fi
+          
+          # Crear Container si no existe
+          if ! az storage container show \
+            --name "$CONTAINER_NAME" \
+            --account-name "$STORAGE_ACCOUNT" \
+            --auth-mode login &>/dev/null; then
+            echo "Creating Storage Container for Terraform state..."
+            az storage container create \
+              --name "$CONTAINER_NAME" \
+              --account-name "$STORAGE_ACCOUNT" \
+              --auth-mode login
+          fi
+          
+          echo "✅ Terraform backend ready"
+      
       - name: Terraform Init
         working-directory: infra/terraform
         run: terraform init
@@ -165,101 +211,6 @@ jobs:
       - name: Terraform Validate
         working-directory: infra/terraform
         run: terraform validate
-      
-      - name: Import existing resources
-        working-directory: infra/terraform
-        run: |
-          echo "🔍 Checking for existing resources to import..."
-          echo ""
-          
-          # Get subscription ID
-          SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          RG_NAME="carpeta-ciudadana-dev-rg"
-          
-          # Function to import resource
-          import_resource() {
-            local resource_address=$1
-            local resource_id=$2
-            local resource_name=$3
-            
-            echo "Importing $resource_name..."
-            if terraform import "$resource_address" "$resource_id" 2>&1 | grep -q "Successfully imported"; then
-              echo "✅ $resource_name imported successfully"
-            elif terraform state show "$resource_address" &>/dev/null; then
-              echo "✅ $resource_name already in state"
-            else
-              echo "⚠️  $resource_name import failed or not found (continuing)"
-            fi
-          }
-          
-          # Import resource group if exists
-          if az group show --name "$RG_NAME" &>/dev/null; then
-            echo "📦 Resource group found in Azure"
-            import_resource \
-              "azurerm_resource_group.main" \
-              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}" \
-              "Resource Group"
-          else
-            echo "✅ Resource group doesn't exist yet, will be created"
-          fi
-          
-          echo ""
-          
-          # Import Virtual Network if exists
-          VNET_NAME="dev-vnet"
-          if az network vnet show --resource-group "$RG_NAME" --name "$VNET_NAME" &>/dev/null 2>&1; then
-            echo "📦 Virtual Network found in Azure"
-            import_resource \
-              "module.vnet.azurerm_virtual_network.main" \
-              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/virtualNetworks/${VNET_NAME}" \
-              "Virtual Network"
-          fi
-          
-          # Import Storage Account if exists
-          STORAGE_ACCOUNT="devcarpetastorage"
-          if az storage account show --resource-group "$RG_NAME" --name "$STORAGE_ACCOUNT" &>/dev/null 2>&1; then
-            echo "📦 Storage Account found in Azure"
-            import_resource \
-              "module.storage.azurerm_storage_account.main" \
-              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}" \
-              "Storage Account"
-          fi
-          
-          # Import User Assigned Identity if exists
-          IDENTITY_NAME="carpeta-ciudadana-dev-aks-identity"
-          if az identity show --resource-group "$RG_NAME" --name "$IDENTITY_NAME" &>/dev/null 2>&1; then
-            echo "📦 User Assigned Identity found in Azure"
-            import_resource \
-              "azurerm_user_assigned_identity.aks_identity" \
-              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${IDENTITY_NAME}" \
-              "User Assigned Identity"
-          fi
-          
-          # Import Service Bus Namespace if exists
-          SB_NAMESPACE="dev-carpeta-servicebus"
-          if az servicebus namespace show --resource-group "$RG_NAME" --name "$SB_NAMESPACE" &>/dev/null 2>&1; then
-            echo "📦 Service Bus Namespace found in Azure"
-            import_resource \
-              "module.servicebus.azurerm_servicebus_namespace.carpeta" \
-              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ServiceBus/namespaces/${SB_NAMESPACE}" \
-              "Service Bus Namespace"
-          fi
-          
-          # Import AKS cluster if exists
-          AKS_NAME="carpeta-ciudadana-dev"
-          if az aks show --resource-group "$RG_NAME" --name "$AKS_NAME" &>/dev/null 2>&1; then
-            echo "📦 AKS cluster found in Azure"
-            import_resource \
-              "module.aks.azurerm_kubernetes_cluster.main" \
-              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ContainerService/managedClusters/${AKS_NAME}" \
-              "AKS Cluster"
-          else
-            echo "✅ AKS cluster doesn't exist yet, will be created"
-          fi
-          
-          echo ""
-          echo "✅ Import check completed"
-        continue-on-error: true
       
       - name: Terraform Plan (Infrastructure Only)
         working-directory: infra/terraform
