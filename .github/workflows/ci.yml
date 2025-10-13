@@ -166,23 +166,59 @@ jobs:
         working-directory: infra/terraform
         run: terraform validate
       
-      - name: Check for existing resources
+      - name: Import existing resources
         working-directory: infra/terraform
         run: |
-          echo "🔍 Checking for existing resources..."
+          echo "🔍 Checking for existing resources to import..."
+          echo ""
           
           # Get subscription ID
           SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           RG_NAME="carpeta-ciudadana-dev-rg"
           
-          # Check if resource group exists
+          # Function to import resource
+          import_resource() {
+            local resource_address=$1
+            local resource_id=$2
+            local resource_name=$3
+            
+            echo "Importing $resource_name..."
+            if terraform import "$resource_address" "$resource_id" 2>&1 | grep -q "Successfully imported"; then
+              echo "✅ $resource_name imported successfully"
+            elif terraform state show "$resource_address" &>/dev/null; then
+              echo "✅ $resource_name already in state"
+            else
+              echo "⚠️  $resource_name import failed or not found (continuing)"
+            fi
+          }
+          
+          # Import resource group if exists
           if az group show --name "$RG_NAME" &>/dev/null; then
-            echo "📦 Resource group '$RG_NAME' exists - Terraform will update existing resources"
-            echo "Note: If you need to import manually, run:"
-            echo "  terraform import azurerm_resource_group.main /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}"
+            echo "📦 Resource group found in Azure"
+            import_resource \
+              "azurerm_resource_group.main" \
+              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}" \
+              "Resource Group"
           else
-            echo "✅ Resource group doesn't exist yet - Terraform will create new resources"
+            echo "✅ Resource group doesn't exist yet, will be created"
           fi
+          
+          echo ""
+          
+          # Import AKS cluster if exists
+          AKS_NAME="carpeta-ciudadana-dev"
+          if az aks show --resource-group "$RG_NAME" --name "$AKS_NAME" &>/dev/null 2>&1; then
+            echo "📦 AKS cluster found in Azure"
+            import_resource \
+              "module.aks.azurerm_kubernetes_cluster.main" \
+              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ContainerService/managedClusters/${AKS_NAME}" \
+              "AKS Cluster"
+          else
+            echo "✅ AKS cluster doesn't exist yet, will be created"
+          fi
+          
+          echo ""
+          echo "✅ Import check completed"
         continue-on-error: true
       
       - name: Terraform Plan (Infrastructure Only)
