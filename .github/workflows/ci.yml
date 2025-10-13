@@ -126,29 +126,56 @@ jobs:
           CONTAINER_NAME="tfstate"
           LOCATION="northcentralus"
           
-          # Verificar/Crear Resource Group
-          if ! az group show --name "$RESOURCE_GROUP" &>/dev/null; then
-            echo "📦 Creating Resource Group for Terraform state..."
-            if az group create \
-              --name "$RESOURCE_GROUP" \
-              --location "$LOCATION" \
-              --tags Purpose="Terraform State Storage" Environment="Shared"; then
-              echo "✅ Resource Group created"
-            else
-              echo "❌ ERROR: Failed to create Resource Group"
-              echo "⚠️  El Service Principal necesita permisos de Contributor o superior"
-              echo "⚠️  Por favor, crea manualmente el Resource Group:"
-              echo "   az group create --name $RESOURCE_GROUP --location $LOCATION"
-              exit 1
-            fi
-          else
-            echo "✅ Resource Group already exists"
-          fi
+          # Nota: El backend (RG + Storage Account) debe crearse manualmente si 
+          # el Service Principal no tiene permisos de Contributor a nivel de suscripción
           
-          # Verificar/Crear Storage Account
-          if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-            echo "📦 Creating Storage Account for Terraform state..."
-            if az storage account create \
+          echo "📦 Verificando backend de Terraform..."
+          
+          # Intentar verificar Storage Account (más específico que Resource Group)
+          if az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            echo "✅ Storage Account existe: $STORAGE_ACCOUNT"
+          else
+            echo "⚠️  Storage Account no encontrado o sin permisos para verificar"
+            echo "⚠️  Intentando crear el backend..."
+            
+            # Intentar crear Resource Group (puede fallar por permisos)
+            if ! az group show --name "$RESOURCE_GROUP" &>/dev/null; then
+              echo "📦 Creando Resource Group..."
+              if ! az group create \
+                --name "$RESOURCE_GROUP" \
+                --location "$LOCATION" \
+                --tags Purpose="Terraform State Storage" Environment="Shared" 2>/dev/null; then
+                echo "❌ No se pudo crear el Resource Group (permisos insuficientes)"
+                echo ""
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "⚠️  ACCIÓN REQUERIDA: Backend de Terraform no configurado"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo ""
+                echo "El Service Principal no tiene permisos para crear recursos."
+                echo "Por favor, ejecuta estos comandos localmente:"
+                echo ""
+                echo "  az group create --name $RESOURCE_GROUP --location $LOCATION"
+                echo ""
+                echo "  az storage account create \\"
+                echo "    --name $STORAGE_ACCOUNT \\"
+                echo "    --resource-group $RESOURCE_GROUP \\"
+                echo "    --location $LOCATION \\"
+                echo "    --sku Standard_LRS"
+                echo ""
+                echo "  az storage container create \\"
+                echo "    --name $CONTAINER_NAME \\"
+                echo "    --account-name $STORAGE_ACCOUNT \\"
+                echo "    --auth-mode login"
+                echo ""
+                echo "O ejecuta el script: ./scripts/setup-terraform-backend.sh"
+                echo ""
+                exit 1
+              fi
+            fi
+            
+            # Intentar crear Storage Account
+            echo "📦 Creando Storage Account..."
+            if ! az storage account create \
               --name "$STORAGE_ACCOUNT" \
               --resource-group "$RESOURCE_GROUP" \
               --location "$LOCATION" \
@@ -156,49 +183,29 @@ jobs:
               --encryption-services blob \
               --https-only true \
               --min-tls-version TLS1_2 \
-              --allow-blob-public-access false \
-              --tags Purpose="Terraform State" Environment="Shared"; then
-              echo "✅ Storage Account created"
-            else
-              echo "❌ ERROR: Failed to create Storage Account"
+              --allow-blob-public-access false; then
+              echo "❌ Error creando Storage Account"
               exit 1
             fi
-          else
-            echo "✅ Storage Account already exists"
           fi
           
           # Verificar/Crear Container
+          echo "📦 Verificando Storage Container..."
           if ! az storage container show \
             --name "$CONTAINER_NAME" \
-            --account-name "$STORAGE_ACCOUNT" \
-            --auth-mode login &>/dev/null; then
-            echo "📦 Creating Storage Container for Terraform state..."
-            if az storage container create \
+            --account-name "$STORAGE_ACCOUNT" &>/dev/null; then
+            echo "Creando container..."
+            az storage container create \
               --name "$CONTAINER_NAME" \
               --account-name "$STORAGE_ACCOUNT" \
-              --auth-mode login \
-              --public-access off; then
-              echo "✅ Storage Container created"
-            else
-              echo "❌ ERROR: Failed to create Storage Container"
-              exit 1
-            fi
+              --public-access off || echo "⚠️  Container ya existe o creado"
           else
-            echo "✅ Storage Container already exists"
+            echo "✅ Container existe: $CONTAINER_NAME"
           fi
           
-          # Habilitar versionado (para seguridad del state)
-          echo "🔐 Enabling blob versioning for state protection..."
-          az storage account blob-service-properties update \
-            --resource-group "$RESOURCE_GROUP" \
-            --account-name "$STORAGE_ACCOUNT" \
-            --enable-versioning true \
-            --enable-delete-retention true \
-            --delete-retention-days 30 || echo "⚠️  Could not enable versioning (may need additional permissions)"
-          
           echo ""
-          echo "✅ Terraform backend ready!"
-          echo "   📍 State location: ${STORAGE_ACCOUNT}/${CONTAINER_NAME}/carpeta-ciudadana.tfstate"
+          echo "✅ Terraform backend listo!"
+          echo "   📍 State: ${STORAGE_ACCOUNT}/${CONTAINER_NAME}/carpeta-ciudadana.tfstate"
       
       - name: Terraform Init
         working-directory: infra/terraform
