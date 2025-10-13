@@ -22,7 +22,7 @@ resource "azurerm_servicebus_queue" "citizen_registered" {
   
   # Dead Letter Queue (DLQ) configuration
   dead_lettering_on_message_expiration = true
-  enable_batched_operations  = true
+  batched_operations_enabled = true
   
   # Retry configuration
   max_delivery_count         = 5  # Send to DLQ after 5 delivery attempts
@@ -42,7 +42,7 @@ resource "azurerm_servicebus_queue" "document_uploaded" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  enable_batched_operations  = true
+  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
   
@@ -59,7 +59,7 @@ resource "azurerm_servicebus_queue" "document_authenticated" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  enable_batched_operations  = true
+  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
   
@@ -76,7 +76,7 @@ resource "azurerm_servicebus_queue" "transfer_requested" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  enable_batched_operations  = true
+  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
   
@@ -93,7 +93,7 @@ resource "azurerm_servicebus_queue" "transfer_confirmed" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  enable_batched_operations  = true
+  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
   
