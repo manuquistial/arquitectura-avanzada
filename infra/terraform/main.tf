@@ -32,21 +32,19 @@ provider "azurerm" {
 }
 
 # Provider para Helm
+# Uses kubeconfig file from environment (generated after AKS creation)
+# For initial deployment, use two-stage apply (see CI/CD pipeline)
 provider "helm" {
   kubernetes {
-    host                   = module.aks.cluster_endpoint
-    client_certificate     = base64decode(module.aks.client_certificate)
-    client_key             = base64decode(module.aks.client_key)
-    cluster_ca_certificate = base64decode(module.aks.cluster_ca_certificate)
+    config_path = "~/.kube/config"
   }
 }
 
-# Provider para Kubernetes
+# Provider para Kubernetes  
+# Uses kubeconfig file from environment (generated after AKS creation)
+# For initial deployment, use two-stage apply (see CI/CD pipeline)
 provider "kubernetes" {
-  host                   = module.aks.cluster_endpoint
-  client_certificate     = base64decode(module.aks.client_certificate)
-  client_key             = base64decode(module.aks.client_key)
-  cluster_ca_certificate = base64decode(module.aks.cluster_ca_certificate)
+  config_path = "~/.kube/config"
 }
 
 # Resource Group principal
