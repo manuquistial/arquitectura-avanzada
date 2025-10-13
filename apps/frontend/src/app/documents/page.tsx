@@ -88,8 +88,8 @@ export default function DocumentsPage() {
       await api.delete(`/api/metadata/documents/${documentId}`);
       // Reload documents after deletion
       await loadDocuments();
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.detail || 'Error al eliminar documento';
+    } catch (err: unknown) {
+      const errorMsg = (err as {response?: {data?: {detail?: string}}})?.response?.data?.detail || 'Error al eliminar documento';
       alert(errorMsg);
       console.error('Delete error:', err);
     }

@@ -49,7 +49,7 @@ class SharePackage(Base):
     revoked_at = Column(DateTime, nullable=True)
     
     # Audit
-    metadata = Column(JSON, nullable=True)
+    package_metadata = Column(JSON, nullable=True)  # Renamed from 'metadata' (SQLAlchemy reserved)
 
 
 class ShareAccessLog(Base):

@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { LogIn, Shield, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

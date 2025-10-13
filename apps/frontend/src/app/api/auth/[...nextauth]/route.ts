@@ -8,13 +8,13 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import AzureADB2CProvider from "next-auth/providers/azure-ad-b2c";
 
-const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME || "carpetaciudadana";
+// const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME || "carpetaciudadana"; // Reserved for future use
 const tenantId = process.env.AZURE_AD_B2C_TENANT_ID || "";
 const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW || "B2C_1_signupsignin1";
 const clientId = process.env.AZURE_AD_B2C_CLIENT_ID || "";
 const clientSecret = process.env.AZURE_AD_B2C_CLIENT_SECRET || "";
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     AzureADB2CProvider({
       tenantId,
@@ -45,12 +45,12 @@ export const authOptions: NextAuthOptions = {
         token.sub = profile.sub; // User ID from B2C
         token.email = profile.email;
         token.name = profile.name;
-        token.given_name = (profile as any).given_name;
-        token.family_name = (profile as any).family_name;
+        token.given_name = (profile as Record<string, unknown>).given_name as string;
+        token.family_name = (profile as Record<string, unknown>).family_name as string;
         
         // Custom claims (if configured in B2C)
-        token.roles = (profile as any).extension_Role || [];
-        token.permissions = (profile as any).extension_Permissions || [];
+        token.roles = (profile as Record<string, unknown>).extension_Role as string[] || [];
+        token.permissions = (profile as Record<string, unknown>).extension_Permissions as string[] || [];
       }
       
       return token;

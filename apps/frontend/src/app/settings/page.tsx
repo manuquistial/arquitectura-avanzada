@@ -74,7 +74,7 @@ export default function SettingsPage() {
     }
   };
 
-  const updateSetting = (category: keyof UserSettings, key: string, value: any) => {
+  const updateSetting = (category: keyof UserSettings, key: string, value: unknown) => {
     setSettings({
       ...settings,
       [category]: {
@@ -120,7 +120,7 @@ export default function SettingsPage() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'profile' | 'notifications' | 'privacy' | 'appearance' | 'account')}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-colors mb-1 ${
                     activeTab === tab.id
                       ? 'bg-blue-50 text-blue-700 font-semibold'

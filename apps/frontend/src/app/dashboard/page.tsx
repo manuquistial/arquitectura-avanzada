@@ -272,7 +272,7 @@ export default function DashboardPage() {
                 {['today', 'week', 'month', 'all'].map((filter) => (
                   <button
                     key={filter}
-                    onClick={() => setTimeFilter(filter as any)}
+                    onClick={() => setTimeFilter(filter as 'today' | 'week' | 'month' | 'all')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                       timeFilter === filter
                         ? 'bg-blue-600 text-white'
