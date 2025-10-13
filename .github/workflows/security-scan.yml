@@ -39,9 +39,9 @@ jobs:
       - name: Build Docker image
         run: |
           if [ "${{ matrix.service }}" = "frontend" ]; then
-            docker build -t ${{ matrix.service }}:test -f apps/frontend/Dockerfile apps/frontend
+            docker build -t ${{ matrix.service }}:test -f apps/frontend/Dockerfile .
           else
-            docker build -t ${{ matrix.service }}:test -f services/${{ matrix.service }}/Dockerfile services/${{ matrix.service }}
+            docker build -t ${{ matrix.service }}:test -f services/${{ matrix.service }}/Dockerfile .
           fi
       
       - name: Run Trivy vulnerability scanner
