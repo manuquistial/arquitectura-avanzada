@@ -3,14 +3,14 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-    
-    # CORS
-    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
 class Settings(BaseSettings):
     """MinTIC Client settings."""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
     # MinTIC Hub (GovCarpeta APIs - public API, no auth required)
     mintic_base_url: str = Field(default="https://govcarpeta-apis-4905ff3c005b.herokuapp.com")
