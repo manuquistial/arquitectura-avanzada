@@ -58,10 +58,10 @@ def test_rate_limiter_import():
     assert HubRateLimiter is not None
 
 
-def test_app_creation():
-    """Test FastAPI app module exists."""
-    # Test that main module can be imported
+def test_main_module():
+    """Test main module can be imported."""
+    # Just test the module exists, don't instantiate app
+    # to avoid complex config dependencies
     from app import main
     assert main is not None
-    # Test create_app exists
     assert hasattr(main, 'create_app')

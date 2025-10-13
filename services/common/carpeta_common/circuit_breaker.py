@@ -184,11 +184,13 @@ class CircuitBreaker(Generic[T]):
                     logger.error(f"Circuit breaker {self.name}: CLOSED → OPEN (threshold {self._failure_count}/{self.config.failure_threshold})")
                     self._state = CircuitState.OPEN
                 
-                # Check failure rate
-                failure_rate = self._calculate_failure_rate()
-                if failure_rate >= self.config.failure_rate_threshold:
-                    logger.error(f"Circuit breaker {self.name}: CLOSED → OPEN (failure rate {failure_rate:.2%})")
-                    self._state = CircuitState.OPEN
+                # Check failure rate (only if we have enough history)
+                # Require at least failure_threshold calls to calculate meaningful rate
+                if len(self._call_history) >= self.config.failure_threshold:
+                    failure_rate = self._calculate_failure_rate()
+                    if failure_rate >= self.config.failure_rate_threshold:
+                        logger.error(f"Circuit breaker {self.name}: CLOSED → OPEN (failure rate {failure_rate:.2%})")
+                        self._state = CircuitState.OPEN
     
     def _trim_history(self):
         """Trim call history to sliding window size."""

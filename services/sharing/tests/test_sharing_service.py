@@ -41,15 +41,14 @@ def test_config_import():
 
 def test_models_import():
     """Test models can be imported."""
-    from app.models import SharePackage, Shortlink
+    from app.models import SharePackage
     assert SharePackage is not None
-    assert Shortlink is not None
 
 
 def test_schemas_import():
     """Test schemas can be imported."""
-    from app.schemas import SharePackageCreate
-    assert SharePackageCreate is not None
+    from app.schemas import CreateSharePackageRequest
+    assert CreateSharePackageRequest is not None
 
 
 def test_database_import():
@@ -66,5 +65,17 @@ def test_routers_import():
 
 def test_services_import():
     """Test services can be imported."""
-    from app.services.token_generator import generate_secure_token
-    assert generate_secure_token is not None
+    from app.services.token_generator import TokenGenerator
+    assert TokenGenerator is not None
+
+
+def test_token_generation():
+    """Test token generation works."""
+    from app.services.token_generator import TokenGenerator
+    
+    token1 = TokenGenerator.generate_token()
+    token2 = TokenGenerator.generate_token()
+    
+    # Tokens should be different
+    assert token1 != token2
+    assert len(token1) >= 12
