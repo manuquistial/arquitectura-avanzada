@@ -2,22 +2,20 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install poetry
 RUN pip install --no-cache-dir poetry==2.2.1
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock* ./
+# Copy files from project root context
+COPY services/mintic_client/pyproject.toml services/mintic_client/poetry.lock* ./
+COPY services/common ./common/
 
-# Install dependencies
+# Adjust common path
+RUN sed -i 's|path = "../common"|path = "./common"|g' pyproject.toml || true
+
 RUN poetry config virtualenvs.create false \
     && poetry install --only main --no-root --no-interaction --no-ansi
 
-# Copy application
-COPY app/ ./app/
+COPY services/mintic_client/app/ ./app/
 
-# Expose port
-EXPOSE 8000
+EXPOSE 8005
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8005"]

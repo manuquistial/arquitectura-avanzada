@@ -1,22 +1,21 @@
 FROM python:3.13-slim
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry==2.2.1
-
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock* ./
+RUN pip install --no-cache-dir poetry==2.2.1
 
-# Install dependencies
+# Copy files from project root context
+COPY services/signature/pyproject.toml services/signature/poetry.lock* ./
+COPY services/common ./common/
+
+# Adjust common path
+RUN sed -i 's|path = "../common"|path = "./common"|g' pyproject.toml || true
+
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-root --no-dev --no-interaction --no-ansi
+    && poetry install --only main --no-root --no-interaction --no-ansi
 
-# Copy application code
-COPY app/ ./app/
+COPY services/signature/app/ ./app/
 
-# Expose port
-EXPOSE 8000
+EXPOSE 8006
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8006"]

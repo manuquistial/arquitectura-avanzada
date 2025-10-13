@@ -10,15 +10,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Poetry
 RUN pip install --no-cache-dir poetry==2.2.1
 
-# Copy poetry files
-COPY pyproject.toml poetry.lock* ./
+# Copy files from project root context
+COPY services/read_models/pyproject.toml services/read_models/poetry.lock* ./
+COPY services/common ./common/
+
+# Adjust common path
+RUN sed -i 's|path = "../common"|path = "./common"|g' pyproject.toml || true
 
 # Install dependencies
 RUN poetry config virtualenvs.create false \
     && poetry install --no-dev --no-interaction --no-ansi
 
 # Copy application code
-COPY app/ ./app/
+COPY services/read_models/app/ ./app/
 
 # Expose port
 EXPOSE 8007
@@ -33,4 +37,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Run application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8007"]
-
