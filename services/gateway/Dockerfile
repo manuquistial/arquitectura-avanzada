@@ -4,14 +4,18 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir poetry==2.2.1
 
-COPY pyproject.toml poetry.lock* ./
+# Copy files from project root context
+COPY services/gateway/pyproject.toml services/gateway/poetry.lock* ./
+COPY services/common ./common/
+
+# Adjust common path
+RUN sed -i 's|path = "../common"|path = "./common"|g' pyproject.toml || true
 
 RUN poetry config virtualenvs.create false \
     && poetry install --only main --no-root --no-interaction --no-ansi
 
-COPY app/ ./app/
+COPY services/gateway/app/ ./app/
 
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
