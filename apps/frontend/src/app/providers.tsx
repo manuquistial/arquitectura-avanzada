@@ -10,12 +10,11 @@ import { ReactNode } from "react";
 
 interface ProvidersProps {
   children: ReactNode;
-  session?: any;
 }
 
-export function Providers({ children, session }: ProvidersProps) {
+export function Providers({ children }: ProvidersProps) {
   return (
-    <SessionProvider session={session} refetchInterval={5 * 60}>
+    <SessionProvider refetchInterval={5 * 60}>
       {children}
     </SessionProvider>
   );
