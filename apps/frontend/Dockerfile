@@ -4,14 +4,16 @@ FROM node:22-alpine AS base
 FROM base AS deps
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+# Context is project root, so copy from apps/frontend/
+COPY apps/frontend/package.json apps/frontend/package-lock.json* ./
 RUN npm ci
 
 # Builder
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copy all frontend files from apps/frontend/
+COPY apps/frontend/ ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
 

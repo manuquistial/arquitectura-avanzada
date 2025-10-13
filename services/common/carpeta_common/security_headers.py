@@ -167,7 +167,7 @@ def validate_cors_origin(origin: str, allowed_origins: list[str]) -> bool:
     Validate CORS origin against allowed list.
     
     Args:
-        origin: Origin header value
+        origin: Origin header value (e.g., https://example.com)
         allowed_origins: List of allowed origins
     
     Returns:
@@ -180,11 +180,17 @@ def validate_cors_origin(origin: str, allowed_origins: list[str]) -> bool:
     if origin in allowed_origins:
         return True
     
+    # Extract hostname from origin (remove scheme and port)
+    from urllib.parse import urlparse
+    parsed = urlparse(origin)
+    hostname = parsed.netloc.split(':')[0] if parsed.netloc else origin
+    
     # Wildcard subdomain matching (e.g., *.example.com)
     for allowed in allowed_origins:
         if allowed.startswith("*."):
             domain = allowed[2:]
-            if origin.endswith(f".{domain}") or origin == domain:
+            # Match subdomains or the domain itself
+            if hostname.endswith(f".{domain}") or hostname == domain:
                 return True
     
     return False
