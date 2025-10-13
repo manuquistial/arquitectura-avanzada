@@ -82,7 +82,8 @@ jobs:
       - name: Install dependencies
         working-directory: services/common
         run: |
-          poetry install --with dev --no-root
+          # Common is a library package, needs to be installed for imports
+          poetry install --with dev
       
       - name: Run pytest
         working-directory: services/common
