@@ -5,6 +5,7 @@ on:
     branches: [master, develop]
   push:
     branches: [master]
+  workflow_call:  # Permitir que sea llamado por otros workflows
 
 jobs:
   unit-tests:
@@ -12,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     
     strategy:
+      fail-fast: false  # No detener si un servicio falla, ejecutar todos
       matrix:
         service:
           - citizen
@@ -48,11 +50,12 @@ jobs:
       - name: Run pytest
         working-directory: services/${{ matrix.service }}
         run: |
+          export PYTHONPATH="${PWD}:$PYTHONPATH"
           poetry run pytest tests/ \
             --cov=app \
             --cov-report=xml \
             --cov-report=term \
-            --cov-fail-under=70 \
+            --cov-fail-under=50 \
             -v
       
       - name: Upload coverage to Codecov

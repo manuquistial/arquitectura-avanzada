@@ -17,6 +17,7 @@ azure-storage-blob = "^12.19.0"
 carpeta-common = {path = "../common", develop = true}
 
 [tool.poetry.group.dev.dependencies]
+pytest-cov = "^7.0.0"
 pytest = "^7.4.3"
 pytest-asyncio = "^0.21.1"
 pytest-httpx = "^0.29.0"
