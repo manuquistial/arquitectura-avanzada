@@ -87,7 +87,7 @@ jobs:
       
       - name: Stop services
         if: always()
-        run: docker-compose down
+        run: docker compose down
   
   locust-load-test:
     name: Locust Load Test
@@ -132,5 +132,5 @@ jobs:
       
       - name: Stop services
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
