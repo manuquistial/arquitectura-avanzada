@@ -110,6 +110,7 @@ resource "helm_release" "cert_manager" {
 # ClusterIssuer para Let's Encrypt Staging
 # Using time_sleep to ensure cert-manager CRDs are ready
 resource "kubernetes_manifest" "letsencrypt_staging" {
+  count = 0  # Disabled: Apply manually after cluster is ready
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
@@ -147,6 +148,7 @@ resource "kubernetes_manifest" "letsencrypt_staging" {
 # ClusterIssuer para Let's Encrypt Production  
 # Using time_sleep to ensure cert-manager CRDs are ready
 resource "kubernetes_manifest" "letsencrypt_prod" {
+  count = 0  # Disabled: Apply manually after cluster is ready
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"

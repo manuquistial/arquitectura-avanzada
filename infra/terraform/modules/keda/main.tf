@@ -126,7 +126,8 @@ resource "helm_release" "keda" {
 
 # Create TriggerAuthentication for Service Bus (using Azure Workload Identity)
 resource "kubernetes_manifest" "servicebus_trigger_auth" {
-  count = var.enable_servicebus_trigger ? 1 : 0
+  count = 0  # Disabled: Apply manually after cluster is ready
+  # Original: count = var.enable_servicebus_trigger ? 1 : 0
 
   manifest = {
     apiVersion = "keda.sh/v1alpha1"
@@ -149,7 +150,8 @@ resource "kubernetes_manifest" "servicebus_trigger_auth" {
 
 # ServiceMonitor for Prometheus (if prometheus-operator is installed)
 resource "kubernetes_manifest" "keda_service_monitor" {
-  count = var.enable_prometheus_monitoring ? 1 : 0
+  count = 0  # Disabled: Apply manually after cluster is ready
+  # Original: count = var.enable_prometheus_monitoring ? 1 : 0
 
   manifest = {
     apiVersion = "monitoring.coreos.com/v1"
