@@ -96,8 +96,22 @@ jobs:
       
       - name: Start services
         run: |
-          docker compose up -d
-          sleep 30
+          # Start infrastructure + application services
+          docker compose --profile app up -d
+          
+          # Wait for services to be healthy
+          echo "Waiting for services to be ready..."
+          sleep 10
+          
+          # Check if frontend is accessible
+          timeout 120 bash -c 'until curl -f http://localhost:3000 > /dev/null 2>&1; do sleep 2; done' || {
+            echo "Frontend not ready after 2 minutes"
+            docker compose ps
+            docker compose logs frontend
+            exit 1
+          }
+          
+          echo "✅ Services are ready"
       
       - name: Run smoke tests
         working-directory: tests/e2e

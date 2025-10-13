@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}
         run: |
-          poetry install --with dev
+          poetry install --with dev --no-root
       
       - name: Run pytest
         working-directory: services/${{ matrix.service }}
@@ -82,7 +82,7 @@ jobs:
       - name: Install dependencies
         working-directory: services/common
         run: |
-          poetry install --with dev
+          poetry install --with dev --no-root
       
       - name: Run pytest
         working-directory: services/common
