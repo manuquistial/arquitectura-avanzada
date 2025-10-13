@@ -20,7 +20,7 @@ except ImportError:
 if COMMON_AVAILABLE:
     setup_logging()
 else:
-    logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -49,15 +49,15 @@ def create_app() -> FastAPI:
         setup_cors(app)
     else:
     # CORS configuration from environment or default to localhost
-    import os
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-        allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Trace-ID"],
-    )
+        from app.config import settings
+        cors_origins = settings.cors_origins.split(",")
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+            allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Trace-ID"],
+        )
 
     # Routers
     app.include_router(signature.router, prefix="/api/signature", tags=["signature"])

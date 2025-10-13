@@ -1,21 +1,28 @@
 FROM python:3.13-slim
 
-WORKDIR /app
+WORKDIR /app/services/citizen
 
 RUN pip install --no-cache-dir poetry==2.2.1
 
-# Copy files from project root context
+# Copy common package to ../common (as expected by pyproject.toml)
+COPY services/common ../common/
+
+# Copy poetry files (pyproject.toml expects ../common)
 COPY services/citizen/pyproject.toml services/citizen/poetry.lock* ./
-COPY services/common ./common/
 
-# Adjust common path
-RUN sed -i 's|path = "../common"|path = "./common"|g' pyproject.toml || true
-
+# Install dependencies (no sed needed, paths match)
 RUN poetry config virtualenvs.create false \
-    && poetry install --only main --no-root --no-interaction --no-ansi
+    && poetry install --without dev --no-root --no-interaction --no-ansi
 
+# Copy application code
 COPY services/citizen/app/ ./app/
 
-EXPOSE 8001
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Expose port (varies by service)
+EXPOSE 8000
+
+# Run application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

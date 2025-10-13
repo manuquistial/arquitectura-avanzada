@@ -4,6 +4,9 @@ import os
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+    
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
 class Settings(BaseSettings):
     """Signature service settings."""
@@ -46,4 +49,3 @@ class Settings(BaseSettings):
     
     # Internal services
     metadata_service_url: str = Field(default="http://metadata:8000")
-

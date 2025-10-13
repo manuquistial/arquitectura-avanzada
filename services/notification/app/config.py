@@ -3,6 +3,9 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+    
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
 class Settings(BaseSettings):
     """Notification service settings."""
@@ -44,4 +47,3 @@ class Settings(BaseSettings):
     
     # Environment
     environment: str = Field(default="development")
-
