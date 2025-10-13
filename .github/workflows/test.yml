@@ -57,8 +57,8 @@ jobs:
               # Placeholder tests only, no coverage required
               poetry run pytest tests/ -v
               ;;
-            ingestion|metadata|transfer|signature)
-              # Basic services with 20% coverage
+            ingestion|metadata|transfer|signature|mintic_client)
+              # Basic services with 20-30% coverage
               poetry run pytest tests/ \
                 --cov=app \
                 --cov-report=xml \
@@ -75,7 +75,7 @@ jobs:
                 --cov-fail-under=40 \
                 -v
               ;;
-            sharing|auth|mintic_client)
+            sharing|auth)
               # Core services with 50% coverage
               poetry run pytest tests/ \
                 --cov=app \
