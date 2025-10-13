@@ -205,6 +205,46 @@ jobs:
           
           echo ""
           
+          # Import Virtual Network if exists
+          VNET_NAME="dev-vnet"
+          if az network vnet show --resource-group "$RG_NAME" --name "$VNET_NAME" &>/dev/null 2>&1; then
+            echo "📦 Virtual Network found in Azure"
+            import_resource \
+              "module.vnet.azurerm_virtual_network.main" \
+              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/virtualNetworks/${VNET_NAME}" \
+              "Virtual Network"
+          fi
+          
+          # Import Storage Account if exists
+          STORAGE_ACCOUNT="devcarpetastorage"
+          if az storage account show --resource-group "$RG_NAME" --name "$STORAGE_ACCOUNT" &>/dev/null 2>&1; then
+            echo "📦 Storage Account found in Azure"
+            import_resource \
+              "module.storage.azurerm_storage_account.main" \
+              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}" \
+              "Storage Account"
+          fi
+          
+          # Import User Assigned Identity if exists
+          IDENTITY_NAME="carpeta-ciudadana-dev-aks-identity"
+          if az identity show --resource-group "$RG_NAME" --name "$IDENTITY_NAME" &>/dev/null 2>&1; then
+            echo "📦 User Assigned Identity found in Azure"
+            import_resource \
+              "azurerm_user_assigned_identity.aks_identity" \
+              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${IDENTITY_NAME}" \
+              "User Assigned Identity"
+          fi
+          
+          # Import Service Bus Namespace if exists
+          SB_NAMESPACE="dev-carpeta-servicebus"
+          if az servicebus namespace show --resource-group "$RG_NAME" --name "$SB_NAMESPACE" &>/dev/null 2>&1; then
+            echo "📦 Service Bus Namespace found in Azure"
+            import_resource \
+              "module.servicebus.azurerm_servicebus_namespace.carpeta" \
+              "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.ServiceBus/namespaces/${SB_NAMESPACE}" \
+              "Service Bus Namespace"
+          fi
+          
           # Import AKS cluster if exists
           AKS_NAME="carpeta-ciudadana-dev"
           if az aks show --resource-group "$RG_NAME" --name "$AKS_NAME" &>/dev/null 2>&1; then
