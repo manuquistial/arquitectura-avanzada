@@ -48,7 +48,7 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'notifications' | 'privacy' | 'appearance' | 'account'>('notifications');
+  const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'privacy' | 'appearance' | 'account'>('profile');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
