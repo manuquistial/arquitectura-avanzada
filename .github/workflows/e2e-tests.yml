@@ -39,7 +39,7 @@ jobs:
       
       - name: Start services (Docker Compose)
         run: |
-          docker-compose up -d
+          docker compose up -d
           sleep 30  # Wait for services to be ready
       
       - name: Wait for frontend
@@ -71,7 +71,7 @@ jobs:
       
       - name: Stop services
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
   e2e-smoke:
     name: E2E Smoke Tests (Fast)
@@ -105,5 +105,5 @@ jobs:
       
       - name: Stop services
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
