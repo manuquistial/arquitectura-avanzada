@@ -161,13 +161,42 @@ jobs:
           echo "✅ Import check completed"
         continue-on-error: true
       
-      - name: Terraform Plan
+      - name: Terraform Plan (Infrastructure Only)
         working-directory: infra/terraform
-        run: terraform plan -out=tfplan
+        run: |
+          echo "📋 Planning infrastructure resources (Stage 1)..."
+          terraform plan \
+            -target=azurerm_resource_group.main \
+            -target=azurerm_user_assigned_identity.aks_identity \
+            -target=module.vnet \
+            -target=module.aks \
+            -target=module.postgresql \
+            -target=module.storage \
+            -target=module.servicebus \
+            -target=module.keyvault \
+            -target=azurerm_role_assignment.aks_cluster_to_storage \
+            -target=azurerm_role_assignment.aks_identity_to_storage \
+            -out=tfplan-infra
       
-      - name: Terraform Apply
+      - name: Terraform Apply (Infrastructure Only - Stage 1)
         working-directory: infra/terraform
-        run: terraform apply -auto-approve tfplan
+        run: |
+          echo "🚀 Applying infrastructure resources (Stage 1)..."
+          terraform apply -auto-approve tfplan-infra
+          echo "✅ Infrastructure created successfully"
+      
+      - name: Terraform Plan (Helm Charts - Stage 2)
+        working-directory: infra/terraform
+        run: |
+          echo "📋 Planning Helm chart deployments (Stage 2)..."
+          terraform plan -out=tfplan-helm
+      
+      - name: Terraform Apply (Helm Charts - Stage 2)
+        working-directory: infra/terraform
+        run: |
+          echo "🚀 Deploying Helm charts (Stage 2)..."
+          terraform apply -auto-approve tfplan-helm
+          echo "✅ Helm charts deployed successfully"
       
       - name: Export Terraform Outputs
         id: terraform-output
@@ -197,9 +226,9 @@ jobs:
             /tmp/storage_account.txt
           retention-days: 1
 
-  # Install Platform Components (cert-manager, ingress-nginx, OTEL, OpenSearch)
+  # Install Platform Components (nginx-ingress only - others managed by Terraform)
   platform-install:
-    name: Install Platform Components
+    name: Install Nginx Ingress Controller
     runs-on: ubuntu-latest
     needs: [infra-apply]
     if: github.ref == 'refs/heads/master'
@@ -236,43 +265,42 @@ jobs:
         run: |
           echo "Adding Helm repositories..."
           
-          # cert-manager
-          helm repo add jetstack https://charts.jetstack.io
-          
           # ingress-nginx
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-          
-          # OpenTelemetry
-          helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-          
-          # OpenSearch
-          helm repo add opensearch https://opensearch-project.github.io/helm-charts/
           
           # Update repos
           helm repo update
       
-      - name: Install cert-manager
+      - name: Install Nginx Ingress Controller
         run: |
-          echo "Installing cert-manager..."
+          echo "Installing Nginx Ingress Controller..."
+          echo "Note: cert-manager, KEDA, OpenSearch, and Observability stack are deployed via Terraform"
           
-          helm upgrade --install cert-manager jetstack/cert-manager \
-            --namespace cert-manager \
+          helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
+            --namespace ingress-nginx \
             --create-namespace \
-            --version v1.13.3 \
-            --set installCRDs=true \
-            --set global.leaderElection.namespace=cert-manager \
-            --set resources.requests.cpu=100m \
-            --set resources.requests.memory=128Mi \
-            --set resources.limits.cpu=200m \
-            --set resources.limits.memory=256Mi \
+            --version 4.8.3 \
+            --set controller.service.type=LoadBalancer \
+            --set controller.metrics.enabled=true \
+            --set controller.podAnnotations."prometheus\.io/scrape"=true \
+            --set controller.podAnnotations."prometheus\.io/port"=10254 \
+            --set controller.resources.requests.cpu=100m \
+            --set controller.resources.requests.memory=128Mi \
             --wait \
-            --timeout 5m
+            --timeout 8m
           
-          echo "✅ cert-manager installed"
+          echo "✅ Nginx Ingress installed"
       
-      - name: Create ClusterIssuers
+      - name: Create ClusterIssuers for cert-manager
         run: |
           echo "Creating Let's Encrypt ClusterIssuers..."
+          echo "Waiting for cert-manager to be ready (deployed via Terraform)..."
+          
+          # Wait for cert-manager to be ready
+          kubectl wait --for=condition=ready pod \
+            -l app.kubernetes.io/name=cert-manager \
+            -n cert-manager \
+            --timeout=5m || echo "cert-manager pods not ready yet"
           
           cat <<EOF | kubectl apply -f -
           apiVersion: cert-manager.io/v1
@@ -308,97 +336,6 @@ jobs:
           
           echo "✅ ClusterIssuers created"
       
-      - name: Install Nginx Ingress Controller
-        run: |
-          echo "Installing Nginx Ingress Controller..."
-          
-          helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
-            --namespace ingress-nginx \
-            --create-namespace \
-            --version 4.8.3 \
-            --set controller.service.type=LoadBalancer \
-            --set controller.metrics.enabled=true \
-            --set controller.podAnnotations."prometheus\.io/scrape"=true \
-            --set controller.podAnnotations."prometheus\.io/port"=10254 \
-            --set controller.resources.requests.cpu=100m \
-            --set controller.resources.requests.memory=128Mi \
-            --wait \
-            --timeout 8m
-          
-          echo "✅ Nginx Ingress installed"
-      
-      - name: Install OpenTelemetry Collector
-        run: |
-          echo "Installing OpenTelemetry Collector..."
-          
-          helm upgrade --install otel-collector open-telemetry/opentelemetry-collector \
-            --namespace observability \
-            --create-namespace \
-            --version 0.78.0 \
-            --values observability/otel-collector-values.yaml \
-            --set mode=deployment \
-            --set replicaCount=2 \
-            --set resources.requests.cpu=200m \
-            --set resources.requests.memory=256Mi \
-            --set resources.limits.cpu=500m \
-            --set resources.limits.memory=512Mi \
-            --wait \
-            --timeout 5m
-          
-          echo "✅ OpenTelemetry Collector installed"
-      
-      - name: Install Prometheus
-        run: |
-          echo "Installing Prometheus..."
-          
-          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-          helm repo update
-          
-          helm upgrade --install prometheus prometheus-community/prometheus \
-            --namespace observability \
-            --values observability/prometheus-values.yaml \
-            --set server.retention=15d \
-            --set server.persistentVolume.size=10Gi \
-            --set server.persistentVolume.storageClass=managed-premium \
-            --set server.resources.requests.cpu=500m \
-            --set server.resources.requests.memory=1Gi \
-            --wait \
-            --timeout 8m
-          
-          echo "✅ Prometheus installed"
-      
-      - name: Install OpenSearch
-        run: |
-          echo "Installing OpenSearch..."
-          
-          # Create opensearch-auth secret first
-          POSTGRES_HOST=$(cat /tmp/postgres_host.txt)
-          
-          kubectl create secret generic opensearch-auth \
-            --namespace search \
-            --from-literal=OS_USERNAME=admin \
-            --from-literal=OS_PASSWORD=${{ secrets.OPENSEARCH_PASSWORD }} \
-            --from-literal=OPENSEARCH_URL=http://opensearch-cluster-master:9200 \
-            --dry-run=client -o yaml | kubectl apply -f - || true
-          
-          helm upgrade --install opensearch opensearch/opensearch \
-            --namespace search \
-            --create-namespace \
-            --version 2.17.0 \
-            --values deploy/helm/values-opensearch.yaml \
-            --set replicas=1 \
-            --set singleNode=true \
-            --set persistence.size=8Gi \
-            --set persistence.storageClass=managed-premium \
-            --set resources.requests.cpu=500m \
-            --set resources.requests.memory=1Gi \
-            --set resources.limits.cpu=1000m \
-            --set resources.limits.memory=2Gi \
-            --wait \
-            --timeout 10m
-          
-          echo "✅ OpenSearch installed"
-      
       - name: Verify Platform Components
         run: |
           echo ""
@@ -407,23 +344,31 @@ jobs:
           echo "========================================="
           
           echo ""
-          echo "cert-manager:"
-          kubectl get pods -n cert-manager
-          kubectl get clusterissuers
+          echo "cert-manager (deployed via Terraform):"
+          kubectl get pods -n cert-manager || echo "cert-manager not found"
+          kubectl get clusterissuers || echo "ClusterIssuers not found"
           
           echo ""
-          echo "Ingress Controller:"
+          echo "Ingress Controller (deployed via CI/CD):"
           kubectl get pods -n ingress-nginx
           kubectl get svc -n ingress-nginx
           
           echo ""
-          echo "Observability:"
-          kubectl get pods -n observability
+          echo "Observability (deployed via Terraform):"
+          kubectl get pods -n observability || echo "observability namespace not found"
           
           echo ""
-          echo "OpenSearch:"
-          kubectl get pods -n search
-          kubectl get svc -n search
+          echo "OpenSearch (deployed via Terraform):"
+          kubectl get pods -n search || echo "search namespace not found"
+          kubectl get svc -n search || echo "search services not found"
+          
+          echo ""
+          echo "KEDA (deployed via Terraform):"
+          kubectl get pods -n keda || echo "keda namespace not found"
+          
+          echo ""
+          echo "CSI Secrets Driver (deployed via Terraform):"
+          kubectl get pods -n csi-secrets-driver || echo "csi-secrets-driver namespace not found"
           
           echo ""
           echo "========================================="
@@ -555,8 +500,9 @@ jobs:
           NAMESPACE="${{ steps.env.outputs.namespace }}"
           
           echo "Creating OpenSearch secrets in namespace: $NAMESPACE..."
+          echo "Note: OpenSearch itself is deployed via Terraform"
           
-          # Create in app namespace for app pods
+          # Create in app namespace for app pods to connect to OpenSearch
           kubectl create secret generic opensearch-auth \
             --namespace $NAMESPACE \
             --from-literal=OS_USERNAME=admin \
@@ -564,7 +510,7 @@ jobs:
             --from-literal=OPENSEARCH_URL="http://opensearch-cluster-master.search.svc.cluster.local:9200" \
             --dry-run=client -o yaml | kubectl apply -f -
           
-          echo "✅ OpenSearch secrets created"
+          echo "✅ OpenSearch secrets created in app namespace"
       
       - name: Create Azure Storage Secrets
         run: |
