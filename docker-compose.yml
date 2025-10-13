@@ -161,12 +161,6 @@ services:
       - postgres
       - redis
 
-volumes:
-  postgres_data:
-  opensearch_data:
-  redis_data:
-
-
   auth:
     profiles: ["app"]
     image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-auth:${TAG:-local}
@@ -200,3 +194,8 @@ volumes:
     depends_on:
       - postgres
       - redis
+
+volumes:
+  postgres_data:
+  opensearch_data:
+  redis_data:
