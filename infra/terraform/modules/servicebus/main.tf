@@ -22,15 +22,13 @@ resource "azurerm_servicebus_queue" "citizen_registered" {
   
   # Dead Letter Queue (DLQ) configuration
   dead_lettering_on_message_expiration = true
-  batched_operations_enabled = true
   
   # Retry configuration
   max_delivery_count         = 5  # Send to DLQ after 5 delivery attempts
   lock_duration              = "PT5M"  # 5 minutes lock duration
   
-  # Deduplication
-  requires_duplicate_detection = true
-  duplicate_detection_history_time_window = "PT10M"  # 10 minutes
+  # Note: requires_duplicate_detection not available in Basic tier
+  # Upgrade to Standard tier if deduplication is required
 }
 
 # Queue: document-uploaded
@@ -42,12 +40,8 @@ resource "azurerm_servicebus_queue" "document_uploaded" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
-  
-  requires_duplicate_detection = true
-  duplicate_detection_history_time_window = "PT10M"
 }
 
 # Queue: document-authenticated
@@ -59,12 +53,8 @@ resource "azurerm_servicebus_queue" "document_authenticated" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
-  
-  requires_duplicate_detection = true
-  duplicate_detection_history_time_window = "PT10M"
 }
 
 # Queue: transfer-requested
@@ -76,12 +66,8 @@ resource "azurerm_servicebus_queue" "transfer_requested" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
-  
-  requires_duplicate_detection = true
-  duplicate_detection_history_time_window = "PT10M"
 }
 
 # Queue: transfer-confirmed
@@ -93,12 +79,8 @@ resource "azurerm_servicebus_queue" "transfer_confirmed" {
   default_message_ttl        = "P14D"
   
   dead_lettering_on_message_expiration = true
-  batched_operations_enabled = true
   max_delivery_count         = 5
   lock_duration              = "PT5M"
-  
-  requires_duplicate_detection = true
-  duplicate_detection_history_time_window = "PT10M"
 }
 
 # Authorization Rule for services (Send + Listen)
