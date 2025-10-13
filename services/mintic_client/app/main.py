@@ -34,9 +34,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
     # CORS configuration from environment or default to localhost
-    from app.config import settings
     cors_origins = settings.cors_origins.split(",")
     app.add_middleware(
         CORSMiddleware,
