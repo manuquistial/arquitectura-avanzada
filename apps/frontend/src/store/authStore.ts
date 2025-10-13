@@ -23,6 +23,14 @@ interface AuthState {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   
+  // Backward compatibility (deprecated - use NextAuth hooks instead)
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
+  setUser: (user: User | null) => void;
+  setToken: (token: string | null) => void;
+  logout: () => void;
+  
   // Helper methods
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -48,10 +56,28 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   cachedUser: null,
+  
+  // Backward compatibility
+  isAuthenticated: false,
+  user: null,
+  token: null,
 
   setIsLoading: (loading: boolean) => set({ isLoading: loading }),
 
-  setCachedUser: (user: User | null) => set({ cachedUser: user }),
+  setCachedUser: (user: User | null) => set({ cachedUser: user, user: user, isAuthenticated: !!user }),
+  
+  // Backward compatibility setters
+  setUser: (user: User | null) => set({ user: user, cachedUser: user, isAuthenticated: !!user }),
+  
+  setToken: (token: string | null) => set({ token: token }),
+  
+  logout: () => {
+    set({ user: null, cachedUser: null, token: null, isAuthenticated: false });
+    // Also trigger NextAuth signOut
+    if (typeof window !== 'undefined') {
+      import('next-auth/react').then(({ signOut }) => signOut());
+    }
+  },
 
   hasRole: (role: string): boolean => {
     const { cachedUser } = get();
