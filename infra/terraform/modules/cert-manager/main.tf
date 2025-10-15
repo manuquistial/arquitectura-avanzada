@@ -16,7 +16,7 @@ resource "kubernetes_namespace" "cert_manager" {
   metadata {
     name = var.namespace
     labels = {
-      "app.kubernetes.io/name"    = "cert-manager"
+      "app.kubernetes.io/name"       = "cert-manager"
       "app.kubernetes.io/managed-by" = "terraform"
     }
   }
@@ -110,7 +110,7 @@ resource "helm_release" "cert_manager" {
 # ClusterIssuer para Let's Encrypt Staging
 # Using time_sleep to ensure cert-manager CRDs are ready
 resource "kubernetes_manifest" "letsencrypt_staging" {
-  count = 0  # Disabled: Apply manually after cluster is ready
+  count = 0 # Disabled: Apply manually after cluster is ready
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
@@ -122,12 +122,12 @@ resource "kubernetes_manifest" "letsencrypt_staging" {
         # Let's Encrypt staging server
         server = "https://acme-staging-v02.api.letsencrypt.org/directory"
         email  = var.letsencrypt_email
-        
+
         # Usar Kubernetes secrets para almacenar la cuenta ACME
         privateKeySecretRef = {
           name = "letsencrypt-staging-account-key"
         }
-        
+
         # Usar HTTP-01 challenge
         solvers = [
           {
@@ -148,7 +148,7 @@ resource "kubernetes_manifest" "letsencrypt_staging" {
 # ClusterIssuer para Let's Encrypt Production  
 # Using time_sleep to ensure cert-manager CRDs are ready
 resource "kubernetes_manifest" "letsencrypt_prod" {
-  count = 0  # Disabled: Apply manually after cluster is ready
+  count = 0 # Disabled: Apply manually after cluster is ready
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
@@ -160,12 +160,12 @@ resource "kubernetes_manifest" "letsencrypt_prod" {
         # Let's Encrypt production server
         server = "https://acme-v02.api.letsencrypt.org/directory"
         email  = var.letsencrypt_email
-        
+
         # Usar Kubernetes secrets para almacenar la cuenta ACME
         privateKeySecretRef = {
           name = "letsencrypt-prod-account-key"
         }
-        
+
         # Usar HTTP-01 challenge
         solvers = [
           {
@@ -186,7 +186,7 @@ resource "kubernetes_manifest" "letsencrypt_prod" {
 # Esperar a que cert-manager esté listo
 resource "time_sleep" "wait_for_cert_manager" {
   depends_on = [helm_release.cert_manager]
-  
+
   create_duration = "30s"
 }
 

@@ -17,19 +17,6 @@ spec:
         app: citizen
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
-      initContainers:
-      - name: wait-for-migrations
-        image: busybox:latest
-        command:
-        - sh
-        - -c
-        - |
-          echo "Waiting for database migrations to complete..."
-          until kubectl wait --for=condition=complete --timeout=300s job/{{ include "carpeta-ciudadana.fullname" . }}-migrate-citizen-{{ .Release.Revision }} 2>/dev/null; do
-            echo "Migration job not found or not complete yet, waiting..."
-            sleep 5
-          done
-          echo "Migrations completed, starting service..."
       containers:
       - name: citizen
         image: "{{ .Values.global.imageRegistry }}/{{ .Values.citizen.image.repository }}:{{ .Values.citizen.image.tag }}"
@@ -38,8 +25,7 @@ spec:
         - containerPort: 8000
           name: http
         env:
-        - name: DATABASE_URL
-          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+        # DATABASE_URL is provided by the secret db-secrets
         - name: MINTIC_CLIENT_URL
           value: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
         {{- if .Values.serviceBus.enabled }}
@@ -53,6 +39,8 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - secretRef:
+            name: db-secrets
         resources:
           {{- toYaml .Values.citizen.resources | nindent 10 }}
         livenessProbe:
@@ -60,21 +48,21 @@ spec:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 20
+          initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 3
+          timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 15
+          initialDelaySeconds: 20
           periodSeconds: 5
-          timeoutSeconds: 2
+          timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 2
+          failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service

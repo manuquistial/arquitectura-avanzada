@@ -1,4 +1,4 @@
-{{- if .Values.citizen.enabled -}}
+{{- if and .Values.citizen.enabled .Values.migrations.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

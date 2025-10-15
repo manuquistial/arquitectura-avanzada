@@ -46,9 +46,10 @@ class M2MHttpClient:
         self.base_url = base_url
         
         # Create httpx client
+        # Note: base_url is stored but not used in client creation
+        # This prevents httpx from failing when base_url is None
         self.client = httpx.AsyncClient(
             timeout=timeout,
-            base_url=base_url,
             follow_redirects=True
         )
     

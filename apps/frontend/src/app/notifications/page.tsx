@@ -3,23 +3,30 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { apiService } from '@/lib/api';
 
 interface Notification {
   id: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: 'transfer' | 'signature' | 'document' | 'system';
   title: string;
   message: string;
-  timestamp: string;
-  read: boolean;
-  link?: string;
+  is_read: boolean;
+  created_at: string;
+  action_url?: string;
+  metadata?: {
+    transfer_id?: string;
+    document_id?: string;
+    sender_email?: string;
+  };
 }
 
 export default function NotificationsPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -28,130 +35,112 @@ export default function NotificationsPage() {
   }, [status, router]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (session?.user?.id) {
+      fetchNotifications();
+    }
+  }, [session, filter]);
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/notifications');
-      // const data = await response.json();
+      setError(null);
+      const data = await apiService.getNotifications();
       
-      // Mock data
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          type: 'success',
-          title: 'Documento firmado',
-          message: 'Tu documento "Cédula.pdf" ha sido firmado exitosamente.',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          read: false,
-          link: '/documents'
-        },
-        {
-          id: '2',
-          type: 'info',
-          title: 'Transferencia recibida',
-          message: 'Has recibido el documento "Certificado Laboral.pdf" de Juan Pérez.',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-          read: false,
-          link: '/transfers'
-        },
-        {
-          id: '3',
-          type: 'warning',
-          title: 'Documento por vencer',
-          message: 'El documento "Certificado Bancario.pdf" vencerá en 5 días.',
-          timestamp: new Date(Date.now() - 86400000).toISOString(),
-          read: true
-        },
-        {
-          id: '4',
-          type: 'success',
-          title: 'Compartir exitoso',
-          message: 'Has compartido "Diploma.pdf" con maria@example.com.',
-          timestamp: new Date(Date.now() - 172800000).toISOString(),
-          read: true,
-          link: '/documents'
-        }
-      ];
-      
-      setNotifications(mockNotifications);
+      // Filter notifications based on filter
+      if (filter === 'unread') {
+        setNotifications(data.filter((n: Notification) => !n.is_read));
+      } else {
+        setNotifications(data);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setError('Error al cargar las notificaciones');
     } finally {
       setLoading(false);
     }
   };
 
-  const markAsRead = async (id: string) => {
+  const handleMarkAsRead = async (notificationId: string) => {
     try {
-      // TODO: API call to mark as read
-      // await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+      await apiService.markNotificationAsRead(notificationId);
       
-      setNotifications(notifications.map(n => 
-        n.id === id ? { ...n, read: true } : n
-      ));
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notificationId ? { ...n, is_read: true } : n
+        )
+      );
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      setError('Error al marcar la notificación como leída');
     }
   };
 
-  const markAllAsRead = async () => {
+  const handleMarkAllAsRead = async () => {
     try {
-      // TODO: API call to mark all as read
-      // await fetch('/api/notifications/read-all', { method: 'POST' });
+      const unreadNotifications = notifications.filter(n => !n.is_read);
+      await Promise.all(
+        unreadNotifications.map(n => apiService.markNotificationAsRead(n.id))
+      );
       
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true }))
+      );
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      console.error('Error marking all notifications as read:', error);
+      setError('Error al marcar todas las notificaciones como leídas');
     }
   };
 
-  const deleteNotification = async (id: string) => {
-    try {
-      // TODO: API call to delete
-      // await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
-      
-      setNotifications(notifications.filter(n => n.id !== id));
-    } catch (error) {
-      console.error('Error deleting notification:', error);
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read if not already read
+    if (!notification.is_read) {
+      handleMarkAsRead(notification.id);
+    }
+
+    // Navigate to action URL if available
+    if (notification.action_url) {
+      router.push(notification.action_url);
     }
   };
 
-  const getTypeIcon = (type: Notification['type']) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'success':
-        return '✅';
-      case 'info':
-        return 'ℹ️';
-      case 'warning':
-        return '⚠️';
-      case 'error':
-        return '❌';
+      case 'transfer':
+        return '🔄';
+      case 'signature':
+        return '✍️';
+      case 'document':
+        return '📄';
+      case 'system':
+        return '⚙️';
       default:
-        return '📢';
+        return '🔔';
     }
   };
 
-  const getTypeColor = (type: Notification['type']) => {
+  const getNotificationColor = (type: string, isRead: boolean) => {
+    if (isRead) {
+      return 'bg-gray-50 border-gray-200';
+    }
+
     switch (type) {
-      case 'success':
-        return 'bg-green-50 border-green-200';
-      case 'info':
+      case 'transfer':
         return 'bg-blue-50 border-blue-200';
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
-      case 'error':
-        return 'bg-red-50 border-red-200';
+      case 'signature':
+        return 'bg-green-50 border-green-200';
+      case 'document':
+        return 'bg-purple-50 border-purple-200';
+      case 'system':
+        return 'bg-orange-50 border-orange-200';
       default:
         return 'bg-gray-50 border-gray-200';
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     
@@ -167,15 +156,13 @@ export default function NotificationsPage() {
     return date.toLocaleDateString('es-ES', { 
       year: 'numeric', 
       month: 'short', 
-      day: 'numeric' 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
-  const filteredNotifications = filter === 'all' 
-    ? notifications 
-    : notifications.filter(n => !n.read);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   if (status === 'loading' || loading) {
     return (
@@ -192,142 +179,148 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            📬 Notificaciones
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Mantente al día con tus documentos y actividades
-          </p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              🔔 Notificaciones
+            </h1>
+            <p className="mt-2 text-gray-600">
+              Mantente al día con tu actividad
+            </p>
+          </div>
+          
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllAsRead}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              Marcar todas como leídas
+            </button>
+          )}
         </div>
 
-        {/* Actions Bar */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            {/* Filters */}
-            <div className="flex gap-2">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="text-2xl mr-3">📊</div>
+              <div>
+                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-2xl font-bold text-gray-900">{notifications.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="text-2xl mr-3">🔴</div>
+              <div>
+                <p className="text-sm text-gray-600">Sin leer</p>
+                <p className="text-2xl font-bold text-red-600">{unreadCount}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="text-2xl mr-3">✅</div>
+              <div>
+                <p className="text-sm text-gray-600">Leídas</p>
+                <p className="text-2xl font-bold text-green-600">{notifications.length - unreadCount}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   filter === 'all'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 Todas ({notifications.length})
               </button>
               <button
                 onClick={() => setFilter('unread')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   filter === 'unread'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                No leídas ({unreadCount})
+                Sin leer ({unreadCount})
               </button>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  ✓ Marcar todas como leídas
-                </button>
-              )}
-              <button
-                onClick={fetchNotifications}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-              >
-                🔄 Actualizar
-              </button>
-            </div>
+            </nav>
           </div>
         </div>
 
         {/* Notifications List */}
-        {filteredNotifications.length === 0 ? (
+        {notifications.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">📭</div>
+            <div className="text-6xl mb-4">🔕</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No hay notificaciones
+              {filter === 'unread' ? 'No tienes notificaciones sin leer' : 'No tienes notificaciones'}
             </h3>
             <p className="text-gray-600">
               {filter === 'unread' 
-                ? 'Has leído todas tus notificaciones. ¡Buen trabajo!'
-                : 'No tienes notificaciones en este momento.'}
+                ? 'Todas tus notificaciones han sido leídas' 
+                : 'Las notificaciones aparecerán aquí cuando recibas actividad'
+              }
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredNotifications.map((notification) => (
+          <div className="space-y-4">
+            {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`bg-white rounded-lg shadow-sm border-2 transition-all hover:shadow-md ${
-                  getTypeColor(notification.type)
-                } ${!notification.read ? 'border-l-4 border-l-blue-600' : ''}`}
+                onClick={() => handleNotificationClick(notification)}
+                className={`bg-white rounded-lg shadow-sm border-2 p-6 cursor-pointer hover:shadow-md transition-all ${
+                  getNotificationColor(notification.type, notification.is_read)
+                } ${!notification.is_read ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}`}
               >
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    {/* Icon & Content */}
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="text-2xl flex-shrink-0">
-                        {getTypeIcon(notification.type)}
-                      </div>
+                <div className="flex items-start gap-4">
+                  <div className="text-2xl">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className={`font-semibold ${
+                        notification.is_read ? 'text-gray-900' : 'text-gray-900'
+                      }`}>
+                        {notification.title}
+                      </h3>
                       
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">
-                            {notification.title}
-                          </h3>
-                          {!notification.read && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Nueva
-                            </span>
-                          )}
-                        </div>
-                        
-                        <p className="text-gray-600 mb-2">
-                          {notification.message}
-                        </p>
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span>🕒 {formatTimestamp(notification.timestamp)}</span>
-                          
-                          {notification.link && (
-                            <button
-                              onClick={() => router.push(notification.link!)}
-                              className="text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              Ver detalles →
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 flex-shrink-0">
-                      {!notification.read && (
-                        <button
-                          onClick={() => markAsRead(notification.id)}
-                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Marcar como leída"
-                        >
-                          ✓
-                        </button>
+                      {!notification.is_read && (
+                        <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
                       )}
+                    </div>
+                    
+                    <p className="text-gray-600 mb-3">
+                      {notification.message}
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <span>{formatDate(notification.created_at)}</span>
                       
-                      <button
-                        onClick={() => deleteNotification(notification.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
+                      {notification.action_url && (
+                        <span className="text-blue-600 hover:text-blue-800">
+                          Ver detalles →
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -336,40 +329,15 @@ export default function NotificationsPage() {
           </div>
         )}
 
-        {/* Stats */}
+        {/* Load More Button */}
         {notifications.length > 0 && (
-          <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">📊 Resumen</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {notifications.length}
-                </div>
-                <div className="text-sm text-gray-600">Total</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {unreadCount}
-                </div>
-                <div className="text-sm text-gray-600">No leídas</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {notifications.filter(n => n.read).length}
-                </div>
-                <div className="text-sm text-gray-600">Leídas</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {notifications.filter(n => n.type === 'success').length}
-                </div>
-                <div className="text-sm text-gray-600">Exitosas</div>
-              </div>
-            </div>
+          <div className="mt-8 text-center">
+            <button className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors">
+              Cargar más notificaciones
+            </button>
           </div>
         )}
       </div>
     </div>
   );
 }
-

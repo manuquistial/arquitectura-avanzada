@@ -51,7 +51,7 @@ class DocumentIndexer:
             logger.info(f"📑 Indexing uploaded document: {document_id}")
             
             # Index in OpenSearch
-            success = await self.opensearch.index_document(
+            success = self.opensearch.index_document(
                 document_id=document_id,
                 citizen_id=citizen_id,
                 title=data.get("title", filename),
@@ -103,7 +103,7 @@ class DocumentIndexer:
                 }
             }
             
-            await self.opensearch.client.update(
+            self.opensearch.client.update(
                 index=self.opensearch.INDEX_NAME,
                 id=document_id,
                 body=update_body,
@@ -130,7 +130,7 @@ class DocumentIndexer:
             logger.info(f"🗑️  Removing document from index: {document_id}")
             
             # Delete from OpenSearch
-            success = await self.opensearch.delete_document(document_id)
+            success = self.opensearch.delete_document(document_id)
             
             if success:
                 # Invalidate cache

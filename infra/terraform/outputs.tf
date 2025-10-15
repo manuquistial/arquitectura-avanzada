@@ -105,10 +105,7 @@ output "servicebus_queue_names" {
 #   sensitive   = true
 # }
 
-# output "keyvault_uri" {
-#   description = "Key Vault URI"
-#   value       = module.keyvault.vault_uri
-# }
+# Key Vault outputs removed - using traditional Kubernetes secrets
 
 output "managed_identity_client_id" {
   description = "Managed Identity Client ID"
@@ -125,21 +122,21 @@ output "aks_cluster_identity_type" {
   value       = "SystemAssigned"
 }
 
-# Observability outputs
-output "observability_namespace" {
-  description = "Observability stack namespace"
-  value       = module.observability.namespace
-}
-
-output "otel_collector_endpoint" {
-  description = "OpenTelemetry Collector endpoint"
-  value       = module.observability.otel_collector_endpoint
-}
-
-output "prometheus_endpoint" {
-  description = "Prometheus server endpoint"
-  value       = module.observability.prometheus_endpoint
-}
+# Observability outputs - DISABLED for Azure for Students
+# output "observability_namespace" {
+#   description = "Observability stack namespace"
+#   value       = module.observability.namespace
+# }
+# 
+# output "otel_collector_endpoint" {
+#   description = "OpenTelemetry Collector endpoint"
+#   value       = module.observability.otel_collector_endpoint
+# }
+# 
+# output "prometheus_endpoint" {
+#   description = "Prometheus server endpoint"
+#   value       = module.observability.prometheus_endpoint
+# }
 
 # cert-manager outputs
 output "cert_manager_namespace" {
@@ -171,5 +168,37 @@ output "opensearch_dashboards_endpoint" {
 output "opensearch_secret_name" {
   description = "Name of the Kubernetes secret containing OpenSearch credentials"
   value       = module.opensearch.secret_name
+}
+
+# DNS outputs
+output "dns_zone_name" {
+  description = "DNS zone name"
+  value       = module.dns.dns_zone_name
+}
+
+output "app_fqdn" {
+  description = "Application fully qualified domain name"
+  value       = module.dns.app_fqdn
+}
+
+output "dns_nameservers" {
+  description = "DNS zone nameservers"
+  value       = module.dns.nameservers
+}
+
+# Carpeta Ciudadana Application outputs
+output "carpeta_ciudadana_namespace" {
+  description = "Kubernetes namespace where the application is deployed"
+  value       = module.carpeta_ciudadana.namespace
+}
+
+output "carpeta_ciudadana_helm_release_name" {
+  description = "Helm release name for the application"
+  value       = module.carpeta_ciudadana.helm_release_name
+}
+
+output "carpeta_ciudadana_helm_release_status" {
+  description = "Helm release status for the application"
+  value       = module.carpeta_ciudadana.helm_release_status
 }
 

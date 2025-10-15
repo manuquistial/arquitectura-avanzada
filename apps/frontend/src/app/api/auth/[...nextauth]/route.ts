@@ -7,6 +7,7 @@
 
 import NextAuth, { NextAuthOptions } from "next-auth";
 import AzureADB2CProvider from "next-auth/providers/azure-ad-b2c";
+import CredentialsProvider from "next-auth/providers/credentials";
 
 // const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME || "carpetaciudadana"; // Reserved for future use
 const tenantId = process.env.AZURE_AD_B2C_TENANT_ID || "";
@@ -16,17 +17,63 @@ const clientSecret = process.env.AZURE_AD_B2C_CLIENT_SECRET || "";
 
 const authOptions: NextAuthOptions = {
   providers: [
-    AzureADB2CProvider({
-      tenantId,
-      clientId,
-      clientSecret,
-      primaryUserFlow: userFlow,
-      authorization: {
-        params: {
-          scope: "openid profile email offline_access",
+    // Azure AD B2C Provider (if configured)
+    ...(tenantId && clientId && clientSecret ? [
+      AzureADB2CProvider({
+        tenantId,
+        clientId,
+        clientSecret,
+        primaryUserFlow: userFlow,
+        authorization: {
+          params: {
+            scope: "openid profile email offline_access",
+          },
         },
+      })
+    ] : []),
+    
+    // Traditional Login Provider (fallback)
+    CredentialsProvider({
+      id: "credentials",
+      name: "Credenciales",
+      credentials: {
+        email: { label: "Email", type: "email", placeholder: "tu@email.com" },
+        password: { label: "Contraseña", type: "password" }
       },
-    }),
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        // Simular validación de credenciales (en producción, conectar a tu API)
+        if (credentials.email === "admin@carpeta.com" && credentials.password === "admin123") {
+          return {
+            id: "1",
+            email: "admin@carpeta.com",
+            name: "Administrador",
+            given_name: "Admin",
+            family_name: "Carpeta",
+            roles: ["admin"],
+            permissions: ["all"]
+          };
+        }
+
+        // Credenciales de demo para testing
+        if (credentials.email === "demo@carpeta.com" && credentials.password === "demo123") {
+          return {
+            id: "2",
+            email: "demo@carpeta.com", 
+            name: "Usuario Demo",
+            given_name: "Usuario",
+            family_name: "Demo",
+            roles: ["user"],
+            permissions: ["read"]
+          };
+        }
+
+        return null;
+      }
+    })
   ],
   
   callbacks: {

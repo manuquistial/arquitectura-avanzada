@@ -130,6 +130,7 @@ spec:
 {{- if .Values.transferWorker.serviceMonitor.enabled }}
 ---
 # ServiceMonitor for Prometheus (if prometheus-operator is installed)
+{{- if .Values.observability.prometheus.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -145,6 +146,7 @@ spec:
   - port: http
     path: /metrics
     interval: 30s
+{{- end }}
 {{- end }}
 
 {{- end }}

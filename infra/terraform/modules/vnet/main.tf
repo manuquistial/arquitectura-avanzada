@@ -3,7 +3,7 @@ resource "azurerm_virtual_network" "main" {
   address_space       = [var.vnet_cidr]
   location            = var.location
   resource_group_name = var.resource_group_name
-  
+
   tags = {
     Environment = var.environment
   }
@@ -21,10 +21,10 @@ resource "azurerm_subnet" "db" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [var.subnet_cidrs.db]
-  
+
   delegation {
     name = "postgres-delegation"
-    
+
     service_delegation {
       name = "Microsoft.DBforPostgreSQL/flexibleServers"
       actions = [

@@ -80,3 +80,28 @@ tmp/
 temp/
 *.bak
 
+# Local environment
+.envrc
+
+# direnv cache
+.direnv/
+
+# Terraform local files
+.terraform/
+**/.terraform/*
+*.tfstate
+*.tfstate.backup
+
+# Local tfvars and plans
+infra/terraform/terraform.tfvars
+infra/terraform/tfplan
+
+# Notification service local secrets
+services/notification/.env
+
+# Gateway service local env
+services/gateway/.env
+
+# Root local env
+.env
+

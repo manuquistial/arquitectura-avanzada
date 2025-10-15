@@ -1,7 +1,44 @@
 """Pydantic schemas for metadata service."""
 
 from datetime import datetime
+from typing import Optional
 from pydantic import BaseModel, Field
+
+
+class DocumentMetadataCreate(BaseModel):
+    """Document metadata creation schema."""
+    
+    citizen_id: int
+    title: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    sha256_hash: Optional[str] = None
+    issuer: Optional[str] = None
+    tags: Optional[str] = None
+    description: Optional[str] = None
+
+
+class DocumentMetadataResponse(BaseModel):
+    """Document metadata response schema."""
+    
+    id: str
+    citizen_id: int
+    title: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    sha256_hash: Optional[str] = None
+    issuer: Optional[str] = None
+    tags: Optional[str] = None
+    description: Optional[str] = None
+    status: str = "uploaded"
+    is_deleted: bool = False
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
 
 
 class DocumentResponse(BaseModel):
@@ -44,5 +81,15 @@ class SearchResponse(BaseModel):
     
     results: list[SearchResult]
     total: int
+    took_ms: int
+
+
+class DocumentSearchResponse(BaseModel):
+    """Document search response."""
+    
+    documents: list[SearchResult]
+    total: int
+    page: int
+    page_size: int
     took_ms: int
 

@@ -40,7 +40,7 @@ except ImportError:
 async def startup():
     """Initialize OpenSearch index on startup."""
     try:
-        await _opensearch.ensure_index()
+        _opensearch.ensure_index()
     except Exception as e:
         logger.error(f"Failed to initialize OpenSearch: {e}")
 
@@ -72,7 +72,7 @@ async def create_document_metadata(
         await db.refresh(doc)
         
         # Index in OpenSearch
-        await _opensearch.index_document(
+        _opensearch.index_document(
             document_id=str(doc.id),
             citizen_id=doc.citizen_id,
             title=doc.title,
@@ -120,8 +120,8 @@ async def search_documents(
         "page_size": page_size
     }
     cache_key_data = json.dumps(cache_params, sort_keys=True)
-        # Use SHA-256 for cache key (secure hashing, not for crypto purposes but best practice)
-        cache_key_hash = hashlib.sha256(cache_key_data.encode()).hexdigest()
+    # Use SHA-256 for cache key (secure hashing, not for crypto purposes but best practice)
+    cache_key_hash = hashlib.sha256(cache_key_data.encode()).hexdigest()
     
     # Include citizen_id in key for targeted invalidation
     if citizen_id:
@@ -146,7 +146,7 @@ async def search_documents(
     from_ = (page - 1) * page_size
     
     # Search in OpenSearch
-    results = await _opensearch.search_documents(
+    results = _opensearch.search_documents(
         query=q,
         citizen_id=citizen_id,
         tags=tag_list,
@@ -177,10 +177,10 @@ async def search_documents(
 
 @router.get("/documents", response_model=List[DocumentMetadataResponse])
 async def list_documents(
+    db: Annotated[AsyncSession, Depends(get_db)],
     citizen_id: Optional[int] = Query(None, description="Filter by citizen ID"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> List[DocumentMetadata]:
     """List documents from database (not OpenSearch)."""
     query = select(DocumentMetadata)
@@ -222,7 +222,7 @@ async def delete_document(
     await db.commit()
     
     # Remove from OpenSearch
-    await _opensearch.delete_document(document_id)
+    _opensearch.delete_document(document_id)
     
     logger.info(f"✅ Document deleted: {document_id}")
     return {"message": "Document deleted", "document_id": document_id}

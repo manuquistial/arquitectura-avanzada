@@ -1,11 +1,19 @@
-"""Azure Blob Storage service for SAS token generation."""
+"""Azure Blob Storage service for SAS token generation (with local mock)."""
 
 import logging
 from datetime import datetime, timedelta, timezone
-from azure.core.exceptions import AzureError
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions, UserDelegationKey
 from app.config import Settings
+
+# Try to import Azure dependencies, fall back to mock if not available
+try:
+    from azure.core.exceptions import AzureError
+    from azure.identity import DefaultAzureCredential
+    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions, UserDelegationKey
+    AZURE_AVAILABLE = True
+except ImportError:
+    AZURE_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️  Azure dependencies not available, using mock BlobService for development")
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +27,14 @@ class BlobService:
         self.settings = settings
         self.sas_ttl_minutes = getattr(settings, 'sas_ttl_minutes', 15)
         self.use_managed_identity = True
+        self.is_mock = False
+        
+        # Check if Azure is available
+        if not AZURE_AVAILABLE:
+            logger.info("🔧 Using mock BlobService for development")
+            self.is_mock = True
+            self.client = None
+            return
         
         # Try to use Managed Identity first
         if settings.azure_storage_account_name:

@@ -51,7 +51,7 @@ variable "aks_vm_size" {
 variable "aks_kubernetes_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.28"
+  default     = "1.31.11"
 }
 
 variable "aks_automatic_upgrade" {
@@ -96,7 +96,7 @@ variable "aks_availability_zones" {
 variable "aks_system_vm_size" {
   description = "VM size for system node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_D2s_v3"  # Increased from B2s to D2s_v3 (2 vCPU, 8GB RAM)
 }
 
 variable "aks_system_node_count" {
@@ -114,26 +114,26 @@ variable "aks_system_node_min" {
 variable "aks_system_node_max" {
   description = "Maximum system nodes (autoscaling)"
   type        = number
-  default     = 3
+  default     = 5  # Increased from 3 to 5 for better system resilience
 }
 
 # User node pool (applications)
 variable "aks_user_vm_size" {
   description = "VM size for user node pool"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "Standard_D4s_v3"  # Increased from D2s_v3 to D4s_v3 (4 vCPU, 16GB RAM)
 }
 
 variable "aks_user_node_min" {
   description = "Minimum user nodes"
   type        = number
-  default     = 2
+  default     = 3  # Increased from 2 to 3 for better availability
 }
 
 variable "aks_user_node_max" {
   description = "Maximum user nodes"
   type        = number
-  default     = 10
+  default     = 20  # Increased from 10 to 20 for better scaling capacity
 }
 
 # Spot node pool (KEDA workers)
@@ -146,19 +146,19 @@ variable "aks_enable_spot" {
 variable "aks_spot_vm_size" {
   description = "VM size for spot node pool"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "Standard_D4s_v3"  # Increased from D2s_v3 to D4s_v3 for better performance
 }
 
 variable "aks_spot_node_min" {
   description = "Minimum spot nodes"
   type        = number
-  default     = 0  # Can scale to zero
+  default     = 0  # Can scale to zero for cost optimization
 }
 
 variable "aks_spot_node_max" {
   description = "Maximum spot nodes"
   type        = number
-  default     = 10
+  default     = 25  # Increased from 10 to 25 for better scaling capacity
 }
 
 variable "aks_spot_max_price" {
@@ -387,30 +387,7 @@ variable "keda_replica_count" {
   default     = 2
 }
 
-# Key Vault
-variable "keyvault_sku" {
-  description = "Key Vault SKU (standard or premium)"
-  type        = string
-  default     = "standard"
-}
-
-variable "keyvault_enable_public_access" {
-  description = "Enable public network access to Key Vault"
-  type        = bool
-  default     = true  # false for production with private endpoint
-}
-
-variable "keyvault_purge_protection" {
-  description = "Enable purge protection (prevents permanent deletion)"
-  type        = bool
-  default     = false  # true for production
-}
-
-variable "keyvault_soft_delete_days" {
-  description = "Soft delete retention in days (7-90)"
-  type        = number
-  default     = 7
-}
+# Key Vault - REMOVED (using traditional Kubernetes secrets instead)
 
 # M2M Authentication
 variable "m2m_secret_key" {
@@ -450,24 +427,7 @@ variable "azure_b2c_client_secret" {
   default     = ""
 }
 
-# CSI Secrets Store Driver
-variable "csi_secrets_namespace" {
-  description = "Namespace for CSI Secrets Store Driver"
-  type        = string
-  default     = "kube-system"
-}
-
-variable "csi_enable_rotation" {
-  description = "Enable automatic secret rotation"
-  type        = bool
-  default     = true
-}
-
-variable "csi_rotation_interval" {
-  description = "Secret rotation poll interval"
-  type        = string
-  default     = "2m"
-}
+# CSI Secrets Store Driver - REMOVED (using traditional Kubernetes secrets instead)
 
 variable "prometheus_storage_size" {
   description = "Prometheus storage size"
@@ -548,4 +508,18 @@ variable "opensearch_enable_dashboards" {
   type        = bool
   default     = true
 }
+
+# DNS Configuration
+variable "dns_zone_name" {
+  description = "DNS zone name (e.g., carpeta-ciudadana.dev)"
+  type        = string
+  default     = "carpeta-ciudadana.dev"
+}
+
+variable "app_subdomain" {
+  description = "Application subdomain (e.g., app)"
+  type        = string
+  default     = "app"
+}
+
 

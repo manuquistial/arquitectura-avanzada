@@ -8,11 +8,11 @@ resource "azurerm_storage_account" "main" {
 
   blob_properties {
     versioning_enabled = true
-    
+
     delete_retention_policy {
       days = 7
     }
-    
+
     # CORS restrictivo - Solo orígenes específicos en producción
     cors_rule {
       allowed_origins    = ["https://${var.domain_name}", "http://localhost:3000"]
@@ -22,7 +22,7 @@ resource "azurerm_storage_account" "main" {
       max_age_in_seconds = 3600
     }
   }
-  
+
   tags = {
     Environment = var.environment
   }

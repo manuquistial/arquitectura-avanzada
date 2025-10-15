@@ -1,4 +1,4 @@
-{{- if .Values.signature.enabled -}}
+{{- if and .Values.signature.enabled .Values.migrations.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

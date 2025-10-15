@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize OpenSearch
     settings = Settings()
     opensearch = OpenSearchClient(settings)
-    await opensearch.ensure_index()
+    opensearch.ensure_index()
     
     # Start event consumers in background
     try:
@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except asyncio.CancelledError:
             pass
     
-    await opensearch.close()
+    opensearch.close()
     await engine.dispose()
     logger.info("Shutting down Metadata Service...")
 

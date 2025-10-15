@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { apiService } from '@/lib/api';
 
 interface Activity {
   id: string;
@@ -47,76 +48,33 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API calls
       
-      // Mock stats
-      setStats({
-        totalDocuments: 24,
-        signedDocuments: 18,
-        pendingTransfers: 3,
-        sharedDocuments: 7,
-      });
+      // Fetch real data from API
+      const [statsData, activitiesData] = await Promise.all([
+        apiService.getDashboardStats(),
+        apiService.getRecentActivities()
+      ]);
 
-      // Mock activities
-      const mockActivities: Activity[] = [
-        {
-          id: '1',
-          type: 'sign',
-          title: 'Documento firmado',
-          description: 'Cédula.pdf fue firmado exitosamente',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          status: 'success',
-          link: '/documents'
-        },
-        {
-          id: '2',
-          type: 'transfer',
-          title: 'Transferencia enviada',
-          description: 'Diploma.pdf enviado a juan@example.com',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-          status: 'pending',
-          link: '/transfers'
-        },
-        {
-          id: '3',
-          type: 'upload',
-          title: 'Documento cargado',
-          description: 'Certificado_Laboral.pdf subido correctamente',
-          timestamp: new Date(Date.now() - 10800000).toISOString(),
-          status: 'success',
-          link: '/documents'
-        },
-        {
-          id: '4',
-          type: 'share',
-          title: 'Documento compartido',
-          description: 'Compartiste Acta_Nacimiento.pdf vía shortlink',
-          timestamp: new Date(Date.now() - 14400000).toISOString(),
-          status: 'success',
-          link: '/documents'
-        },
-        {
-          id: '5',
-          type: 'download',
-          title: 'Descarga realizada',
-          description: 'Descargaste Certificado_Estudios.pdf',
-          timestamp: new Date(Date.now() - 18000000).toISOString(),
-          status: 'success'
-        },
-        {
-          id: '6',
-          type: 'transfer',
-          title: 'Transferencia recibida',
-          description: 'Recibiste Contrato.pdf de maria@example.com',
-          timestamp: new Date(Date.now() - 86400000).toISOString(),
-          status: 'success',
-          link: '/transfers'
-        },
-      ];
+      setStats(statsData);
+      setActivities(activitiesData);
 
-      setActivities(mockActivities);
+      // If API returns empty data, show fallback message
+      if (activitiesData.length === 0) {
+        setActivities([]);
+      }
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      
+      // Fallback to mock data if API fails
+      setStats({
+        totalDocuments: 0,
+        signedDocuments: 0,
+        pendingTransfers: 0,
+        sharedDocuments: 0,
+      });
+      
+      setActivities([]);
     } finally {
       setLoading(false);
     }

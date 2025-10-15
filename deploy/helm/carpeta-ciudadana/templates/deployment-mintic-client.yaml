@@ -26,9 +26,25 @@ spec:
           name: http
         env:
         - name: MINTIC_OPERATOR_ID
-          value: {{ .Values.mintic.operatorId | quote }}
+          value: {{ .Values.mintic.operatorId | default "demo-operator" | quote }}
         - name: MINTIC_OPERATOR_NAME
-          value: {{ .Values.mintic.operatorName | quote }}
+          value: {{ .Values.mintic.operatorName | default "Demo Operator" | quote }}
+        # Redis configuration
+        - name: REDIS_HOST
+          value: "redis-master"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          value: ""
+        - name: REDIS_SSL
+          value: "false"
+        - name: REDIS_DB
+          value: "0"
+        - name: REDIS_SOCKET_TIMEOUT
+          value: "2"
+        # Disable hub rate limiting if Redis fails
+        - name: HUB_RATE_LIMIT_ENABLED
+          value: "false"
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
@@ -46,7 +62,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: 8000
             scheme: HTTP
           initialDelaySeconds: 10

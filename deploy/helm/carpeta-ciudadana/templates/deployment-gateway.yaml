@@ -29,27 +29,13 @@ spec:
           value: "60"
         - name: REDIS_HOST
           value: redis
-        {{- if .Values.global.keyVault.enabled }}
-        - name: SERVICE_ID
-          value: "gateway"
-        {{- end }}
+        # SERVICE_ID removed - Key Vault disabled
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
         - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-cors-origins
-        {{- if .Values.global.keyVault.enabled }}
-        {{- if .Values.global.keyVault.syncToK8sSecrets }}
-        # Use synced K8s secrets from Key Vault
-        - secretRef:
-            name: db-secrets-kv
-        - secretRef:
-            name: sb-secrets-kv
-        - secretRef:
-            name: m2m-auth-kv
-        {{- end }}
-        {{- else }}
-        # Use traditional K8s secrets
+            name: {{ include "carpeta-ciudadana.fullname" . }}-cors-config
+        # Use traditional K8s secrets (Key Vault disabled)
         - secretRef:
             name: db-secrets
             optional: true
@@ -59,13 +45,7 @@ spec:
         - secretRef:
             name: m2m-auth
             optional: true
-        {{- end }}
-        {{- if .Values.global.keyVault.enabled }}
-        volumeMounts:
-        - name: secrets-store
-          mountPath: "/mnt/secrets-store"
-          readOnly: true
-        {{- end }}
+        # No volume mounts needed (Key Vault disabled)
         resources:
           {{- toYaml .Values.gateway.resources | nindent 10 }}
         livenessProbe:
@@ -80,7 +60,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: 8000
             scheme: HTTP
           initialDelaySeconds: 10
@@ -88,15 +68,7 @@ spec:
           timeoutSeconds: 2
           successThreshold: 1
           failureThreshold: 2
-      {{- if .Values.global.keyVault.enabled }}
-      volumes:
-      - name: secrets-store
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: {{ include "carpeta-ciudadana.fullname" . }}-secrets
-      {{- end }}
+      # No Key Vault volumes needed - using traditional K8s secrets
 ---
 apiVersion: v1
 kind: Service

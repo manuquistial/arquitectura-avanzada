@@ -3,14 +3,14 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-    
-    # CORS
-    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
 class Settings(BaseSettings):
     """Read models service settings."""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
     # Database (optimized read models)
     database_url: str = Field(

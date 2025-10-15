@@ -44,8 +44,11 @@ class ProxyService:
         if M2M_AVAILABLE:
             service_id = os.getenv("SERVICE_ID", "gateway")
             secret_key = os.getenv("M2M_SECRET_KEY", "default-secret-key")
-            self.m2m_client = M2MHttpClient(service_id, secret_key)
+            # Don't pass base_url since we'll set it per request
+            self.m2m_client = M2MHttpClient(service_id, secret_key, base_url=None)
             logger.info("✅ M2M authentication enabled for internal calls")
+        else:
+            logger.warning("⚠️  M2M client not available - using unauthenticated calls")
 
     async def forward_request(self, request: Request, path: str) -> JSONResponse:
         """Forward request to appropriate backend service.
@@ -89,11 +92,23 @@ class ProxyService:
                         except json.JSONDecodeError:
                             logger.warning("Could not parse body as JSON for sanitization")
 
-                # Forward with sanitized data
+                # Prepare headers
+                headers = self._sanitize_headers(dict(request.headers))
+                
+                # Add M2M authentication for internal service calls
+                if self.m2m_client and not self._is_external_service(service):
+                    try:
+                        m2m_headers = self.m2m_client._add_m2m_headers({}, body or b"")
+                        headers.update(m2m_headers)
+                        logger.debug(f"Added M2M headers for {service}")
+                    except Exception as e:
+                        logger.warning(f"Failed to add M2M headers: {e}")
+
+                # Forward with sanitized data and M2M auth
                 response = await client.request(
                     method=request.method,
                     url=target_url,
-                    headers=self._sanitize_headers(dict(request.headers)),
+                    headers=headers,
                     params=dict(request.query_params),
                     content=body,
                 )
@@ -149,4 +164,16 @@ class ProxyService:
             return self.service_map.get(service_name)
 
         return None
+    
+    def _is_external_service(self, service_url: str) -> bool:
+        """Check if service URL is external (e.g., MinTIC Hub)."""
+        external_indicators = [
+            "govcarpeta-apis",
+            "herokuapp.com",
+            "azurewebsites.net",
+            "amazonaws.com",
+            "googleapis.com"
+        ]
+        
+        return any(indicator in service_url.lower() for indicator in external_indicators)
 

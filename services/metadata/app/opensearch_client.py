@@ -2,8 +2,8 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from opensearchpy import OpenSearch, AsyncOpenSearch, RequestError
-from opensearchpy.helpers import async_bulk
+from opensearchpy import OpenSearch, RequestError
+from opensearchpy.helpers import bulk
 
 from app.config import Settings
 
@@ -47,7 +47,7 @@ class OpenSearchClient:
     def __init__(self, settings: Settings):
         """Initialize OpenSearch client."""
         self.settings = settings
-        self.client: Optional[AsyncOpenSearch] = None
+        self.client: Optional[OpenSearch] = None
         
         if settings.opensearch_host:
             self._init_client()
@@ -62,7 +62,7 @@ class OpenSearchClient:
                     self.settings.opensearch_password
                 )
             
-            self.client = AsyncOpenSearch(
+            self.client = OpenSearch(
                 hosts=[{
                     'host': self.settings.opensearch_host,
                     'port': self.settings.opensearch_port
@@ -81,17 +81,17 @@ class OpenSearchClient:
             logger.error(f"❌ Failed to initialize OpenSearch: {e}")
             self.client = None
     
-    async def ensure_index(self):
+    def ensure_index(self):
         """Create index if it doesn't exist."""
         if not self.client:
             logger.warning("OpenSearch client not initialized")
             return
         
         try:
-            exists = await self.client.indices.exists(index=self.INDEX_NAME)
+            exists = self.client.indices.exists(index=self.INDEX_NAME)
             
             if not exists:
-                await self.client.indices.create(
+                self.client.indices.create(
                     index=self.INDEX_NAME,
                     body=self.INDEX_MAPPING
                 )
@@ -103,7 +103,7 @@ class OpenSearchClient:
             logger.error(f"❌ Failed to create index: {e}")
             raise
     
-    async def index_document(
+    def index_document(
         self,
         document_id: str,
         citizen_id: int,
@@ -157,7 +157,7 @@ class OpenSearchClient:
                 "updatedAt": updated_at
             }
             
-            response = await self.client.index(
+            response = self.client.index(
                 index=self.INDEX_NAME,
                 id=document_id,
                 body=doc_body,
@@ -171,7 +171,7 @@ class OpenSearchClient:
             logger.error(f"❌ Failed to index document {document_id}: {e}")
             return False
     
-    async def search_documents(
+    def search_documents(
         self,
         query: str = "",
         citizen_id: Optional[int] = None,
@@ -241,7 +241,7 @@ class OpenSearchClient:
                 search_query = {"match_all": {}}
             
             # Execute search
-            response = await self.client.search(
+            response = self.client.search(
                 index=self.INDEX_NAME,
                 body={
                     "query": search_query,
@@ -276,13 +276,13 @@ class OpenSearchClient:
             logger.error(f"❌ Search failed: {e}")
             return {"total": 0, "hits": []}
     
-    async def delete_document(self, document_id: str) -> bool:
+    def delete_document(self, document_id: str) -> bool:
         """Delete document from index."""
         if not self.client:
             return False
         
         try:
-            await self.client.delete(
+            self.client.delete(
                 index=self.INDEX_NAME,
                 id=document_id,
                 refresh='wait_for'
@@ -293,9 +293,9 @@ class OpenSearchClient:
             logger.error(f"❌ Failed to delete document: {e}")
             return False
     
-    async def close(self):
+    def close(self):
         """Close OpenSearch client."""
         if self.client:
-            await self.client.close()
+            self.client.close()
             logger.info("OpenSearch client closed")
 

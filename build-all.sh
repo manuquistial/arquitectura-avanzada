@@ -4,12 +4,12 @@ echo "🏗️  Building all Docker images locally..."
 echo ""
 
 DOCKER_USERNAME=${DOCKER_USERNAME:-"manuelquistial"}
-TAG=${TAG:-"local"}
+TAG=${TAG:-"latest"}
 
 # Build frontend
 echo "📦 Building frontend..."
 docker build -t ${DOCKER_USERNAME}/carpeta-frontend:${TAG} \
-  -f apps/frontend/Dockerfile apps/frontend || exit 1
+  -f apps/frontend/Dockerfile . || exit 1
 echo "✅ Frontend built"
 echo ""
 
@@ -19,7 +19,7 @@ SERVICES=("gateway" "citizen" "ingestion" "metadata" "transfer" "mintic_client" 
 for SERVICE in "${SERVICES[@]}"; do
     echo "📦 Building ${SERVICE}..."
     docker build -t ${DOCKER_USERNAME}/carpeta-${SERVICE}:${TAG} \
-      -f services/${SERVICE}/Dockerfile services/${SERVICE} || exit 1
+      -f services/${SERVICE}/Dockerfile . || exit 1
     echo "✅ ${SERVICE} built"
     echo ""
 done

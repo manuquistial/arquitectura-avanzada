@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     # Environment
     environment: str = Field(default="development")
+    log_level: str = Field(default="INFO")
     
     # Rate limiting (deprecated, now using AdvancedRateLimiter)
     rate_limit_per_minute: int = Field(default=60)
@@ -22,14 +23,14 @@ class Settings(BaseSettings):
     redis_ssl: bool = Field(default=False)
     
     # Service URLs (from ConfigMap app-flags)
-    citizen_service_url: str = Field(default="http://localhost:8001", alias="CITIZEN_URL")
-    ingestion_service_url: str = Field(default="http://localhost:8002", alias="INGESTION_URL")
-    metadata_service_url: str = Field(default="http://localhost:8003", alias="METADATA_URL")
-    transfer_service_url: str = Field(default="http://localhost:8004", alias="TRANSFER_URL")
+    citizen_service_url: str = Field(default="http://localhost:8001", alias="CITIZEN_SERVICE_URL")
+    ingestion_service_url: str = Field(default="http://localhost:8002", alias="INGESTION_SERVICE_URL")
+    metadata_service_url: str = Field(default="http://localhost:8003", alias="METADATA_SERVICE_URL")
+    transfer_service_url: str = Field(default="http://localhost:8004", alias="TRANSFER_SERVICE_URL")
     mintic_client_url: str = Field(default="http://localhost:8005", alias="MINTIC_CLIENT_URL")
-    signature_service_url: str = Field(default="http://localhost:8006", alias="SIGNATURE_URL")
-    sharing_service_url: str = Field(default="http://localhost:8011", alias="SHARING_URL")
-    notification_service_url: str = Field(default="http://localhost:8010", alias="NOTIFICATION_URL")
+    signature_service_url: str = Field(default="http://localhost:8006", alias="SIGNATURE_SERVICE_URL")
+    sharing_service_url: str = Field(default="http://localhost:8007", alias="SHARING_SERVICE_URL")
+    notification_service_url: str = Field(default="http://localhost:8008", alias="NOTIFICATION_SERVICE_URL")
     
     # CORS (from ConfigMap cors-origins)
     cors_origins: str = Field(default="*", alias="CORS_ORIGINS")

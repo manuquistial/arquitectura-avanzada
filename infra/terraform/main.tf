@@ -92,6 +92,7 @@ module "aks" {
   sku_tier                = var.aks_sku_tier
   authorized_ip_ranges    = var.aks_authorized_ip_ranges
   admin_group_object_ids  = var.aks_admin_groups
+  tenant_id               = data.azurerm_client_config.current.tenant_id
   
   # Availability zones (multi-AZ)
   availability_zones = var.aks_availability_zones
@@ -189,65 +190,94 @@ module "servicebus" {
   }
 }
 
-# KEDA (Kubernetes Event-Driven Autoscaling)
-module "keda" {
-  source = "./modules/keda"
+# Redis for caching and rate limiting - DISABLED for Azure for Students
+# module "redis" {
+#   source = "./modules/redis"
+# 
+#   environment = var.environment
+#   namespace   = "carpeta-ciudadana-${var.environment}"
+#   
+#   depends_on = [module.aks]
+# }
 
-  keda_version                  = var.keda_version
-  keda_namespace                = var.keda_namespace
-  app_namespace                 = "${var.project_name}-${var.environment}"
-  replica_count                 = var.keda_replica_count
-  enable_servicebus_trigger     = true
-  enable_prometheus_monitoring  = true  # Always enable for production
+# DNS Zone for application domain
+module "dns" {
+  source = "./modules/dns"
 
-  depends_on = [module.aks, module.servicebus]
-}
-
-# Azure Key Vault (for secrets management)
-module "keyvault" {
-  source = "./modules/keyvault"
-
-  project_name               = var.project_name
-  environment                = var.environment
-  location                   = azurerm_resource_group.main.location
-  resource_group_name        = azurerm_resource_group.main.name
-  tenant_id                  = data.azurerm_client_config.current.tenant_id
-  aks_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
+  dns_zone_name       = var.dns_zone_name
+  resource_group_name = azurerm_resource_group.main.name
+  app_subdomain       = var.app_subdomain
+  ingress_ip          = "135.224.5.72"  # IP del ingress controller
   
-  # Secrets values
-  postgres_host                 = module.postgresql.fqdn
-  postgres_username             = var.db_admin_username
-  postgres_password             = var.db_admin_password
-  postgres_database             = "carpeta_ciudadana"
-  servicebus_connection_string  = module.servicebus.primary_connection_string
-  m2m_secret_key                = var.m2m_secret_key
-  storage_account_name          = module.storage.storage_account_name
-  redis_password                = var.redis_password
-  opensearch_username           = var.opensearch_username
-  opensearch_password           = var.opensearch_password
-  azure_b2c_tenant_id           = var.azure_b2c_tenant_id
-  azure_b2c_client_id           = var.azure_b2c_client_id
-  azure_b2c_client_secret       = var.azure_b2c_client_secret
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
   
-  # Configuration
-  sku_name                      = var.keyvault_sku
-  enable_public_access          = var.keyvault_enable_public_access
-  purge_protection_enabled      = var.keyvault_purge_protection
-  soft_delete_retention_days    = var.keyvault_soft_delete_days
-
-  depends_on = [module.aks, module.postgresql, module.servicebus, module.storage]
+  depends_on = [module.aks]
 }
 
-# CSI Secrets Store Driver (for Key Vault integration)
-module "csi_secrets_driver" {
-  source = "./modules/csi-secrets-driver"
+# KEDA (Kubernetes Event-Driven Autoscaling) - DISABLED for Azure for Students
+# module "keda" {
+#   source = "./modules/keda"
+# 
+#   keda_version                  = var.keda_version
+#   keda_namespace                = var.keda_namespace
+#   app_namespace                 = "${var.project_name}-${var.environment}"
+#   replica_count                 = var.keda_replica_count
+#   enable_servicebus_trigger     = true
+#   enable_prometheus_monitoring  = true  # Always enable for production
+# 
+#   depends_on = [module.aks, module.servicebus]
+# }
 
-  namespace                = var.csi_secrets_namespace
-  enable_secret_rotation   = var.csi_enable_rotation
-  rotation_poll_interval   = var.csi_rotation_interval
+# Azure Key Vault (for secrets management) - DISABLED
+# Using traditional Kubernetes secrets instead
+# module "keyvault" {
+#   source = "./modules/keyvault"
+#
+#   project_name               = var.project_name
+#   environment                = var.environment
+#   location                   = azurerm_resource_group.main.location
+#   resource_group_name        = azurerm_resource_group.main.name
+#   tenant_id                  = data.azurerm_client_config.current.tenant_id
+#   aks_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
+#   
+#   # Secrets values
+#   postgres_host                 = module.postgresql.fqdn
+#   postgres_username             = var.db_admin_username
+#   postgres_password             = var.db_admin_password
+#   postgres_database             = "carpeta_ciudadana"
+#   servicebus_connection_string  = module.servicebus.primary_connection_string
+#   m2m_secret_key                = var.m2m_secret_key
+#   storage_account_name          = module.storage.storage_account_name
+#   redis_password                = var.redis_password
+#   opensearch_username           = var.opensearch_username
+#   opensearch_password           = var.opensearch_password
+#   azure_b2c_tenant_id           = var.azure_b2c_tenant_id
+#   azure_b2c_client_id           = var.azure_b2c_client_id
+#   azure_b2c_client_secret       = var.azure_b2c_client_secret
+#   
+#   # Configuration
+#   sku_name                      = var.keyvault_sku
+#   enable_public_access          = var.keyvault_enable_public_access
+#   purge_protection_enabled      = var.keyvault_purge_protection
+#   soft_delete_retention_days    = var.keyvault_soft_delete_days
+#
+#   depends_on = [module.aks, module.postgresql, module.servicebus, module.storage]
+# }
 
-  depends_on = [module.aks, module.keyvault]
-}
+# CSI Secrets Store Driver (for Key Vault integration) - DISABLED
+# Using traditional Kubernetes secrets instead
+# module "csi_secrets_driver" {
+#   source = "./modules/csi-secrets-driver"
+#
+#   namespace                = var.csi_secrets_namespace
+#   enable_secret_rotation   = var.csi_enable_rotation
+#   rotation_poll_interval   = var.csi_rotation_interval
+#
+#   depends_on = [module.aks, module.keyvault]
+# }
 
 # Azure AD B2C (equivalente a Cognito)
 # Comentado - Requiere permisos especiales en Azure for Students
@@ -330,19 +360,19 @@ module "cert_manager" {
   depends_on = [module.aks]
 }
 
-# Observability stack (OpenTelemetry + Prometheus)
-module "observability" {
-  source = "./modules/observability"
-
-  namespace                  = var.observability_namespace
-  otel_chart_version         = var.otel_chart_version
-  otel_replicas              = var.otel_replicas
-  prometheus_chart_version   = var.prometheus_chart_version
-  prometheus_retention       = var.prometheus_retention
-  prometheus_storage_size    = var.prometheus_storage_size
-
-  depends_on = [module.aks]
-}
+# Observability stack (OpenTelemetry + Prometheus) - DISABLED for Azure for Students
+# module "observability" {
+#   source = "./modules/observability"
+# 
+#   namespace                  = var.observability_namespace
+#   otel_chart_version         = var.otel_chart_version
+#   otel_replicas              = var.otel_replicas
+#   prometheus_chart_version   = var.prometheus_chart_version
+#   prometheus_retention       = var.prometheus_retention
+#   prometheus_storage_size    = var.prometheus_storage_size
+# 
+#   depends_on = [module.aks]
+# }
 
 # OpenSearch deployment via Helm
 module "opensearch" {
@@ -362,6 +392,83 @@ module "opensearch" {
   enable_dashboards   = var.opensearch_enable_dashboards
 
   depends_on = [module.aks]
+}
+
+# Carpeta Ciudadana Application (main services)
+module "carpeta_ciudadana" {
+  source = "./modules/carpeta-ciudadana"
+
+  # Namespace configuration
+  namespace         = "carpeta-ciudadana-${var.environment}"
+  create_namespace  = true
+  
+  # Chart configuration
+  chart_path    = "../../deploy/helm/carpeta-ciudadana"
+  chart_version = "0.1.0"
+  timeout       = 600
+  
+  # Global configuration
+  environment         = var.environment
+  image_registry      = "manuelquistial"
+  image_pull_policy   = "IfNotPresent"
+  log_level           = "INFO"
+  
+  # Workload Identity
+  use_workload_identity        = true
+  workload_identity_client_id  = azurerm_user_assigned_identity.aks_identity.client_id
+  workload_identity_tenant_id  = data.azurerm_client_config.current.tenant_id
+  
+  # Feature flags
+  azure_b2c_enabled    = false  # Disabled for development
+  m2m_auth_enabled     = true
+  migrations_enabled   = false  # Disabled for development
+  servicebus_enabled   = false  # Disabled for development
+  servicebus_namespace = "${var.environment}-servicebus"
+  servicebus_connection_string = module.servicebus.primary_connection_string
+  
+  # Resource optimization
+  resource_optimization_enabled = true
+  max_replicas                  = 2
+  default_cpu_request           = "100m"
+  default_memory_request        = "128Mi"
+  default_cpu_limit             = "300m"
+  default_memory_limit          = "512Mi"
+  
+  # Security configuration
+  cors_origins   = "http://localhost:3000,http://localhost:3001"
+  hsts_enabled   = false  # Set to true for production HTTPS
+  csp_enabled    = true
+  csp_report_uri = ""
+  
+  # Database configuration
+  database_url    = "postgresql+asyncpg://${var.db_admin_username}:${var.db_admin_password}@${module.postgresql.fqdn}:5432/carpeta_ciudadana?sslmode=require"
+  postgres_uri    = "postgresql://${var.db_admin_username}:${var.db_admin_password}@${module.postgresql.fqdn}:5432/carpeta_ciudadana?sslmode=require"
+  m2m_secret_key  = var.m2m_secret_key
+  
+  # Azure configuration
+  azure_storage_account_name    = module.storage.storage_account_name
+  azure_storage_account_key     = module.storage.primary_access_key
+  azure_storage_container_name  = "documents"
+  
+  # Azure B2C configuration (disabled for development)
+  azure_b2c_tenant_name = ""
+  azure_b2c_tenant_id   = ""
+  azure_b2c_client_id   = ""
+  azure_b2c_client_secret = ""
+  
+  # MinTIC configuration
+  mintic_hub_url      = "https://govcarpeta-apis-4905ff3c005b.herokuapp.com"
+  mintic_operator_id  = "demo-operator"
+  mintic_operator_name = "Demo Operator"
+
+  depends_on = [
+    module.aks,
+    module.postgresql,
+    module.storage,
+    module.servicebus
+    # module.redis  # Disabled for Azure for Students
+    # module.keda  # Disabled for Azure for Students
+  ]
 }
 
 # Data sources

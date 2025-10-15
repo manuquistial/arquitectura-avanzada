@@ -56,8 +56,10 @@ export const config = {
      * - / (public home)
      * - /login (login page)
      * - /auth/* (auth pages)
+     * - /api/* (API routes)
+     * - /_next/static/* (static assets)
      */
-    "/((?!api/auth|_next|static|favicon.ico|robots.txt|login|auth|$).*)",
+    "/((?!api/auth|api/|_next/static|_next/image|favicon.ico|robots.txt|login|auth|$).*)",
   ],
 };
 

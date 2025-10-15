@@ -7,7 +7,7 @@ variable "namespace" {
 variable "chart_version" {
   description = "cert-manager Helm chart version"
   type        = string
-  default     = "v1.13.3"
+  default     = "v1.14.4"
 }
 
 variable "letsencrypt_email" {

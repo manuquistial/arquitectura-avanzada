@@ -1,4 +1,4 @@
-{{- if .Values.notification.enabled -}}
+{{- if and .Values.notification.enabled .Values.migrations.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -5,7 +5,7 @@
 variable "keda_version" {
   description = "KEDA Helm chart version"
   type        = string
-  default     = "2.13.0"
+  default     = "2.14.0"
 }
 
 variable "keda_namespace" {

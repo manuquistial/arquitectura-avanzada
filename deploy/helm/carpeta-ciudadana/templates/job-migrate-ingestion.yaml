@@ -1,4 +1,4 @@
-{{- if .Values.ingestion.enabled -}}
+{{- if and .Values.ingestion.enabled .Values.migrations.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

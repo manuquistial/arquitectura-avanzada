@@ -4,12 +4,12 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
 
 export default function UploadPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { data: session } = useSession();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -36,8 +36,8 @@ export default function UploadPage() {
   });
 
   const handleUpload = async () => {
-    if (!file || !title) {
-      setError('Por favor selecciona un archivo y proporciona un título');
+    if (!file || !title || !session?.user?.id) {
+      setError('Por favor selecciona un archivo, proporciona un título y asegúrate de estar autenticado');
       return;
     }
 
@@ -47,8 +47,8 @@ export default function UploadPage() {
 
     try {
       // Step 1: Get presigned URL
-      const urlResponse = await api.post('/api/ingestion/upload-url', {
-        citizen_id: user?.id,
+      const urlResponse = await api.post('/api/documents/upload-url', {
+        citizen_id: session.user.id,
         filename: file.name,
         content_type: file.type,
         title,
@@ -58,14 +58,19 @@ export default function UploadPage() {
       const { upload_url, document_id } = urlResponse.data;
       setProgress(30);
 
-      // Step 2: Upload directly to S3 using presigned PUT URL
-      await fetch(upload_url, {
+      // Step 2: Upload directly to Azure Blob Storage using presigned PUT URL
+      const uploadResponse = await fetch(upload_url, {
         method: 'PUT',
         body: file,
         headers: {
           'Content-Type': file.type,
+          'x-ms-blob-type': 'BlockBlob',
         },
       });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
 
       setProgress(70);
 
@@ -75,10 +80,11 @@ export default function UploadPage() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      // Step 4: Confirm upload
-      await api.post('/api/ingestion/confirm-upload', {
+      // Step 4: Confirm upload and finalize metadata
+      await api.post('/api/documents/confirm-upload', {
         document_id,
         sha256: hashHex,
+        size: file.size,
       });
 
       setProgress(100);
@@ -89,8 +95,8 @@ export default function UploadPage() {
       }, 1000);
     } catch (err) {
       console.error('Upload error:', err);
-      const error = err as { response?: { data?: { detail?: string } } };
-      setError(error.response?.data?.detail || 'Error al subir el documento');
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
+      setError(error.response?.data?.detail || error.message || 'Error al subir el documento');
       setProgress(0);
     } finally {
       setUploading(false);

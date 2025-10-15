@@ -48,8 +48,6 @@
 
 | Documento | Contenido | Páginas |
 |-----------|-----------|---------|
-| [AKS_ADVANCED_ARCHITECTURE.md](./AKS_ADVANCED_ARCHITECTURE.md) | Multi-AZ, nodepools, CNI | 40 |
-| [KEDA_ARCHITECTURE.md](./KEDA_ARCHITECTURE.md) | Event-driven autoscaling | 30 |
 | [NETWORK_POLICIES.md](./NETWORK_POLICIES.md) | Zero-trust networking | 35 |
 | [POD_DISRUPTION_BUDGETS.md](./POD_DISRUPTION_BUDGETS.md) | High availability | 25 |
 
@@ -59,11 +57,8 @@
 
 | Documento | Contenido | Páginas |
 |-----------|-----------|---------|
-| [AZURE_AD_B2C_SETUP.md](./AZURE_AD_B2C_SETUP.md) | Azure AD B2C configuration | 30 |
-| [KEY_VAULT_SETUP.md](./KEY_VAULT_SETUP.md) | Azure Key Vault + CSI Driver | 35 |
 | [M2M_AUTHENTICATION.md](./M2M_AUTHENTICATION.md) | Machine-to-Machine auth | 25 |
 | [AUTH_SERVICE.md](./AUTH_SERVICE.md) | OIDC provider implementation | 40 |
-| [CORS_SECURITY_HEADERS.md](./CORS_SECURITY_HEADERS.md) | Security headers & CORS | 20 |
 | [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) | Security scanning suite | 60 |
 
 ---
@@ -91,9 +86,7 @@
 
 | Documento | Contenido | Páginas |
 |-----------|-----------|---------|
-| [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) | Testing approach | 30 |
-| [E2E_TESTING.md](./E2E_TESTING.md) | Playwright E2E tests | 50 |
-| [LOAD_TESTING.md](./LOAD_TESTING.md) | k6 + Locust performance tests | 50 |
+| [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) | Testing approach (Unit, E2E, Load) | 80 |
 
 ---
 
@@ -253,22 +246,18 @@ make deploy-full-stack
 
 **...understand the architecture**:
 1. [ARCHITECTURE.md](./ARCHITECTURE.md)
-2. [AKS_ADVANCED_ARCHITECTURE.md](./AKS_ADVANCED_ARCHITECTURE.md)
 
 **...configure authentication**:
-1. [AZURE_AD_B2C_SETUP.md](./AZURE_AD_B2C_SETUP.md)
-2. [AUTH_SERVICE.md](./AUTH_SERVICE.md)
-3. [M2M_AUTHENTICATION.md](./M2M_AUTHENTICATION.md)
+1. [AUTH_SERVICE.md](./AUTH_SERVICE.md)
+2. [M2M_AUTHENTICATION.md](./M2M_AUTHENTICATION.md)
 
 **...set up monitoring**:
 1. [OBSERVABILITY.md](./OBSERVABILITY.md)
 2. [SLOS_SLIS.md](./SLOS_SLIS.md)
 
 **...run tests**:
-1. Unit: [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
-2. E2E: [E2E_TESTING.md](./E2E_TESTING.md)
-3. Load: [LOAD_TESTING.md](./LOAD_TESTING.md)
-4. Security: [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
+1. All tests: [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
+2. Security: [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
 
 **...troubleshoot issues**:
 1. [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
@@ -277,14 +266,11 @@ make deploy-full-stack
 
 **...improve security**:
 1. [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
-2. [KEY_VAULT_SETUP.md](./KEY_VAULT_SETUP.md)
-3. [NETWORK_POLICIES.md](./NETWORK_POLICIES.md)
-4. [CORS_SECURITY_HEADERS.md](./CORS_SECURITY_HEADERS.md)
+2. [NETWORK_POLICIES.md](./NETWORK_POLICIES.md)
 
 **...scale the system**:
-1. [KEDA_ARCHITECTURE.md](./KEDA_ARCHITECTURE.md)
-2. [AKS_ADVANCED_ARCHITECTURE.md](./AKS_ADVANCED_ARCHITECTURE.md)
-3. [LOAD_TESTING.md](./LOAD_TESTING.md)
+1. [ARCHITECTURE.md](./ARCHITECTURE.md) - Autoscaling section
+2. [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) - Load testing section
 
 **...ensure compliance**:
 1. [AUDIT_SYSTEM.md](./AUDIT_SYSTEM.md)
@@ -326,13 +312,13 @@ make deploy-full-stack
 1. Read [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
 2. Deploy to Azure: `make deploy-full-stack`
 3. Configure monitoring: [OBSERVABILITY.md](./OBSERVABILITY.md)
-4. Run E2E tests: [E2E_TESTING.md](./E2E_TESTING.md)
+4. Run E2E tests: [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
 
 ### Advanced (Week 4+)
 
-1. Deep dive: [AKS_ADVANCED_ARCHITECTURE.md](./AKS_ADVANCED_ARCHITECTURE.md)
+1. Deep dive: [ARCHITECTURE.md](./ARCHITECTURE.md)
 2. Security hardening: [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
-3. Load testing: [LOAD_TESTING.md](./LOAD_TESTING.md)
+3. Load testing: [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
 4. Custom extensions: [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ---

@@ -59,7 +59,7 @@ variable "enable_lifecycle_policy" {
 variable "enable_auto_delete_unsigned" {
   description = "Enable auto-delete of UNSIGNED documents > 30d"
   type        = bool
-  default     = false  # CronJob handles this, lifecycle is backup
+  default     = false # CronJob handles this, lifecycle is backup
 }
 
 variable "enable_blob_versioning" {
@@ -71,7 +71,7 @@ variable "enable_blob_versioning" {
 variable "enable_change_feed" {
   description = "Enable change feed for audit trail"
   type        = bool
-  default     = false  # Costs extra
+  default     = false # Costs extra
 }
 
 variable "enable_public_access" {

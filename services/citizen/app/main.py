@@ -1,6 +1,7 @@
 """Citizen Service - Main application."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
     logger.info("Starting Citizen Service...")
     await init_db()
+    logger.info("Citizen Service started")
     yield
     await engine.dispose()
     logger.info("Shutting down Citizen Service...")

@@ -49,21 +49,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"❌ Failed to start consumer: {e}")
     else:
-            logger.warning("⚠️  Service Bus not configured (SERVICEBUS_CONNECTION_STRING missing)")
-            logger.info("💡 Running in API-only mode (manual notifications)")
-        
-        yield
-        
+        logger.warning("⚠️  Service Bus not configured (SERVICEBUS_CONNECTION_STRING missing)")
+        logger.info("💡 Running in API-only mode (manual notifications)")
+    
+    yield
+    
     # Shutdown consumer
-        if consumer_task:
-            logger.info("Shutting down Service Bus consumers...")
-            consumer_task.cancel()
-            try:
-                await consumer_task
-            except asyncio.CancelledError:
-                pass
-        
-        logger.info("👋 Shutting down Notification Service...")
+    if consumer_task:
+        logger.info("Shutting down Service Bus consumers...")
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            pass
+    
+    logger.info("👋 Shutting down Notification Service...")
 
 
 # Create FastAPI app

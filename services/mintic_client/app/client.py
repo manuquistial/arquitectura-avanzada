@@ -946,3 +946,225 @@ class MinTICClient:
                 except Exception as e:
                     logger.warning(f"⚠️  Lock release failed: {e}")
 
+    # New methods for enhanced MinTIC Hub integration
+
+    async def sync_citizen_documents(
+        self,
+        citizen_id: str,
+        document_ids: list[str] = None,
+        sync_type: str = "full"
+    ) -> dict:
+        """Sync citizen documents with MinTIC Hub."""
+        logger.info(f"Syncing documents for citizen {citizen_id} (type: {sync_type})")
+        
+        try:
+            # Get citizen documents from local system
+            # TODO: Replace with actual document service call
+            local_documents = await self._get_local_citizen_documents(citizen_id)
+            
+            if not local_documents:
+                return {
+                    "synced_count": 0,
+                    "failed_count": 0,
+                    "timestamp": self.get_current_timestamp(),
+                    "details": ["No documents found for citizen"]
+                }
+            
+            # Filter by specific document IDs if provided
+            if document_ids:
+                local_documents = [doc for doc in local_documents if doc.get('id') in document_ids]
+            
+            synced_count = 0
+            failed_count = 0
+            details = []
+            
+            # Sync each document with hub
+            for document in local_documents:
+                try:
+                    # Authenticate document with hub
+                    auth_request = AuthenticateDocumentRequest(
+                        id=document.get('id'),
+                        citizen_id=citizen_id,
+                        sha256=document.get('sha256_hash', ''),
+                        operator_id=self.settings.operator_id
+                    )
+                    
+                    result = await self.authenticate_document(auth_request)
+                    
+                    if result.success:
+                        synced_count += 1
+                        details.append(f"Document {document.get('id')} synced successfully")
+                    else:
+                        failed_count += 1
+                        details.append(f"Document {document.get('id')} sync failed: {result.message}")
+                        
+                except Exception as e:
+                    failed_count += 1
+                    details.append(f"Document {document.get('id')} sync error: {str(e)}")
+                    logger.error(f"Document sync error: {e}")
+            
+            return {
+                "synced_count": synced_count,
+                "failed_count": failed_count,
+                "timestamp": self.get_current_timestamp(),
+                "details": details
+            }
+            
+        except Exception as e:
+            logger.error(f"Document sync failed: {e}")
+            raise
+
+    async def handle_document_authentication(self, payload: dict) -> None:
+        """Handle document authentication notification from hub."""
+        logger.info("Processing document authentication notification")
+        
+        try:
+            document_id = payload.get('document_id')
+            citizen_id = payload.get('citizen_id')
+            authentication_result = payload.get('authentication_result')
+            
+            # TODO: Update local document status
+            # TODO: Send notification to citizen
+            # TODO: Update audit trail
+            
+            logger.info(f"Document {document_id} authenticated for citizen {citizen_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle document authentication: {e}")
+
+    async def handle_citizen_update(self, payload: dict) -> None:
+        """Handle citizen update notification from hub."""
+        logger.info("Processing citizen update notification")
+        
+        try:
+            citizen_id = payload.get('citizen_id')
+            update_type = payload.get('update_type')
+            
+            # TODO: Update local citizen data
+            # TODO: Sync related documents
+            # TODO: Send notification to citizen
+            
+            logger.info(f"Citizen {citizen_id} updated: {update_type}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle citizen update: {e}")
+
+    async def handle_operator_status_change(self, payload: dict) -> None:
+        """Handle operator status change notification from hub."""
+        logger.info("Processing operator status change notification")
+        
+        try:
+            operator_id = payload.get('operator_id')
+            new_status = payload.get('status')
+            
+            # TODO: Update operator status cache
+            # TODO: Log operator status change
+            # TODO: Update routing if needed
+            
+            logger.info(f"Operator {operator_id} status changed to: {new_status}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle operator status change: {e}")
+
+    async def handle_transfer_completion(self, payload: dict) -> None:
+        """Handle transfer completion notification from hub."""
+        logger.info("Processing transfer completion notification")
+        
+        try:
+            transfer_id = payload.get('transfer_id')
+            status = payload.get('status')
+            result = payload.get('result')
+            
+            # TODO: Update local transfer status
+            # TODO: Notify involved citizens
+            # TODO: Update audit trail
+            
+            logger.info(f"Transfer {transfer_id} completed with status: {status}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle transfer completion: {e}")
+
+    async def get_citizen_sync_status(self, citizen_id: str) -> dict:
+        """Get synchronization status for a citizen."""
+        logger.info(f"Getting sync status for citizen: {citizen_id}")
+        
+        try:
+            # TODO: Get from Redis cache or database
+            # For now, return mock data
+            return {
+                "last_sync": self.get_current_timestamp(),
+                "status": "synced",
+                "documents_synced": 0,  # TODO: Get actual count
+                "pending_sync": 0,      # TODO: Get actual count
+                "last_error": None,
+                "next_sync": self.get_current_timestamp()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get sync status: {e}")
+            raise
+
+    async def validate_document_with_hub(
+        self,
+        document_id: str,
+        document_hash: str,
+        citizen_id: str
+    ) -> dict:
+        """Validate document with MinTIC Hub."""
+        logger.info(f"Validating document {document_id} with hub")
+        
+        try:
+            # Create authentication request
+            auth_request = AuthenticateDocumentRequest(
+                id=document_id,
+                citizen_id=citizen_id,
+                sha256=document_hash,
+                operator_id=self.settings.operator_id
+            )
+            
+            # Authenticate with hub
+            result = await self.authenticate_document(auth_request)
+            
+            return {
+                "is_valid": result.success,
+                "timestamp": self.get_current_timestamp(),
+                "hub_response": {
+                    "status_code": result.status_code,
+                    "message": result.message,
+                    "data": result.data
+                },
+                "details": {
+                    "document_id": document_id,
+                    "citizen_id": citizen_id,
+                    "hash_validated": document_hash
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Document validation failed: {e}")
+            raise
+
+    async def _get_local_citizen_documents(self, citizen_id: str) -> list[dict]:
+        """Get citizen documents from local system."""
+        # TODO: Replace with actual call to document service
+        # This is a mock implementation
+        return [
+            {
+                "id": f"doc_{citizen_id}_1",
+                "title": "Cédula de Ciudadanía",
+                "sha256_hash": "abc123def456",
+                "status": "uploaded"
+            },
+            {
+                "id": f"doc_{citizen_id}_2", 
+                "title": "Diploma Universitario",
+                "sha256_hash": "def456ghi789",
+                "status": "uploaded"
+            }
+        ]
+
+    def get_current_timestamp(self) -> str:
+        """Get current timestamp in ISO format."""
+        from datetime import datetime
+        return datetime.utcnow().isoformat()
+

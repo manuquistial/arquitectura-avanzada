@@ -26,17 +26,16 @@ spec:
           name: http
         env:
         - name: ENVIRONMENT
-          value: {{ .Values.global.environment }}
+          value: {{ .Values.global.environment | default "dev" }}
         - name: CLOUD_PROVIDER
           value: "azure"
-        - name: DATABASE_URL
-          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+        # DATABASE_URL is provided by the secret db-secrets
         - name: AZURE_STORAGE_ACCOUNT_NAME
-          value: {{ .Values.azure.storage.accountName | quote }}
+          value: {{ .Values.azure.storage.accountName | default "devstorage" | quote }}
         - name: AZURE_STORAGE_ACCOUNT_KEY
-          value: {{ .Values.azure.storage.accountKey | quote }}
+          value: {{ .Values.azure.storage.accountKey | default "devkey" | quote }}
         - name: AZURE_STORAGE_CONTAINER_NAME
-          value: {{ .Values.azure.storage.containerName | quote }}
+          value: {{ .Values.azure.storage.containerName | default "devcontainer" | quote }}
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:
@@ -48,6 +47,8 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - secretRef:
+            name: db-secrets
         resources:
           {{- toYaml .Values.ingestion.resources | nindent 10 }}
         livenessProbe:
@@ -62,7 +63,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: 8000
             scheme: HTTP
           initialDelaySeconds: 10

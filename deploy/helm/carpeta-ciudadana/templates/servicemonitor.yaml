@@ -1,4 +1,4 @@
-{{- if .Values.observability.prometheus.enabled -}}
+{{- if .Values.observability.prometheus.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,6 +22,7 @@ spec:
     protocol: TCP
 ---
 # ServiceMonitor for all Carpeta Ciudadana services
+{{- if .Values.observability.prometheus.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -41,8 +42,10 @@ spec:
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
+{{- end }}
 ---
 # PodMonitor for discovering pods
+{{- if .Values.observability.prometheus.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -71,5 +74,6 @@ spec:
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
+{{- end }}
 {{- end }}
 

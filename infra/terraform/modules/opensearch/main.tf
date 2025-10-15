@@ -19,8 +19,8 @@ resource "kubernetes_secret" "opensearch_auth" {
   }
 
   data = {
-    OS_USERNAME = var.opensearch_username
-    OS_PASSWORD = var.opensearch_password
+    OS_USERNAME    = var.opensearch_username
+    OS_PASSWORD    = var.opensearch_password
     OPENSEARCH_URL = "http://opensearch-cluster-master:9200"
   }
 

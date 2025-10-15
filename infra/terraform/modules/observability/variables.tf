@@ -55,30 +55,30 @@ variable "prometheus_retention" {
 variable "prometheus_storage_size" {
   description = "Prometheus persistent volume size"
   type        = string
-  default     = "10Gi"
+  default     = "5Gi"   # Reduced for Azure for Students
 }
 
 variable "prometheus_cpu_request" {
   description = "Prometheus CPU request"
   type        = string
-  default     = "500m"
+  default     = "250m"  # Reduced for Azure for Students
 }
 
 variable "prometheus_cpu_limit" {
   description = "Prometheus CPU limit"
   type        = string
-  default     = "1000m"
+  default     = "500m"  # Reduced for Azure for Students
 }
 
 variable "prometheus_memory_request" {
   description = "Prometheus memory request"
   type        = string
-  default     = "1Gi"
+  default     = "512Mi" # Reduced for Azure for Students
 }
 
 variable "prometheus_memory_limit" {
   description = "Prometheus memory limit"
   type        = string
-  default     = "2Gi"
+  default     = "1Gi"   # Reduced for Azure for Students
 }
 

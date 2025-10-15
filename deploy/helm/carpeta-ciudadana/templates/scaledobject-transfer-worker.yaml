@@ -1,5 +1,6 @@
 {{- if .Values.transferWorker.enabled -}}
 {{- if .Values.transferWorker.keda.enabled -}}
+{{- if .Values.transferWorker.keda.enabled }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -113,6 +114,7 @@ spec:
     name: sb-secrets
     key: SERVICEBUS_CONNECTION_STRING
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 
