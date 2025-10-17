@@ -38,9 +38,9 @@ resources:
 persistence:
   enabled: true
   size: "8Gi"
-  storageClass: "managed-premium"  # Azure Premium SSD
+  storageClass: "azurefile"  # Azure File for consistency with PostgreSQL
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
 
 # Service configuration (ClusterIP, no public access)
 service:

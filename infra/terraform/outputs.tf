@@ -20,14 +20,30 @@ output "aks_kube_config" {
 }
 
 output "postgresql_fqdn" {
-  description = "PostgreSQL FQDN"
+  description = "PostgreSQL server FQDN"
   value       = module.postgresql.fqdn
 }
 
 output "postgresql_admin_username" {
   description = "PostgreSQL admin username"
-  value       = module.postgresql.admin_username
+  value       = var.db_admin_username
   sensitive   = true
+}
+
+output "postgresql_connection_string" {
+  description = "PostgreSQL connection string"
+  value       = module.postgresql.connection_string_uri
+  sensitive   = true
+}
+
+output "postgresql_server_name" {
+  description = "PostgreSQL server name"
+  value       = module.postgresql.server_name
+}
+
+output "postgresql_server_id" {
+  description = "PostgreSQL server ID"
+  value       = module.postgresql.server_id
 }
 
 output "db_admin_password" {

@@ -78,7 +78,7 @@ groups:
       - alert: TransferInterRegionLatency
         expr: |
           histogram_quantile(0.95, 
-            sum(rate(external_call_duration_bucket{external_service="transfer",external_region!="northcentralus"}[5m])) by (le)
+            sum(rate(external_call_duration_bucket{external_service="transfer",external_region!="eastus"}[5m])) by (le)
           ) > 5
         for: 5m
         labels:

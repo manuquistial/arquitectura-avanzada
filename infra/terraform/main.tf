@@ -134,22 +134,42 @@ module "aks" {
 
 # PostgreSQL Flexible Server
 module "postgresql" {
-  source = "./modules/postgresql"
+  source = "./modules/postgresql-flexible"
 
+  # Environment and location
   environment         = var.environment
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  subnet_id           = module.vnet.db_subnet_id
-  admin_username      = var.db_admin_username
-  admin_password      = var.db_admin_password
-  sku_name            = var.db_sku_name
-  storage_mb          = var.db_storage_mb
   
-  # Firewall configuration
-  aks_egress_ip        = var.db_aks_egress_ip
-  allow_azure_services = var.db_allow_azure_services
+  # Authentication
+  admin_username = var.db_admin_username
+  admin_password = var.db_admin_password
   
-  depends_on = [module.aks]
+  # Database configuration
+  database_name = "carpeta_ciudadana"
+  
+  # PostgreSQL configuration
+  postgresql_version = "13"
+  sku_name          = var.db_sku_name
+  storage_mb        = var.db_storage_mb
+  
+  # Network configuration
+  vnet_name             = module.vnet.vnet_name
+  vnet_id               = module.vnet.vnet_id
+  postgresql_subnet_cidr = var.subnet_cidrs.db
+  
+  # Backup and availability
+  backup_retention_days        = 7
+  geo_redundant_backup        = false
+  availability_zone           = "1"
+  high_availability_mode      = "Disabled"
+  
+  # Security
+  public_network_access_enabled = var.db_enable_public_access
+  allow_azure_services          = var.db_allow_azure_services
+  allow_current_ip             = false  # Disabled since public access is disabled
+  current_ip_address           = "0.0.0.0"  # Not used when allow_current_ip is false
+  aks_egress_ip               = var.db_aks_egress_ip
 }
 
 # Blob Storage
@@ -217,19 +237,19 @@ module "dns" {
   depends_on = [module.aks]
 }
 
-# KEDA (Kubernetes Event-Driven Autoscaling) - DISABLED for Azure for Students
-# module "keda" {
-#   source = "./modules/keda"
-# 
-#   keda_version                  = var.keda_version
-#   keda_namespace                = var.keda_namespace
-#   app_namespace                 = "${var.project_name}-${var.environment}"
-#   replica_count                 = var.keda_replica_count
-#   enable_servicebus_trigger     = true
-#   enable_prometheus_monitoring  = true  # Always enable for production
-# 
-#   depends_on = [module.aks, module.servicebus]
-# }
+# KEDA (Kubernetes Event-Driven Autoscaling)
+module "keda" {
+  source = "./modules/keda"
+
+  keda_version                  = var.keda_version
+  keda_namespace                = var.keda_namespace
+  app_namespace                 = "${var.project_name}-${var.environment}"
+  replica_count                 = var.keda_replica_count
+  enable_servicebus_trigger     = true
+  enable_prometheus_monitoring  = false  # Disabled for cost optimization
+
+  depends_on = [module.aks, module.servicebus]
+}
 
 # Azure Key Vault (for secrets management) - DISABLED
 # Using traditional Kubernetes secrets instead
@@ -441,8 +461,8 @@ module "carpeta_ciudadana" {
   csp_report_uri = ""
   
   # Database configuration
-  database_url    = "postgresql+asyncpg://${var.db_admin_username}:${var.db_admin_password}@${module.postgresql.fqdn}:5432/carpeta_ciudadana?sslmode=require"
-  postgres_uri    = "postgresql://${var.db_admin_username}:${var.db_admin_password}@${module.postgresql.fqdn}:5432/carpeta_ciudadana?sslmode=require"
+    database_url    = module.postgresql.connection_string_uri
+    postgres_uri    = module.postgresql.connection_string_libpq
   m2m_secret_key  = var.m2m_secret_key
   
   # Azure configuration
@@ -465,12 +485,17 @@ module "carpeta_ciudadana" {
     module.aks,
     module.postgresql,
     module.storage,
-    module.servicebus
+    module.servicebus,
+    module.keda
     # module.redis  # Disabled for Azure for Students
-    # module.keda  # Disabled for Azure for Students
   ]
 }
 
 # Data sources
 data "azurerm_client_config" "current" {}
+
+# Get current IP address for firewall rules
+data "http" "current_ip" {
+  url = "https://ipv4.icanhazip.com"
+}
 

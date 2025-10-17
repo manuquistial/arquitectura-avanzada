@@ -87,7 +87,7 @@
               {
                 "name": "external.region",
                 "operator": "Exclude",
-                "values": ["northcentralus"]
+                "values": ["eastus"]
               }
             ],
             "operator": "GreaterThan",

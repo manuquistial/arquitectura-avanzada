@@ -1809,7 +1809,7 @@ if not await setnx(event_key, "1", ttl=600):
 ### Componentes Desplegados
 
 **Resource Group:** carpeta-ciudadana-dev-rg  
-**Región:** northcentralus (Iowa, USA)
+**Región:** eastus (Iowa, USA)
 
 | Componente | Servicio Azure | Configuración | Costo/mes |
 |------------|----------------|---------------|-----------|
