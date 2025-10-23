@@ -1,0 +1,21 @@
+# Carpeta Ciudadana Layer Configuration
+
+# Environment
+environment = "production"
+namespace   = "carpeta-ciudadana"
+
+# M2M Secret Key
+m2m_secret_key = "your-m2m-secret-key"
+
+# Domain configuration
+domain_name = "carpeta-ciudadana.example.com"
+enable_tls  = true
+
+# Front Door configuration
+frontdoor_enabled           = true
+frontdoor_frontend_hostname = "carpeta-ciudadana.example.com"
+frontdoor_api_hostname       = "api.carpeta-ciudadana.example.com"
+frontdoor_enable_waf         = true
+
+# Azure subscription
+azure_subscription_id = "f5b9ada6-2216-4ffb-8833-1f52700a2569"

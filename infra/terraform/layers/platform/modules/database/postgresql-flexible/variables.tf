@@ -32,11 +32,11 @@ variable "admin_password" {
 variable "postgresql_version" {
   description = "PostgreSQL version"
   type        = string
-  default     = "16"
+  default     = "17"
   validation {
-    # Flexible Server hoy soporta 12-16; 11 está EOL
-    condition     = contains(["12", "13", "14", "15", "16"], var.postgresql_version)
-    error_message = "PostgreSQL version must be one of: 12, 13, 14, 15, 16."
+    # Flexible Server soporta 12-17; 11 está EOL
+    condition     = contains(["12", "13", "14", "15", "16", "17"], var.postgresql_version)
+    error_message = "PostgreSQL version must be one of: 12, 13, 14, 15, 16, 17."
   }
 }
 

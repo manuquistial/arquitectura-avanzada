@@ -75,7 +75,8 @@ data "external" "crd_ready" {
       echo '{"ready": "false"}'
     fi
   EOT
-]
+  ]
+}
 
 # ClusterSecretStore para Azure Key Vault
 resource "kubernetes_manifest" "cluster_secret_store" {

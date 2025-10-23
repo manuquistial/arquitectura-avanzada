@@ -22,21 +22,21 @@ output "opensearch_namespace" {
   value       = var.opensearch_namespace
 }
 
-# Carpeta Ciudadana Outputs
-output "carpeta_ciudadana_namespace" {
-  description = "Namespace where Carpeta Ciudadana is deployed"
-  value       = module.carpeta_ciudadana.namespace
-}
+# =============================================================================
+# CARPETA CIUDADANA OUTPUTS - MOVED TO SEPARATE LAYER
+# =============================================================================
+# Carpeta Ciudadana outputs have been moved to layers/carpeta-ciudadana/
+# =============================================================================
 
 # External Secrets Outputs
 output "external_secrets_namespace" {
   description = "Namespace where External Secrets Operator is deployed"
-  value       = module.external_secrets.external_secrets_namespace
+  value       = data.terraform_remote_state.external_secrets.outputs.external_secrets_namespace
 }
 
 output "cluster_secret_store_name" {
   description = "Name of the ClusterSecretStore"
-  value       = module.external_secrets.cluster_secret_store_name
+  value       = data.terraform_remote_state.external_secrets.outputs.cluster_secret_store_name
 }
 
 # Front Door Outputs (moved from PLATFORM LAYER)

@@ -14,6 +14,18 @@
 ## 🚀 **Quick Start**
 
 ### **Para Desarrolladores**
+
+#### **Opción 1: Desarrollo Local Manual (Recomendado)**
+```bash
+# Configuración automática completa
+./scripts/quick-start.sh
+
+# O paso a paso:
+./scripts/setup-manual-env.sh
+./scripts/start-services-manual.sh
+```
+
+#### **Opción 2: Desarrollo con Docker**
 ```bash
 # 1. Configurar Azure (una sola vez)
 ./scripts/azure-setup.sh

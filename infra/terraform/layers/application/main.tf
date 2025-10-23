@@ -75,71 +75,13 @@ module "opensearch" {
   ]
 }
 
-# Carpeta Ciudadana Application (main services)
-module "carpeta_ciudadana" {
-  source = "./modules/carpeta-ciudadana/carpeta-ciudadana"
-
-  # Namespace configuration
-  namespace         = "${var.project_name}-${var.environment}"
-  create_namespace  = true
-  
-  # Chart configuration
-  chart_path    = "../../../deploy/helm/carpeta-ciudadana"
-  chart_version = "0.1.0"
-  timeout       = 600
-  
-  # Global configuration
-  environment         = var.environment
-  image_registry      = "manuelquistial"
-  image_pull_policy   = "IfNotPresent"
-  log_level           = "INFO"
-  
-  # Workload Identity
-  use_workload_identity        = true
-  workload_identity_client_id  = data.terraform_remote_state.platform.outputs.aks_managed_identity_client_id
-  workload_identity_tenant_id  = data.azurerm_client_config.current.tenant_id
-  
-  # Feature flags
-  m2m_auth_enabled     = true
-  migrations_enabled   = true
-  
-  # Resource optimization
-  resource_optimization_enabled = true
-  max_replicas                  = 2
-  default_cpu_request           = "100m"
-  default_memory_request        = "128Mi"
-  default_cpu_limit             = "300m"
-  default_memory_limit          = "512Mi"
-  
-  # Security configuration
-  cors_origins   = "http://localhost:3000,http://localhost:3001"
-  hsts_enabled   = false
-  csp_enabled    = true
-  csp_report_uri = ""
-  
-  # Database configuration - Using Private Endpoint
-  database_url    = data.terraform_remote_state.platform.outputs.database_connection_string
-  postgres_uri    = data.terraform_remote_state.platform.outputs.database_connection_string
-  m2m_secret_key  = var.m2m_secret_key
-  
-  # Azure configuration
-  azure_storage_account_name    = data.terraform_remote_state.platform.outputs.storage_account_name
-  azure_storage_account_key     = data.terraform_remote_state.platform.outputs.storage_account_key
-  azure_storage_container_name  = "documents"
-  
-  # MinTIC configuration
-  mintic_hub_url      = "https://govcarpeta-apis-4905ff3c005b.herokuapp.com"
-  mintic_operator_id  = "demo-operator"
-  mintic_operator_name = "Demo Operator"
-
-  depends_on = [
-    data.terraform_remote_state.platform,
-    data.terraform_remote_state.external_secrets,
-    module.keda,
-    module.cert_manager,
-    module.opensearch
-  ]
-}
+# =============================================================================
+# CARPETA CIUDADANA APPLICATION - MOVED TO SEPARATE LAYER
+# =============================================================================
+# Carpeta Ciudadana application has been moved to its own layer:
+# - layers/carpeta-ciudadana/
+# This provides better separation of concerns and allows independent deployment
+# =============================================================================
 
 # Data source para obtener outputs de External Secrets
 data "terraform_remote_state" "external_secrets" {
@@ -167,5 +109,5 @@ module "frontdoor" {
     Layer       = "Application"
   }
   
-  depends_on = [module.carpeta_ciudadana]
+  depends_on = [module.keda, module.cert_manager, module.opensearch]
 }

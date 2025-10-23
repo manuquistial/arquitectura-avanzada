@@ -3,6 +3,7 @@
 global:
   environment: production
   imageRegistry: manuelquistial
+  imageTag: latest  # Tag por defecto para todas las imágenes
   imagePullPolicy: Always
   logLevel: INFO
   useWorkloadIdentity: true
@@ -40,6 +41,8 @@ migrations:
       memory: "512Mi"
 
 # Service Bus configuration - REMOVED
+serviceBus:
+  enabled: false
 
 
 # CORS Configuration - Permitir dominios generados por Azure
@@ -80,7 +83,7 @@ frontend:
       memory: "256Mi"  # Límite conservador
       cpu: "25m"      # Límite conservador
   autoscaling:
-    enabled: true      # Habilitado para optimización
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilizationPercentage: 80
@@ -121,7 +124,7 @@ citizen:
       memory: "256Mi"  # Límite conservador
       cpu: "25m"
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
@@ -146,7 +149,7 @@ ingestion:
       memory: "256Mi"  # Límite conservador
       cpu: "25m"
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 15
     targetCPUUtilizationPercentage: 70
@@ -171,7 +174,7 @@ signature:
         memory: "256Mi"  # Límite para prevenir OOM
         cpu: "25m"       # Reducido pero suficiente
     autoscaling:
-      enabled: true
+      enabled: false     # Deshabilitado temporalmente por problemas de métricas
       minReplicas: 1
       maxReplicas: 10
       targetCPUUtilizationPercentage: 70
@@ -196,7 +199,7 @@ metadata:
       memory: "256Mi"  # Límite conservador
       cpu: "25m"
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
@@ -221,7 +224,7 @@ transfer:
       memory: "256Mi"  # Límite para evitar OOM durante sagas complejas
       cpu: "25m"     # Puede necesitar CPU para procesamiento concurrente
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
@@ -251,7 +254,7 @@ minticClient:
       memory: "256Mi"  # Límite conservador
       cpu: "25m"
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
@@ -276,7 +279,7 @@ readModels:
       memory: "256Mi"  # Límite conservador
       cpu: "25m"
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
@@ -301,7 +304,7 @@ auth:
       memory: "512Mi"  # Aumentado significativamente
       cpu: "500m"      # Aumentado para permitir procesamiento
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
@@ -385,7 +388,7 @@ transferWorker:
   
   # Autoscaling configuration
   autoscaling:
-    enabled: true
+    enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
     maxReplicas: 5
     targetCPUUtilizationPercentage: 70

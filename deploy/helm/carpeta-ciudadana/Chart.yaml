@@ -7,7 +7,6 @@ appVersion: "0.1.0"
 keywords:
   - carpeta-ciudadana
   - microservices
-  - aws
 maintainers:
   - name: Carpeta Ciudadana Team
 

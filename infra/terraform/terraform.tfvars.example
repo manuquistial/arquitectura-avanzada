@@ -144,3 +144,4 @@ opensearch_namespace = "opensearch"
 
 # M2M Authentication
 m2m_secret_key = "CHANGE_ME_M2M_SECRET_KEY_32_CHARS_HEX"
+

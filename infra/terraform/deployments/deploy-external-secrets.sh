@@ -31,3 +31,4 @@ terraform apply -auto-approve
 
 echo "✅ External Secrets Layer deployed successfully!"
 echo "📊 Next step: Deploy Application Layer"
+

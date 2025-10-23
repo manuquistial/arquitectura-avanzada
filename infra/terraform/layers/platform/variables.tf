@@ -380,10 +380,6 @@ variable "keyvault_initial_secrets" {
   default     = {}
 }
 
-variable "external_secrets_namespace" {
-  description = "Namespace where External Secrets Operator is deployed"
-  type        = string
-  default     = "external-secrets-system"
-}
+# External Secrets variables moved to EXTERNAL-SECRETS LAYER
 
 # Front Door moved to APPLICATION LAYER

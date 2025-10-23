@@ -35,3 +35,4 @@ terraform output
 echo ""
 echo "🎉 All layers deployed successfully!"
 echo "🌐 Your application should be available at the configured endpoints."
+

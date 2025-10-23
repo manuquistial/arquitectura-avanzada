@@ -187,32 +187,14 @@ module "security" {
   allowed_ip_rules                   = var.keyvault_allowed_ip_rules
   aks_managed_identity_principal_id  = module.aks.managed_identity_principal_id
   aks_oidc_issuer_url               = module.aks.oidc_issuer_url
-  external_secrets_namespace        = var.external_secrets_namespace
+  # external_secrets_namespace moved to EXTERNAL-SECRETS LAYER
   initial_secrets                   = var.keyvault_initial_secrets
 
   depends_on = [data.terraform_remote_state.base, module.aks]
 }
 
-# Azure Front Door (HTTPS Gateway)
-module "frontdoor" {
-  count  = var.frontdoor_enabled ? 1 : 0
-  source = "./modules/frontdoor"
-
-  environment         = var.environment
-  resource_group_name = data.terraform_remote_state.base.outputs.resource_group_name
-  frontend_hostname   = var.frontdoor_frontend_hostname
-  api_hostname        = var.frontdoor_api_hostname
-  enable_waf          = var.frontdoor_enable_waf
-  
-  tags = {
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-    Layer       = "Platform"
-  }
-  
-  depends_on = [module.aks]
-}
+# Azure Front Door (HTTPS Gateway) - MOVED TO APPLICATION LAYER
+# Front Door is now deployed in APPLICATION LAYER to avoid circular dependencies
 
 # Managed Identity para AKS
 resource "azurerm_user_assigned_identity" "aks_identity" {

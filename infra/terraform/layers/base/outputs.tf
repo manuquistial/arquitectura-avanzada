@@ -51,3 +51,4 @@ output "dns_zone_id" {
   description = "ID of the DNS zone"
   value       = module.dns.dns_zone_id
 }
+

@@ -34,7 +34,7 @@ spec:
             - configMapRef:
                 name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
             - secretRef:
-                name: db-secrets
+                name: database-secrets
             resources:
               requests:
                 cpu: 50m
