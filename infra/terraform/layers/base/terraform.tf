@@ -20,3 +20,21 @@ terraform {
   #   key                  = "base/terraform.tfstate"
   # }
 }
+
+# Provider configuration
+provider "azurerm" {
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
+  
+  # Usar OIDC (Federated Identity) para autenticación en GitHub Actions
+  use_oidc = true
+  
+  # Deshabilitar registro automático de Resource Providers
+  resource_provider_registrations = "none"
+
+  # Configurar subscription ID
+  subscription_id = var.azure_subscription_id
+}

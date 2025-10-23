@@ -10,6 +10,11 @@ variable "azure_region" {
   type        = string
 }
 
+variable "azure_subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
 variable "environment" {
   description = "Environment name"
   type        = string
@@ -23,6 +28,28 @@ variable "project_name" {
 variable "domain_name" {
   description = "Domain name for Ingress"
   type        = string
+}
+
+variable "dns_zone_name" {
+  description = "DNS zone name"
+  type        = string
+}
+
+variable "app_subdomain" {
+  description = "Application subdomain"
+  type        = string
+}
+
+variable "enable_tls" {
+  description = "Enable TLS for Ingress"
+  type        = bool
+  default     = false
+}
+
+variable "vnet_cidr" {
+  description = "CIDR block for the virtual network"
+  type        = string
+  default     = "10.0.0.0/16"
 }
 
 variable "security_contact_email" {
@@ -89,7 +116,7 @@ variable "aks_availability_zones" {
 variable "aks_system_vm_size" {
   description = "VM size for system node pool"
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_B2s"
 }
 
 variable "aks_system_node_count" {
@@ -113,7 +140,7 @@ variable "aks_system_node_max" {
 variable "aks_user_vm_size" {
   description = "VM size for user node pool"
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_B2s"
 }
 
 variable "aks_user_node_min" {
@@ -137,7 +164,7 @@ variable "aks_enable_spot" {
 variable "aks_spot_vm_size" {
   description = "VM size for spot node pool"
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_B2s"
 }
 
 variable "aks_spot_node_min" {
@@ -203,7 +230,7 @@ variable "aks_node_count" {
 variable "aks_vm_size" {
   description = "DEPRECATED: AKS node VM size"
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_B2s"
 }
 
 # Database Configuration
@@ -308,7 +335,7 @@ variable "keyvault_enabled" {
 variable "keyvault_name" {
   description = "Name of the Azure Key Vault"
   type        = string
-  default     = "carpeta-ciudadana-kv"
+  default     = "carpeta-ciudadana-kv-v2"
 }
 
 variable "keyvault_sku_name" {
@@ -359,27 +386,4 @@ variable "external_secrets_namespace" {
   default     = "external-secrets-system"
 }
 
-# Front Door Configuration
-variable "frontdoor_enabled" {
-  description = "Enable Azure Front Door for HTTPS"
-  type        = bool
-  default     = true
-}
-
-variable "frontdoor_frontend_hostname" {
-  description = "Frontend hostname for Front Door"
-  type        = string
-  default     = "135.222.244.88"
-}
-
-variable "frontdoor_api_hostname" {
-  description = "API hostname for Front Door"
-  type        = string
-  default     = "135.234.144.31"
-}
-
-variable "frontdoor_enable_waf" {
-  description = "Enable Web Application Firewall on Front Door"
-  type        = bool
-  default     = true
-}
+# Front Door moved to APPLICATION LAYER

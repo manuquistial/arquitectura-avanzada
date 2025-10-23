@@ -1,9 +1,9 @@
 # =============================================================================
-# APPLICATION LAYER TERRAFORM CONFIGURATION
+# EXTERNAL SECRETS LAYER TERRAFORM CONFIGURATION
 # =============================================================================
 
 terraform {
-  required_version = ">= 1.7"
+  required_version = ">= 1.0"
   
   required_providers {
     azurerm = {
@@ -12,21 +12,17 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12"
+      version = "~> 2.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.24"
+      version = "~> 2.0"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9"
     }
   }
-  
-  # Backend configuration (opcional)
-  # backend "azurerm" {
-  #   resource_group_name  = "terraform-state-rg"
-  #   storage_account_name = "terraformstate"
-  #   container_name       = "tfstate"
-  #   key                  = "application/terraform.tfstate"
-  # }
 }
 
 # Provider configuration
@@ -37,24 +33,17 @@ provider "azurerm" {
     }
   }
   
-  # Usar OIDC (Federated Identity) para autenticación en GitHub Actions
   use_oidc = true
-  
-  # Deshabilitar registro automático de Resource Providers
   resource_provider_registrations = "none"
-  
-  # Subscription ID
   subscription_id = var.azure_subscription_id
 }
 
-# Provider para Helm
 provider "helm" {
   kubernetes {
     config_path = "~/.kube/config"
   }
 }
 
-# Provider para Kubernetes
 provider "kubernetes" {
   config_path = "~/.kube/config"
 }

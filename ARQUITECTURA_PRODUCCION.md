@@ -159,7 +159,7 @@ flowchart TB
 1. **URLs de Frontend Hardcodeadas**
    ```yaml
    # En values.yaml línea 104
-   url: "http://carpeta-ciudadana-aks.eastus.cloudapp.azure.com"
+   url: "http://carpeta-ciudadana-aks.westus2.cloudapp.azure.com"
    ```
    - **Problema**: URL hardcodeada en lugar de usar variable de entorno
    - **Impacto**: Dificulta cambios de dominio

@@ -4,6 +4,12 @@
 # Outputs que serán consumidos por la capa de aplicación
 # =============================================================================
 
+# Resource Group Outputs
+output "resource_group_name" {
+  description = "Name of the resource group"
+  value       = data.terraform_remote_state.base.outputs.resource_group_name
+}
+
 # AKS Outputs
 output "aks_cluster_name" {
   description = "Name of the AKS cluster"
@@ -29,6 +35,17 @@ output "aks_managed_identity_principal_id" {
 output "aks_oidc_issuer_url" {
   description = "OIDC issuer URL of the AKS cluster"
   value       = module.aks.oidc_issuer_url
+}
+
+# Key Vault Outputs
+output "key_vault_id" {
+  description = "ID of the Key Vault"
+  value       = module.security[0].key_vault_id
+}
+
+output "key_vault_uri" {
+  description = "URI of the Key Vault"
+  value       = module.security[0].key_vault_uri
 }
 
 # Database Outputs
@@ -94,15 +111,7 @@ output "keyvault_name" {
 }
 
 # Front Door Outputs
-output "frontdoor_id" {
-  description = "ID of the Front Door"
-  value       = var.frontdoor_enabled ? module.frontdoor[0].front_door_id : null
-}
-
-output "frontdoor_endpoint" {
-  description = "Front Door endpoint"
-  value       = var.frontdoor_enabled ? module.frontdoor[0].front_door_endpoint : null
-}
+# Front Door outputs moved to APPLICATION LAYER
 
 # Managed Identity outputs
 output "aks_managed_identity_client_id" {

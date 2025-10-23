@@ -1,0 +1,10 @@
+# =============================================================================
+# EXTERNAL SECRETS LAYER CONFIGURATION
+# =============================================================================
+
+# Azure Configuration
+azure_subscription_id = "your-subscription-id"
+
+# External Secrets Configuration
+namespace = "external-secrets-system"
+chart_version = "0.9.11"

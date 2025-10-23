@@ -61,7 +61,7 @@ class ObservabilityConfig:
             SERVICE_VERSION: service_version,
             "deployment.environment": os.getenv("ENVIRONMENT", "development"),
             "cloud.provider": "azure",
-            "cloud.region": os.getenv("AZURE_REGION", "eastus")
+            "cloud.region": os.getenv("AZURE_REGION", "westus2")
         })
 
 

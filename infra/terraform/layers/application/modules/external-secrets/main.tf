@@ -20,14 +20,14 @@ resource "helm_release" "external_secrets" {
       
       serviceAccount = {
         annotations = {
-          "azure.workload.identity/client-id" = var.aks_managed_identity_principal_id
+          "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
         }
       }
       
       webhook = {
         serviceAccount = {
           annotations = {
-            "azure.workload.identity/client-id" = var.aks_managed_identity_principal_id
+            "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
           }
         }
       }
@@ -35,7 +35,7 @@ resource "helm_release" "external_secrets" {
       certController = {
         serviceAccount = {
           annotations = {
-            "azure.workload.identity/client-id" = var.aks_managed_identity_principal_id
+            "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
           }
         }
       }
@@ -47,8 +47,21 @@ resource "helm_release" "external_secrets" {
   ]
 }
 
+# Esperar a que los CRDs se instalen
+resource "time_sleep" "wait_for_crds" {
+  depends_on = [
+    helm_release.external_secrets
+  ]
+  
+  create_duration = "30s"
+}
+
 # ClusterSecretStore para Azure Key Vault
 resource "kubernetes_manifest" "cluster_secret_store" {
+  depends_on = [
+    time_sleep.wait_for_crds
+  ]
+  
   manifest = {
     apiVersion = "external-secrets.io/v1beta1"
     kind       = "ClusterSecretStore"
@@ -69,8 +82,6 @@ resource "kubernetes_manifest" "cluster_secret_store" {
       }
     }
   }
-
-  depends_on = [helm_release.external_secrets]
 }
 
 # Data source para obtener información del tenant

@@ -29,6 +29,11 @@ variable "aks_managed_identity_principal_id" {
   type        = string
 }
 
+variable "aks_managed_identity_client_id" {
+  description = "Client ID of the AKS Managed Identity"
+  type        = string
+}
+
 variable "aks_oidc_issuer_url" {
   description = "OIDC issuer URL of the AKS cluster"
   type        = string

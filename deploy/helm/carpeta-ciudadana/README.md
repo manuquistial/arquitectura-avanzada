@@ -62,7 +62,7 @@ El sistema está configurado para usar dominios generados automáticamente por A
 
 ### Tipos de Dominios
 1. **Load Balancer IP**: `http://20.123.45.67`
-2. **Application Gateway**: `http://carpeta-ciudadana-aks.eastus.cloudapp.azure.com`
+2. **Application Gateway**: `http://carpeta-ciudadana-aks.westus2.cloudapp.azure.com`
 3. **Azure Front Door**: `https://carpeta-ciudadana.azurefd.net`
 
 ### Configuración Automática

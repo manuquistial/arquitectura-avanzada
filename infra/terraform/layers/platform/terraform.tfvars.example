@@ -45,26 +45,26 @@ aks_sku_tier = "Free"
 aks_authorized_ip_ranges = []
 aks_admin_groups = []
 aks_availability_zones = ["1", "2", "3"]
-aks_system_vm_size = "Standard_D4s_v3"
+aks_system_vm_size = "Standard_B2s"
 aks_system_node_count = 1
 aks_system_node_min = 1
-aks_system_node_max = 5
-aks_user_vm_size = "Standard_D4s_v3"
-aks_user_node_min = 3
-aks_user_node_max = 20
+aks_system_node_max = 2
+aks_user_vm_size = "Standard_B2s"
+aks_user_node_min = 1
+aks_user_node_max = 3
 aks_enable_spot = true
-aks_spot_vm_size = "Standard_D4s_v3"
+aks_spot_vm_size = "Standard_B2s"
 aks_spot_node_min = 0
-aks_spot_node_max = 25
+aks_spot_node_max = 2
 aks_spot_max_price = -1
 aks_enable_autoscaling = true
 aks_service_cidr = "10.1.0.0/16"
 aks_dns_service_ip = "10.1.0.10"
 aks_outbound_type = "loadBalancer"
 aks_maintenance_day = "Sunday"
-aks_maintenance_hours = 2
+aks_maintenance_hours = [2, 3, 4]
 aks_node_count = 3
-aks_vm_size = "Standard_D4s_v3"
+aks_vm_size = "Standard_B2s"
 
 # Database Configuration
 db_admin_username = "psqladmin"
@@ -87,7 +87,7 @@ redis_allow_azure_services = false
 
 # Key Vault Configuration
 keyvault_enabled = true
-keyvault_name = "carpeta-ciudadana-kv"
+keyvault_name = "carpeta-ciudadana-kv-v2"
 keyvault_sku_name = "standard"
 keyvault_purge_protection_enabled = true
 keyvault_soft_delete_retention_days = 90
@@ -96,8 +96,4 @@ keyvault_network_acls_bypass = "AzureServices"
 keyvault_allowed_ip_rules = []
 keyvault_initial_secrets = {}
 
-# Front Door Configuration
-frontdoor_enabled = true
-frontdoor_frontend_hostname = "your-frontend-ip-or-domain"
-frontdoor_api_hostname = "your-api-ip-or-domain"
-frontdoor_enable_waf = true
+# Front Door moved to APPLICATION LAYER

@@ -5,6 +5,61 @@
 # =============================================================================
 
 # Importar variables compartidas
+variable "azure_region" {
+  description = "Azure region"
+  type        = string
+}
+
+variable "azure_subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
+variable "security_contact_phone" {
+  description = "Security Center contact phone"
+  type        = string
+}
+
+variable "app_subdomain" {
+  description = "Application subdomain"
+  type        = string
+}
+
+variable "dns_zone_name" {
+  description = "DNS zone name"
+  type        = string
+}
+
+variable "domain_name" {
+  description = "Domain name for Ingress"
+  type        = string
+}
+
+variable "enable_tls" {
+  description = "Enable TLS for Ingress"
+  type        = bool
+  default     = false
+}
+
+variable "security_contact_email" {
+  description = "Security Center contact email"
+  type        = string
+}
+
+variable "subnet_cidrs" {
+  description = "Subnet CIDR blocks"
+  type = object({
+    aks = string
+    db  = string
+  })
+}
+
+variable "vnet_cidr" {
+  description = "CIDR block for the virtual network"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
 variable "environment" {
   description = "Environment name"
   type        = string
@@ -115,6 +170,31 @@ variable "m2m_secret_key" {
   type        = string
   sensitive   = true
   default     = ""
+}
+
+# Front Door Configuration (moved from PLATFORM LAYER)
+variable "frontdoor_enabled" {
+  description = "Enable Azure Front Door for HTTPS"
+  type        = bool
+  default     = true
+}
+
+variable "frontdoor_frontend_hostname" {
+  description = "Frontend hostname for Front Door"
+  type        = string
+  default     = "135.222.244.88"
+}
+
+variable "frontdoor_api_hostname" {
+  description = "API hostname for Front Door"
+  type        = string
+  default     = "135.234.144.31"
+}
+
+variable "frontdoor_enable_waf" {
+  description = "Enable Web Application Firewall on Front Door"
+  type        = bool
+  default     = true
 }
 
 # OpenSearch Namespace

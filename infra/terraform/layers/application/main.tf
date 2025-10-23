@@ -20,6 +20,20 @@ data "terraform_remote_state" "platform" {
 # Data source para obtener información del tenant
 data "azurerm_client_config" "current" {}
 
+# =============================================================================
+# ROLE ASSIGNMENTS - Resolver dependencias circulares
+# =============================================================================
+
+# Asignar rol "Key Vault Secrets User" al Managed Identity de AKS
+# Movido aquí para evitar dependencia circular entre PLATFORM y APPLICATION
+resource "azurerm_role_assignment" "aks_to_keyvault" {
+  scope                = data.terraform_remote_state.platform.outputs.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = data.terraform_remote_state.platform.outputs.aks_managed_identity_principal_id
+  
+  description = "Permite a AKS leer secrets del Key Vault"
+}
+
 # KEDA (Kubernetes Event-Driven Autoscaling)
 module "keda" {
   source = "./modules/keda"
@@ -120,28 +134,38 @@ module "carpeta_ciudadana" {
 
   depends_on = [
     data.terraform_remote_state.platform,
+    data.terraform_remote_state.external_secrets,
     module.keda,
     module.cert_manager,
     module.opensearch
   ]
 }
 
-# External Secrets Operator
-module "external_secrets" {
-  source = "./modules/external-secrets"
+# Data source para obtener outputs de External Secrets
+data "terraform_remote_state" "external_secrets" {
+  backend = "local"
+  config = {
+    path = "../external-secrets/terraform.tfstate"
+  }
+}
 
-  namespace = var.external_secrets_namespace
+# Azure Front Door (HTTPS Gateway) - Moved from PLATFORM LAYER
+module "frontdoor" {
+  count  = var.frontdoor_enabled ? 1 : 0
+  source = "./modules/frontdoor"
 
-  # Key Vault configuration
-  keyvault_name = data.terraform_remote_state.platform.outputs.keyvault_name
-  keyvault_id   = data.terraform_remote_state.platform.outputs.keyvault_id
-
-  # AKS configuration
-  aks_managed_identity_principal_id = data.terraform_remote_state.platform.outputs.aks_managed_identity_principal_id
-  aks_oidc_issuer_url             = data.terraform_remote_state.platform.outputs.aks_oidc_issuer_url
-
-  depends_on = [
-    data.terraform_remote_state.platform,
-    module.carpeta_ciudadana
-  ]
+  environment         = var.environment
+  resource_group_name = "carpeta-ciudadana-production-rg"
+  frontend_hostname   = var.frontdoor_frontend_hostname
+  api_hostname        = var.frontdoor_api_hostname
+  enable_waf          = var.frontdoor_enable_waf
+  
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Layer       = "Application"
+  }
+  
+  depends_on = [module.carpeta_ciudadana]
 }

@@ -3,7 +3,7 @@
 variable "keyvault_name" {
   description = "Name of the Azure Key Vault"
   type        = string
-  default     = "carpeta-ciudadana-kv"
+  default     = "carpeta-ciudadana-kv-v2"
 }
 
 variable "location" {

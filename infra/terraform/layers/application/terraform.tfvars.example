@@ -65,3 +65,9 @@ opensearch_namespace = "opensearch"
 
 # M2M Authentication
 m2m_secret_key = "CHANGE_ME_M2M_SECRET_KEY_32_CHARS_HEX"
+
+# Front Door Configuration (moved from PLATFORM LAYER)
+frontdoor_enabled = true
+frontdoor_frontend_hostname = "135.222.244.88"
+frontdoor_api_hostname = "135.234.144.31"
+frontdoor_enable_waf = true

@@ -292,7 +292,7 @@ OP_XFER -. pre-signed GET PUT .- OP_STORE
 
 **Esqueleto Bicep:**
 ```bicep
-param location string = 'eastus'
+param location string = 'westus2'
 param env string
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {

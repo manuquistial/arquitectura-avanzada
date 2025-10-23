@@ -47,3 +47,23 @@ variable "app_subdomain" {
   description = "Application subdomain"
   type        = string
 }
+
+variable "security_contact_email" {
+  description = "Security Center contact email"
+  type        = string
+}
+
+variable "security_contact_phone" {
+  description = "Security Center contact phone"
+  type        = string
+}
+
+variable "domain_name" {
+  description = "Domain name for Ingress"
+  type        = string
+}
+
+variable "enable_tls" {
+  description = "Enable TLS for Ingress"
+  type        = bool
+}

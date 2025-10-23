@@ -95,26 +95,8 @@ resource "azurerm_role_assignment" "external_secrets_secrets_officer" {
   description = "Permite a External Secrets Operator gestionar secrets completamente"
 }
 
-# Local para determinar si crear el role assignment de AKS
-locals {
-  create_aks_role_assignment = var.aks_managed_identity_principal_id != ""
-}
-
-# Asignar rol "Key Vault Secrets User" al Managed Identity de AKS (si existe)
-resource "azurerm_role_assignment" "aks_secrets_user" {
-  count = var.aks_managed_identity_principal_id != "" ? 1 : 0
-  
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = var.aks_managed_identity_principal_id
-  
-  description = "Permite a AKS leer secrets del Key Vault"
-
-  depends_on = [
-    azurerm_key_vault.main,
-    data.azurerm_client_config.current
-  ]
-}
+# Role assignment de AKS movido a APPLICATION LAYER
+# para evitar dependencias circulares
 
 # Crear secrets iniciales en Key Vault (opcional)
 resource "azurerm_key_vault_secret" "initial_secrets" {

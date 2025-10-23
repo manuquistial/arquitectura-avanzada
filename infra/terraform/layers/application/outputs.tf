@@ -38,3 +38,14 @@ output "cluster_secret_store_name" {
   description = "Name of the ClusterSecretStore"
   value       = module.external_secrets.cluster_secret_store_name
 }
+
+# Front Door Outputs (moved from PLATFORM LAYER)
+output "frontdoor_id" {
+  description = "ID of the Front Door"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_profile_id : null
+}
+
+output "frontdoor_endpoint" {
+  description = "Front Door endpoint"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_endpoint_hostname : null
+}

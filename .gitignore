@@ -100,6 +100,7 @@ temp/
 **/.terraform/*
 *.tfstate
 *.tfstate.backup
+*.tfstate.lock.info
 
 # Local tfvars and plans
 infra/terraform/terraform.tfvars
