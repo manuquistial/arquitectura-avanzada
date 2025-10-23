@@ -17,7 +17,8 @@ class DocumentMetadata(Base):
     __tablename__ = "document_metadata"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    citizen_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    citizen_id: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -32,6 +33,11 @@ class DocumentMetadata(Base):
         String(20), 
         nullable=False, 
         default="pending"  # pending, uploaded, verified, indexed
+    )
+    is_uploaded: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False  # True when file has been uploaded to storage
     )
     
     # WORM and Retention (REQUERIMIENTO CRÍTICO)

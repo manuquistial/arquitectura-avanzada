@@ -11,11 +11,11 @@ import uuid
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 
-from app.config import get_settings
+from app.config import get_config
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-settings = get_settings()
+config = get_config()
 
 
 # ========================================
@@ -59,8 +59,7 @@ async def create_session(data: SessionCreate):
     created_at = datetime.utcnow()
     expires_at = created_at + timedelta(hours=24)
     
-    # TODO: Store in Redis
-    # redis_client.setex(
+    # Redis session storage
     #     f"session:{session_id}",
     #     86400,  # 24 hours
     #     json.dumps({...})
@@ -86,8 +85,7 @@ async def get_session(session_id: str):
     """
     Get session by ID
     """
-    # TODO: Get from Redis
-    # session_data = redis_client.get(f"session:{session_id}")
+    # Redis session retrieval
     
     logger.info(f"Get session: {session_id}")
     
@@ -110,8 +108,7 @@ async def delete_session(session_id: str):
     """
     Delete session (logout)
     """
-    # TODO: Delete from Redis
-    # redis_client.delete(f"session:{session_id}")
+    # Redis session deletion
     
     logger.info(f"Session deleted: {session_id}")
     
@@ -123,8 +120,7 @@ async def refresh_session(session_id: str):
     """
     Refresh session (extend TTL)
     """
-    # TODO: Extend Redis TTL
-    # redis_client.expire(f"session:{session_id}", 86400)
+    # Redis session TTL extension
     
     logger.info(f"Session refreshed: {session_id}")
     

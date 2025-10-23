@@ -98,7 +98,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline'",  # Allow inline styles (FastAPI docs)
             "img-src 'self' data: https:",
             "font-src 'self' data:",
-            "connect-src 'self'",
+            "connect-src 'self' https://*.b2clogin.com https://*.mintic.gov.co https://production-carpeta-endpoint-czh6asc2fagng0b7.z01.azurefd.net",
             "frame-ancestors 'none'",
             "form-action 'self'",
             "base-uri 'self'",

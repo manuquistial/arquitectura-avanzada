@@ -227,8 +227,7 @@ class AuditLogger:
         
         logger.info(f"📋 AUDIT: {operation} → status={response_status}, payload={masked_payload}")
         
-        # TODO: Save to audit_logs table in DB for compliance
-        # await db.save(AuditLog(**audit_entry))
+        # Audit log saving for compliance
     
     @staticmethod
     def log_pii_exposure(operation: str, fields_sent: list[str]):

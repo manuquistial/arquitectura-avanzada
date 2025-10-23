@@ -5,7 +5,7 @@ from typing import Dict, Any
 from datetime import datetime
 
 from app.opensearch_client import OpenSearchClient
-from app.config import Settings
+from app.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +13,15 @@ logger = logging.getLogger(__name__)
 class DocumentIndexer:
     """Indexes documents in OpenSearch from Service Bus events."""
     
-    def __init__(self, opensearch_client: OpenSearchClient, settings: Settings):
+    def __init__(self, opensearch_client: OpenSearchClient, config):
         """Initialize indexer.
         
         Args:
             opensearch_client: OpenSearch client instance
-            settings: Service settings
+            config: Service configuration
         """
         self.opensearch = opensearch_client
-        self.settings = settings
+        self.config = config
         
         # Import Redis for cache invalidation
         try:
@@ -51,7 +51,7 @@ class DocumentIndexer:
             logger.info(f"📑 Indexing uploaded document: {document_id}")
             
             # Index in OpenSearch
-            success = await self.opensearch.index_document(
+            success = self.opensearch.index_document(
                 document_id=document_id,
                 citizen_id=citizen_id,
                 title=data.get("title", filename),
@@ -71,7 +71,26 @@ class DocumentIndexer:
                 raise Exception("Indexing failed")
                 
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Error handling document.uploaded: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during document indexing")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.error("❌ OpenSearch permission denied during document indexing")
+                logger.error("💡 Check OpenSearch user permissions for document indexing")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ OpenSearch connection timeout during document indexing")
+                logger.error("💡 Check OpenSearch cluster performance and network latency")
+            elif "index" in str(e).lower():
+                logger.error("❌ OpenSearch index error during document indexing")
+                logger.error("💡 Check OpenSearch index configuration and mapping")
+            else:
+                logger.error(f"❌ Unexpected error during document indexing: {error_type}")
+                
             raise  # Re-raise to trigger retry/DLQ
     
     async def handle_document_authenticated(self, event: Dict[str, Any]):
@@ -103,7 +122,7 @@ class DocumentIndexer:
                 }
             }
             
-            await self.opensearch.client.update(
+            self.opensearch.client.update(
                 index=self.opensearch.INDEX_NAME,
                 id=document_id,
                 body=update_body,
@@ -116,7 +135,26 @@ class DocumentIndexer:
             logger.info(f"✅ Document authentication indexed: {document_id}")
             
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Error handling document.authenticated: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during document authentication update")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.error("❌ OpenSearch permission denied during document authentication update")
+                logger.error("💡 Check OpenSearch user permissions for document updates")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ OpenSearch connection timeout during document authentication update")
+                logger.error("💡 Check OpenSearch cluster performance and network latency")
+            elif "not_found" in str(e).lower():
+                logger.error("❌ Document not found in OpenSearch during authentication update")
+                logger.error("💡 Check if document was properly indexed before authentication")
+            else:
+                logger.error(f"❌ Unexpected error during document authentication update: {error_type}")
+                
             raise
     
     async def handle_document_deleted(self, document_id: str, citizen_id: int):
@@ -130,7 +168,7 @@ class DocumentIndexer:
             logger.info(f"🗑️  Removing document from index: {document_id}")
             
             # Delete from OpenSearch
-            success = await self.opensearch.delete_document(document_id)
+            success = self.opensearch.delete_document(document_id)
             
             if success:
                 # Invalidate cache
@@ -138,7 +176,25 @@ class DocumentIndexer:
                 logger.info(f"✅ Document removed from index: {document_id}")
                 
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Error deleting document from index: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during document deletion")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.error("❌ OpenSearch permission denied during document deletion")
+                logger.error("💡 Check OpenSearch user permissions for document deletion")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ OpenSearch connection timeout during document deletion")
+                logger.error("💡 Check OpenSearch cluster performance and network latency")
+            elif "not_found" in str(e).lower():
+                logger.warning(f"⚠️ Document {document_id} not found in OpenSearch index")
+                logger.info("💡 Document may have been already deleted or never indexed")
+            else:
+                logger.error(f"❌ Unexpected error during document deletion: {error_type}")
     
     async def _invalidate_cache(self, citizen_id: int):
         """Invalidate search cache for citizen using Redis Pub/Sub.
@@ -177,5 +233,20 @@ class DocumentIndexer:
                 logger.info(f"🔄 Invalidated {len(keys_to_delete)} cache keys for citizen {citizen_id}")
             
         except Exception as e:
+            error_type = type(e).__name__
             logger.warning(f"Cache invalidation failed: {e}")
+            logger.warning(f"Cache error type: {error_type}")
+            
+            # Azure-specific cache error handling
+            if "connection" in str(e).lower():
+                logger.warning("❌ Redis connection failed during cache invalidation")
+                logger.warning("💡 Check Redis cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.warning("❌ Redis permission denied during cache invalidation")
+                logger.warning("💡 Check Redis user permissions for cache operations")
+            elif "timeout" in str(e).lower():
+                logger.warning("❌ Redis connection timeout during cache invalidation")
+                logger.warning("💡 Check Redis cluster performance and network latency")
+            else:
+                logger.warning(f"❌ Unexpected Redis cache error: {error_type}")
 

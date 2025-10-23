@@ -8,6 +8,10 @@ from fastapi import FastAPI
 
 from app.database import engine, init_db
 from app.routers import signature
+from app.config import get_config
+
+# Get configuration
+config = get_config()
 
 # Import from common package (with fallback)
 try:
@@ -20,7 +24,7 @@ except ImportError:
 if COMMON_AVAILABLE:
     setup_logging()
 else:
-        logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=getattr(logging, config.log_level))
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +52,8 @@ def create_app() -> FastAPI:
     if COMMON_AVAILABLE:
         setup_cors(app)
     else:
-    # CORS configuration from environment or default to localhost
-        from app.config import settings
-        cors_origins = settings.cors_origins.split(",")
+        # CORS configuration from environment or default to localhost
+        cors_origins = config.cors_origins
         app.add_middleware(
             CORSMiddleware,
             allow_origins=cors_origins,
@@ -66,6 +69,26 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy"}
+
+    @app.get("/ready")
+    async def ready() -> dict[str, str | bool]:
+        """Readiness check endpoint."""
+        # Health check for dependencies
+        from app.database import test_connection, get_database_info
+        
+        db_status = "connected"
+        try:
+            if not await test_connection():
+                db_status = "disconnected"
+        except Exception:
+            db_status = "error"
+        
+        return {
+            "status": "ready",
+            "service": "signature",
+            "database": db_status,
+            "environment": config.environment
+        }
 
     return app
 

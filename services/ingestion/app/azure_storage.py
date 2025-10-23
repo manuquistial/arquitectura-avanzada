@@ -46,35 +46,34 @@ class AzureBlobDocumentClient:
         self.sas_ttl_minutes = sas_ttl_minutes
         self.use_managed_identity = True
         
-        # Try to use Managed Identity first
-        try:
+        # Use account key directly for simplicity
+        if account_key:
             account_url = f"https://{account_name}.blob.core.windows.net"
-            credential = DefaultAzureCredential()
             self.blob_service_client = BlobServiceClient(
                 account_url=account_url,
-                credential=credential
+                credential=account_key
             )
-            # Test the credential
-            self.blob_service_client.list_containers(max_results=1)
-            logger.info("Using Managed Identity for Azure Blob Storage")
-        except Exception as e:
-            logger.warning(f"Managed Identity auth failed, falling back to connection string/account key: {e}")
             self.use_managed_identity = False
-            
-            # Fallback to connection string or account key
-            if connection_string:
-                self.blob_service_client = BlobServiceClient.from_connection_string(
-                    connection_string
-                )
-                logger.info("Using connection string for Azure Blob Storage")
-            elif account_key:
+            logger.info("Using account key for Azure Blob Storage")
+        elif connection_string:
+            self.blob_service_client = BlobServiceClient.from_connection_string(
+                connection_string
+            )
+            self.use_managed_identity = False
+            logger.info("Using connection string for Azure Blob Storage")
+        else:
+            # Try Managed Identity as last resort
+            try:
                 account_url = f"https://{account_name}.blob.core.windows.net"
+                credential = DefaultAzureCredential()
                 self.blob_service_client = BlobServiceClient(
                     account_url=account_url,
-                    credential=account_key
+                    credential=credential
                 )
-                logger.info("Using account key for Azure Blob Storage")
-            else:
+                self.use_managed_identity = True
+                logger.info("Using Managed Identity for Azure Blob Storage")
+            except Exception as e:
+                logger.error(f"All authentication methods failed: {e}")
                 raise ValueError("No valid authentication method provided for Azure Blob Storage")
     
     def _get_user_delegation_key(self) -> UserDelegationKey | None:
@@ -137,9 +136,10 @@ class AzureBlobDocumentClient:
                 
                 sas_token = blob_client.generate_sas(
                     user_delegation_key=user_delegation_key,
-                    permission=BlobSasPermissions(write=True, create=True),
+                    permission=BlobSasPermissions(write=True, create=True, add=True),
                     expiry=expiry_time,
                     start=start_time,
+                    content_type=content_type,
                 )
                 logger.info(f"Generated User Delegation SAS for PUT: {blob_name}")
             else:
@@ -152,7 +152,7 @@ class AzureBlobDocumentClient:
                     container_name=self.container_name,
                     blob_name=blob_name,
                     account_key=self.account_key,
-                    permission=BlobSasPermissions(write=True, create=True),
+                    permission=BlobSasPermissions(write=True, create=True, add=True),
                     expiry=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
                     content_type=content_type,
                 )
@@ -240,6 +240,25 @@ class AzureBlobDocumentClient:
         except Exception as e:
             logger.error(f"Error getting metadata for {blob_name}: {e}")
             raise
+
+    def get_blob_properties(self, blob_name: str) -> dict[str, any] | None:
+        """Get blob properties for hash verification."""
+        try:
+            blob_client = self.blob_service_client.get_blob_client(
+                container=self.container_name,
+                blob=blob_name
+            )
+            properties = blob_client.get_blob_properties()
+            
+            return {
+                "size": properties.size,
+                "content_type": properties.content_settings.content_type,
+                "etag": properties.etag,
+                "last_modified": properties.last_modified,
+            }
+        except Exception as e:
+            logger.error(f"Error getting properties for {blob_name}: {e}")
+            return None
 
     def delete_blob(self, blob_name: str) -> None:
         """Delete blob from storage."""

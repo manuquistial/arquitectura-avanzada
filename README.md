@@ -11,13 +11,81 @@
 
 ---
 
+## 🚀 **Quick Start**
+
+### **Para Desarrolladores**
+```bash
+# 1. Configurar Azure (una sola vez)
+./scripts/azure-setup.sh
+
+# 2. Verificar configuración
+./scripts/verify-terraform-setup.sh
+
+# 3. Desarrollo local
+docker-compose up -d
+./start-services.sh
+```
+
+### **Para Despliegue**
+```bash
+# 1. Configurar Azure
+./scripts/azure-setup.sh
+
+# 2. Verificar todo
+./scripts/verify-terraform-setup.sh
+
+# 3. Desplegar infraestructura
+cd infra/terraform
+terraform apply
+
+# 4. Desplegar aplicación
+cd ../../deploy/helm
+helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
+```
+
+---
+
+## 📚 **Documentación Esencial**
+
+| Documento | Descripción | Cuándo usar |
+|-----------|-------------|-------------|
+| **[TERRAFORM_SETUP.md](./docs/TERRAFORM_SETUP.md)** | Configuración completa de Terraform | Antes del primer despliegue |
+| **[scripts/azure-setup.sh](./scripts/azure-setup.sh)** | Script de configuración de Azure | Primera vez |
+| **[scripts/verify-terraform-setup.sh](./scripts/verify-terraform-setup.sh)** | Verificación antes de Terraform | Antes de cada despliegue |
+
+---
+
+## 🔧 **Scripts de Automatización**
+
+### **Configuración Inicial**
+```bash
+# Configurar Azure CLI y permisos
+./scripts/azure-setup.sh
+```
+
+### **Verificación Pre-Terraform**
+```bash
+# Verificar que todo esté listo
+./scripts/verify-terraform-setup.sh
+```
+
+### **Desarrollo Local**
+```bash
+# Levantar servicios
+./start-services.sh
+
+# Parar servicios  
+./stop-services.sh
+```
+
+---
+
 ## 🎯 Características Principales
 
 ### 💼 Funcionalidades de Negocio
 - ✅ **Gestión Documental**: Upload, download, búsqueda avanzada (OpenSearch)
 - ✅ **Firma Digital**: Integración con Hub MinTIC, WORM (Write Once Read Many)
 - ✅ **Transferencias P2P**: Saga pattern, estado distribuido
-- ✅ **Compartición**: Shortlinks con expiración y límites de vistas
 - ✅ **Notificaciones**: Email, webhooks, eventos en tiempo real
 - ✅ **Auditoría**: Compliance (GDPR, ISO 27001), trazabilidad completa
 
@@ -26,7 +94,7 @@
 - ✅ **Event-Driven Architecture**: Azure Service Bus
 - ✅ **CQRS**: Command/Query Responsibility Segregation
 - ✅ **Saga Pattern**: Transacciones distribuidas
-- ✅ **API Gateway**: Rate limiting, CORS, security headers
+- ✅ **Azure API Management**: Rate limiting, CORS, security headers
 - ✅ **ABAC**: Attribute-Based Access Control
 
 ### 🔐 Seguridad (10 Capas)
@@ -51,10 +119,8 @@
 - ✅ **Load Testing**: k6 + Locust, SLO validation
 
 ### 📊 Observabilidad
-- ✅ **Prometheus + Grafana**: Metrics, dashboards (14 paneles)
-- ✅ **Loki + Promtail**: Log aggregation
-- ✅ **OpenTelemetry**: Distributed tracing
-- ✅ **Alertmanager**: 40+ alerts based on SLOs
+- ✅ **Azure Monitor**: Metrics y dashboards nativos
+- ✅ **Azure Application Insights**: Performance monitoring
 - ✅ **SLO/SLI Tracking**: P95 < 500ms, availability 99.9%
 
 ### 🧪 Testing (98% Coverage)
@@ -73,127 +139,62 @@
 
 ---
 
-## 📖 Documentación Completa
+## 🎯 **Flujo de Trabajo Recomendado**
 
-### 📚 Guías Principales
+### **1. Primera Vez (Setup Completo)**
+```bash
+# Configurar Azure y permisos
+./scripts/azure-setup.sh
 
-| Documento | Descripción | Páginas |
-|-----------|-------------|---------|
-| **[DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md)** | Guía completa de despliegue | 40+ |
-| **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | Arquitectura técnica detallada | 80+ |
-| **[DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md)** | Índice maestro de docs | - |
+# Verificar configuración
+./scripts/verify-terraform-setup.sh
 
-### 🔧 Guías Técnicas
+# Si todo está bien, desplegar
+cd infra/terraform
+terraform apply
+```
 
-| Documento | Contenido |
-|-----------|-----------|
-| **[AZURE_AD_B2C_SETUP.md](./docs/AZURE_AD_B2C_SETUP.md)** | Setup de Azure AD B2C |
-| **[KEY_VAULT_SETUP.md](./docs/KEY_VAULT_SETUP.md)** | Azure Key Vault + CSI Driver |
-| **[KEDA_ARCHITECTURE.md](./docs/KEDA_ARCHITECTURE.md)** | Event-driven auto-scaling |
-| **[M2M_AUTHENTICATION.md](./docs/M2M_AUTHENTICATION.md)** | Machine-to-Machine auth |
-| **[AKS_ADVANCED_ARCHITECTURE.md](./docs/AKS_ADVANCED_ARCHITECTURE.md)** | Multi-AZ, nodepools |
-| **[NETWORK_POLICIES.md](./docs/NETWORK_POLICIES.md)** | Zero-trust networking |
-| **[POD_DISRUPTION_BUDGETS.md](./docs/POD_DISRUPTION_BUDGETS.md)** | High availability |
-| **[AUTH_SERVICE.md](./docs/AUTH_SERVICE.md)** | OIDC provider |
-| **[OBSERVABILITY.md](./docs/OBSERVABILITY.md)** | Prometheus, Grafana, Loki |
-| **[SLOS_SLIS.md](./docs/SLOS_SLIS.md)** | Service Level Objectives |
-| **[REDIS_LOCKS.md](./docs/REDIS_LOCKS.md)** | Distributed locks |
-| **[CIRCUIT_BREAKER.md](./docs/CIRCUIT_BREAKER.md)** | Fault tolerance pattern |
-| **[CORS_SECURITY_HEADERS.md](./docs/CORS_SECURITY_HEADERS.md)** | Security headers |
-| **[RATE_LIMITING.md](./docs/RATE_LIMITING.md)** | Advanced rate limiting |
-| **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** | Testing approach |
-| **[E2E_TESTING.md](./docs/E2E_TESTING.md)** | Playwright E2E tests |
-| **[LOAD_TESTING.md](./docs/LOAD_TESTING.md)** | k6 + Locust load tests |
-| **[AUDIT_SYSTEM.md](./docs/AUDIT_SYSTEM.md)** | Compliance & audit logging |
-| **[SECURITY_AUDIT.md](./docs/SECURITY_AUDIT.md)** | Security scanning |
-| **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** | Common issues & solutions |
+### **2. Desarrollo Diario**
+```bash
+# Verificar antes de trabajar
+./scripts/verify-terraform-setup.sh
 
-**Total Documentación**: 2,100+ páginas
+# Desarrollo local
+docker-compose up -d
+./start-services.sh
+```
+
+### **3. Despliegue a Producción**
+```bash
+# Verificar configuración
+./scripts/verify-terraform-setup.sh
+
+# Desplegar infraestructura
+cd infra/terraform
+terraform apply
+
+# Desplegar aplicación
+cd ../../deploy/helm
+helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
+```
 
 ---
 
-## 🚀 Quick Start
+## 📋 **Prerrequisitos**
 
-### Prerequisitos
-
+### **Herramientas Necesarias**
 - Docker + Docker Compose
-- Node.js 20+
-- Python 3.13+
-- Poetry
-- Azure CLI (para deployment)
-- kubectl + helm (para Kubernetes)
+- Azure CLI
+- kubectl + helm
+- Terraform
+- Node.js 20+ (para frontend)
+- Python 3.13+ (para backend)
 
-### Desarrollo Local (5 minutos)
-
-```bash
-# 1. Clonar repositorio
-git clone https://github.com/manuquistial/arquitectura-avanzada.git
-cd arquitectura-avanzada
-
-# 2. Levantar infraestructura (Postgres, Redis, OpenSearch, Service Bus emulator)
-docker-compose up -d
-
-# 3. Instalar dependencias
-cd apps/frontend && npm install && cd ../..
-for service in services/*/; do
-    cd "$service" && poetry install && cd ../..
-done
-
-# 4. Iniciar servicios backend y frontend
-./start-services.sh
-
-# 5. Abrir en navegador
-open http://localhost:3000
-```
-
-**URLs Locales**:
-- Frontend: http://localhost:3000
-- API Gateway: http://localhost:8000
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3001
-
-### Despliegue a Azure (Producción)
-
-```bash
-# 1. Configurar credenciales Azure
-az login
-az account set --subscription "YOUR_SUBSCRIPTION_ID"
-
-# 2. Configurar Terraform variables
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-# Editar terraform.tfvars con tus valores
-
-# 3. Desplegar infraestructura (Terraform)
-cd infra/terraform
-terraform init
-terraform plan
-terraform apply
-
-# 4. Configurar kubectl
-az aks get-credentials --resource-group carpeta-rg --name carpeta-aks
-
-# 5. Crear secrets en Kubernetes
-kubectl create namespace carpeta-ciudadana
-./scripts/create-k8s-secrets.sh
-
-# 6. Desplegar aplicación (Helm)
-cd deploy/helm
-helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana \
-  --namespace carpeta-ciudadana \
-  --set global.environment=production \
-  --set frontend.image.tag=latest
-
-# 7. Verificar deployment
-kubectl get pods -n carpeta-ciudadana
-kubectl get svc -n carpeta-ciudadana
-```
-
-**O usar el comando automatizado**:
-```bash
-make deploy-full-stack
-```
-
-Ver [DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md) para detalles completos.
+### **Configuración de Azure**
+- Suscripción de Azure activa
+- Permisos de Owner o Contributor
+- Resource Group creado
+- Cluster AKS desplegado
 
 ---
 
@@ -215,7 +216,6 @@ Ver [DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md) para detalles completos.
 | **read_models** | 8007 | CQRS read models, event projection | FastAPI, PostgreSQL |
 | **auth** | 8008 | OIDC provider, JWT | FastAPI, Redis |
 | **notification** | 8010 | Email, webhooks | FastAPI, SMTP |
-| **sharing** | 8011 | Shortlinks, compartición | FastAPI, PostgreSQL |
 
 ### Stack Tecnológico
 
@@ -242,11 +242,9 @@ Ver [DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md) para detalles completos.
 - Azure CNI (networking)
 
 **Observability**:
-- Prometheus (metrics)
-- Grafana (dashboards)
-- Loki + Promtail (logs)
-- OpenTelemetry (traces)
-- Alertmanager (alerts)
+- Azure Monitor (metrics)
+- Azure Application Insights (dashboards)
+- Azure Log Analytics (logs)
 
 **CI/CD**:
 - GitHub Actions
@@ -321,8 +319,6 @@ Ver [DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md) para detalles completos.
 └──────────────────┘ └──────────────┘ └─────────────────┘
 ```
 
-Ver [ARCHITECTURE.md](./docs/ARCHITECTURE.md) para diagrama completo.
-
 ---
 
 ## 📊 Métricas del Proyecto
@@ -377,26 +373,6 @@ Sistema desarrollado como proyecto de **Arquitectura Avanzada** (Universidad EAF
 
 ---
 
-## 🤝 Contribución
-
-Este es un proyecto académico, pero las contribuciones son bienvenidas:
-
-1. Fork el repositorio
-2. Crea una rama (`git checkout -b feature/AmazingFeature`)
-3. Commit cambios (`git commit -m 'Add AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para más detalles.
-
----
-
-## 📜 Licencia
-
-Este proyecto está bajo la licencia MIT. Ver [LICENSE](./LICENSE) para más información.
-
----
-
 ## ✨ Estado del Proyecto
 
 **Versión**: 1.0.0  
@@ -423,102 +399,112 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](./LICENSE) para más inf
 
 ---
 
-## 🎯 Comandos Útiles
+## 🛠️ **Scripts y Comandos Esenciales**
 
-### Desarrollo
-
+### **Scripts de Configuración**
 ```bash
-# Levantar todo
-make dev-up
+# Configurar Azure (primera vez)
+./scripts/azure-setup.sh
+
+# Verificar configuración (antes de Terraform)
+./scripts/verify-terraform-setup.sh
+
+# Desarrollo local
+./start-services.sh
+./stop-services.sh
+```
+
+### **Terraform**
+```bash
+# Verificar configuración
+cd infra/terraform
+terraform validate
+
+# Plan de ejecución
+terraform plan
+
+# Aplicar cambios
+terraform apply
+```
+
+### **Kubernetes**
+```bash
+# Verificar cluster
+kubectl get nodes
+
+# Ver pods
+kubectl get pods -n carpeta-ciudadana
+
+# Ver logs
+kubectl logs -f deployment/gateway -n carpeta-ciudadana
+```
+
+### **Desarrollo**
+```bash
+# Levantar infraestructura local
+docker-compose up -d
+
+# Instalar dependencias
+cd apps/frontend && npm install
+cd services/citizen && poetry install
 
 # Tests
-make test                # Unit tests
-make test-e2e            # E2E tests (Playwright)
-make test-load           # Load tests (k6)
-
-# Linters
-make lint                # All linters
-make lint-python         # Python only
-make lint-typescript     # TypeScript only
-
-# Logs
-make logs-gateway
-make logs-citizen
-make logs-all
-
-# Base de datos
-make db-migrate          # Run migrations
-make db-reset            # Reset database
-
-# Limpieza
-make clean               # Clean build artifacts
-make dev-down            # Stop all services
+pytest services/*/tests/
+npm test --prefix apps/frontend
 ```
 
-### Despliegue
+---
 
+## ⚠️ **Solución de Problemas**
+
+### **Errores Comunes**
+
+| Error | Solución |
+|-------|----------|
+| `Unauthorized` en Kubernetes | `az aks get-credentials --admin --overwrite-existing` |
+| `Tenant not found` | `az login --tenant <TENANT_ID>` |
+| `Subscription not found` | `az account set --subscription <SUBSCRIPTION_ID>` |
+| Variables no encontradas | `source .envrc` |
+
+### **Verificación Rápida**
 ```bash
-# Full stack
-make deploy-full-stack   # Everything automated
+# Verificar Azure
+az account show
 
-# Por pasos
-make deploy-infra        # Terraform
-make build-images        # Docker images
-make push-images         # Push to registry
-make deploy-helm-prod    # Helm to AKS
+# Verificar Kubernetes
+kubectl get nodes
 
-# Secrets
-make create-secrets      # Create K8s secrets
-make rotate-secrets      # Rotate credentials
+# Verificar Terraform
+terraform validate
+
+# Verificar variables
+echo "Environment: $TF_VAR_environment"
 ```
 
-### Monitoreo
-
+### **Logs y Debugging**
 ```bash
-# Kubernetes
-make k8s-pods            # List pods
-make k8s-services        # List services
-make k8s-logs SERVICE=gateway  # Service logs
+# Logs de Azure
+az activity log list --resource-group carpeta-ciudadana-production-rg
 
-# Port forwarding
-make prometheus-port-forward   # Prometheus UI
-make grafana-port-forward      # Grafana UI
-make opensearch-port-forward   # OpenSearch
+# Logs de Kubernetes
+kubectl get events --all-namespaces
 
-# Backups
-make backup-postgres     # PostgreSQL backup
-make backup-storage      # Azure Blob backup
+# Logs de Terraform
+terraform plan -detailed-exitcode
 ```
 
 ---
 
-## 📞 Contacto
+## 📚 **Próximos Pasos**
 
-**Autor**: Manuel Jurado  
-**Universidad**: EAFIT  
-**Email**: mjurado@eafit.edu.co  
-**GitHub**: [@manuquistial](https://github.com/manuquistial)
+### **Para Empezar**
+1. **Configurar Azure**: `./scripts/azure-setup.sh`
+2. **Verificar setup**: `./scripts/verify-terraform-setup.sh`
+3. **Desplegar**: `cd infra/terraform && terraform apply`
 
----
+### **Documentación Detallada**
+- **[TERRAFORM_SETUP.md](./docs/TERRAFORM_SETUP.md)** - Configuración completa paso a paso
 
-## 🙏 Agradecimientos
-
-- **Universidad EAFIT** - Por el programa de Arquitectura Avanzada
-- **Azure for Students** - Por los créditos de Azure
-- **Comunidad Open Source** - Por las herramientas y librerías
-
----
-
-**¿Listo para desplegar?** → [DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md)  
-**¿Necesitas ayuda?** → [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)  
-**¿Quieres contribuir?** → [CONTRIBUTING.md](./CONTRIBUTING.md)
-
----
-
-<div align="center">
-
-**⭐ Si este proyecto te fue útil, considera darle una estrella ⭐**
-
-Made with ❤️ by Manuel Jurado
-
-</div>
+### **Scripts de Automatización**
+- **[scripts/azure-setup.sh](./scripts/azure-setup.sh)** - Configuración de Azure
+- **[scripts/verify-terraform-setup.sh](./scripts/verify-terraform-setup.sh)** - Verificación pre-Terraform

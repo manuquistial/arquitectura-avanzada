@@ -14,7 +14,7 @@ class SignatureRecord(Base):
     
     # Document info
     document_id = Column(String, nullable=False, index=True)
-    citizen_id = Column(Integer, nullable=False, index=True)
+    citizen_id = Column(String(20), nullable=False, index=True)
     document_title = Column(String, nullable=False)
     
     # Hash and signature
@@ -47,7 +47,7 @@ class DocumentMetadata(Base):
     
     # Primary fields
     id = Column(String(255), primary_key=True)
-    citizen_id = Column(Integer, nullable=False, index=True)
+    citizen_id = Column(String(20), nullable=False, index=True)
     filename = Column(String(500), nullable=False)
     content_type = Column(String(100), nullable=False)
     size_bytes = Column(Integer, nullable=True)

@@ -1,0 +1,19 @@
+{{- if .Values.gateway.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-gateway
+  labels:
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+    app: gateway
+spec:
+  type: {{ .Values.gateway.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.gateway.service.port | default 8000 }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "carpeta-ciudadana.selectorLabels" . | nindent 4 }}
+    app: gateway
+{{- end }}

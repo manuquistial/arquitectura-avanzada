@@ -1,5 +1,5 @@
 {{- if .Values.transferWorker.enabled -}}
-{{- if .Values.transferWorker.keda.enabled -}}
+{{- if .Values.transferWorker.keda.enabled }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -110,7 +110,7 @@ spec:
   # Use connection string from secret
   secretTargetRef:
   - parameter: connection
-    name: sb-secrets
+    name: sb-conn
     key: SERVICEBUS_CONNECTION_STRING
   {{- end }}
 {{- end }}

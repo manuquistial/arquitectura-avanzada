@@ -1,386 +1,287 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-
-interface Activity {
-  id: string;
-  type: 'upload' | 'sign' | 'transfer' | 'share' | 'download';
-  title: string;
-  description: string;
-  timestamp: string;
-  status: 'success' | 'pending' | 'failed';
-  link?: string;
-}
-
-interface Stats {
-  totalDocuments: number;
-  signedDocuments: number;
-  pendingTransfers: number;
-  sharedDocuments: number;
-}
+import { useEffect, useState } from 'react';
+import { apiService } from '@/lib/api';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [stats, setStats] = useState<Stats>({
+  const [dashboardStats, setDashboardStats] = useState({
     totalDocuments: 0,
     signedDocuments: 0,
     pendingTransfers: 0,
     sharedDocuments: 0,
   });
+  const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'all'>('week');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router]);
+    if (status === 'loading') return; // Still loading
+    if (!session) router.push('/login'); // Not authenticated
+  }, [session, status, router]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [timeFilter]);
+    const loadDashboardData = async () => {
+      if (session) {
+        try {
+          setLoading(true);
+          const [stats, activities] = await Promise.all([
+            apiService.getDashboardStats(),
+            apiService.getRecentActivities()
+          ]);
+          setDashboardStats(stats);
+          setRecentActivities(activities);
+        } catch (error) {
+          console.error('Error loading dashboard data:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      // TODO: Replace with actual API calls
-      
-      // Mock stats
-      setStats({
-        totalDocuments: 24,
-        signedDocuments: 18,
-        pendingTransfers: 3,
-        sharedDocuments: 7,
-      });
+    loadDashboardData();
+  }, [session]);
 
-      // Mock activities
-      const mockActivities: Activity[] = [
-        {
-          id: '1',
-          type: 'sign',
-          title: 'Documento firmado',
-          description: 'Cédula.pdf fue firmado exitosamente',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          status: 'success',
-          link: '/documents'
-        },
-        {
-          id: '2',
-          type: 'transfer',
-          title: 'Transferencia enviada',
-          description: 'Diploma.pdf enviado a juan@example.com',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-          status: 'pending',
-          link: '/transfers'
-        },
-        {
-          id: '3',
-          type: 'upload',
-          title: 'Documento cargado',
-          description: 'Certificado_Laboral.pdf subido correctamente',
-          timestamp: new Date(Date.now() - 10800000).toISOString(),
-          status: 'success',
-          link: '/documents'
-        },
-        {
-          id: '4',
-          type: 'share',
-          title: 'Documento compartido',
-          description: 'Compartiste Acta_Nacimiento.pdf vía shortlink',
-          timestamp: new Date(Date.now() - 14400000).toISOString(),
-          status: 'success',
-          link: '/documents'
-        },
-        {
-          id: '5',
-          type: 'download',
-          title: 'Descarga realizada',
-          description: 'Descargaste Certificado_Estudios.pdf',
-          timestamp: new Date(Date.now() - 18000000).toISOString(),
-          status: 'success'
-        },
-        {
-          id: '6',
-          type: 'transfer',
-          title: 'Transferencia recibida',
-          description: 'Recibiste Contrato.pdf de maria@example.com',
-          timestamp: new Date(Date.now() - 86400000).toISOString(),
-          status: 'success',
-          link: '/transfers'
-        },
-      ];
-
-      setActivities(mockActivities);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getActivityIcon = (type: Activity['type']) => {
-    switch (type) {
-      case 'upload': return '⬆️';
-      case 'sign': return '✍️';
-      case 'transfer': return '🔄';
-      case 'share': return '🔗';
-      case 'download': return '⬇️';
-      default: return '📄';
-    }
-  };
-
-  const getStatusBadge = (status: Activity['status']) => {
-    switch (status) {
-      case 'success':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">✓ Exitoso</span>;
-      case 'pending':
-        return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">⏳ Pendiente</span>;
-      case 'failed':
-        return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">✗ Fallido</span>;
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    
-    if (minutes < 1) return 'Hace un momento';
-    if (minutes < 60) return `Hace ${minutes} minuto${minutes > 1 ? 's' : ''}`;
-    if (hours < 24) return `Hace ${hours} hora${hours > 1 ? 's' : ''}`;
-    if (days < 7) return `Hace ${days} día${days > 1 ? 's' : ''}`;
-    
-    return date.toLocaleDateString('es-ES', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (status === 'loading' || loading) {
+  if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Cargando dashboard...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
         </div>
       </div>
     );
   }
 
+  if (!session) {
+    return null; // Will redirect to login
+  }
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: '/' });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            📊 Dashboard
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Bienvenido, {session?.user?.name || 'Usuario'}
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Documentos</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalDocuments}</p>
-              </div>
-              <div className="text-4xl">📄</div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-600">Bienvenido a Carpeta Ciudadana</p>
             </div>
-            <div className="mt-4">
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">{session.user?.name}</p>
+                <p className="text-sm text-gray-500">{session.user?.email}</p>
+              </div>
               <button
-                onClick={() => router.push('/documents')}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                onClick={handleSignOut}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
-                Ver todos →
+                Cerrar Sesión
               </button>
             </div>
           </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Firmados</p>
-                <p className="text-3xl font-bold text-green-600">{stats.signedDocuments}</p>
-              </div>
-              <div className="text-4xl">✅</div>
-            </div>
-            <div className="mt-4">
-              <div className="text-sm text-gray-600">
-                {((stats.signedDocuments / stats.totalDocuments) * 100).toFixed(0)}% del total
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Transferencias</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.pendingTransfers}</p>
-              </div>
-              <div className="text-4xl">🔄</div>
-            </div>
-            <div className="mt-4">
-              <button
-                onClick={() => router.push('/transfers')}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Ver pendientes →
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Compartidos</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.sharedDocuments}</p>
-              </div>
-              <div className="text-4xl">🔗</div>
-            </div>
-            <div className="mt-4">
-              <div className="text-sm text-gray-600">
-                Activos y accesibles
-              </div>
-            </div>
-          </div>
         </div>
+      </header>
 
-        {/* Activity Timeline */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
-                ⏱️ Actividad Reciente
-              </h2>
-              
-              <div className="flex gap-2">
-                {['today', 'week', 'month', 'all'].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setTimeFilter(filter as 'today' | 'week' | 'month' | 'all')}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      timeFilter === filter
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {filter === 'today' && 'Hoy'}
-                    {filter === 'week' && 'Semana'}
-                    {filter === 'month' && 'Mes'}
-                    {filter === 'all' && 'Todo'}
-                  </button>
-                ))}
-              </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          {/* User Info Card */}
+          <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Información del Usuario
+              </h3>
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">ID</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{session.user?.id}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Email</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{session.user?.email}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Nombre</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{session.user?.name}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Nombre Completo</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    {session.user?.given_name} {session.user?.family_name}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Roles</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    {session.user?.roles?.join(', ') || 'user'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Permisos</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    {session.user?.permissions?.join(', ') || 'read'}
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
 
-          <div className="p-6">
-            {activities.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📭</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  No hay actividad reciente
-                </h3>
-                <p className="text-gray-600">
-                  Tus acciones aparecerán aquí
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {activities.map((activity, index) => (
-                  <div key={activity.id} className="flex items-start gap-4">
-                    {/* Timeline Line */}
-                    <div className="relative flex flex-col items-center">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl">
-                        {getActivityIcon(activity.type)}
-                      </div>
-                      {index < activities.length - 1 && (
-                        <div className="w-0.5 h-16 bg-gray-200 mt-2"></div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-gray-900">
-                              {activity.title}
-                            </h3>
-                            {getStatusBadge(activity.status)}
-                          </div>
-                          
-                          <p className="text-gray-600 mb-2">
-                            {activity.description}
-                          </p>
-                          
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <span>🕒 {formatTimestamp(activity.timestamp)}</span>
-                            
-                            {activity.link && (
-                              <button
-                                onClick={() => router.push(activity.link!)}
-                                className="text-blue-600 hover:text-blue-800 font-medium"
-                              >
-                                Ver detalles →
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Documents Card */}
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">📄</span>
                     </div>
                   </div>
-                ))}
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        Documentos
+                      </dt>
+                      <dd className="text-lg font-medium text-gray-900">
+                        {loading ? '...' : `${dashboardStats.totalDocuments} documentos`}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
               </div>
-            )}
+              <div className="bg-gray-50 px-5 py-3">
+                <div className="text-sm">
+                  <Link href="/documents" className="font-medium text-blue-600 hover:text-blue-500">
+                    Ver todos los documentos
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Transfers Card */}
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">🔄</span>
+                    </div>
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        Transferencias
+                      </dt>
+                      <dd className="text-lg font-medium text-gray-900">
+                        {loading ? '...' : `${dashboardStats.pendingTransfers} transferencias`}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-5 py-3">
+                <div className="text-sm">
+                  <Link href="/transfers" className="font-medium text-green-600 hover:text-green-500">
+                    Ver transferencias
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Notifications Card */}
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">🔔</span>
+                    </div>
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        Notificaciones
+                      </dt>
+                      <dd className="text-lg font-medium text-gray-900">
+                        0 notificaciones
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-5 py-3">
+                <div className="text-sm">
+                  <Link href="/notifications" className="font-medium text-yellow-600 hover:text-yellow-500">
+                    Ver notificaciones
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          {/* Recent Activities */}
+          {recentActivities.length > 0 && (
+            <div className="mt-8 bg-white overflow-hidden shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Actividades Recientes
+                </h3>
+                <div className="flow-root">
+                  <ul className="-mb-8">
+                    {recentActivities.slice(0, 5).map((activity: any, index: number) => (
+                      <li key={index}>
+                        <div className="relative pb-8">
+                          {index !== recentActivities.length - 1 && (
+                            <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" />
+                          )}
+                          <div className="relative flex space-x-3">
+                            <div>
+                              <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center ring-8 ring-white">
+                                <span className="text-white text-sm">📄</span>
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                              <div>
+                                <p className="text-sm text-gray-500">{activity.description}</p>
+                              </div>
+                              <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                                <time dateTime={activity.timestamp}>
+                                  {new Date(activity.timestamp).toLocaleDateString()}
+                                </time>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Session Debug Info */}
+          <div className="mt-8 bg-white overflow-hidden shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Información de Sesión (Debug)
+              </h3>
+              <pre className="bg-gray-100 p-4 rounded-md text-xs overflow-auto">
+                {JSON.stringify(session, null, 2)}
+              </pre>
+            </div>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <button
-            onClick={() => router.push('/documents')}
-            className="bg-white border-2 border-blue-600 rounded-lg p-6 hover:bg-blue-50 transition-colors text-left"
-          >
-            <div className="text-3xl mb-3">📤</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Subir Documento</h3>
-            <p className="text-sm text-gray-600">Carga un nuevo documento a tu carpeta</p>
-          </button>
-
-          <button
-            onClick={() => router.push('/transfers')}
-            className="bg-white border-2 border-green-600 rounded-lg p-6 hover:bg-green-50 transition-colors text-left"
-          >
-            <div className="text-3xl mb-3">🔄</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Transferir</h3>
-            <p className="text-sm text-gray-600">Envía documentos a otros usuarios</p>
-          </button>
-
-          <button
-            onClick={() => router.push('/notifications')}
-            className="bg-white border-2 border-purple-600 rounded-lg p-6 hover:bg-purple-50 transition-colors text-left"
-          >
-            <div className="text-3xl mb-3">🔔</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Notificaciones</h3>
-            <p className="text-sm text-gray-600">Revisa tus notificaciones recientes</p>
-          </button>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }

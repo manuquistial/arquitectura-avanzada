@@ -257,31 +257,6 @@ class AuditLogger:
             }
         )
     
-    def log_share(
-        self,
-        user_id: str,
-        document_id: str,
-        shortlink_code: str,
-        max_views: int,
-        expires_hours: int,
-        status: AuditStatus,
-        ip_address: Optional[str] = None
-    ):
-        """Log document sharing event."""
-        return self.log_event(
-            event_type="DOCUMENT_SHARE",
-            action=AuditAction.SHARE,
-            status=status,
-            user_id=user_id,
-            resource_type="shortlink",
-            resource_id=shortlink_code,
-            ip_address=ip_address,
-            details={
-                "document_id": document_id,
-                "max_views": max_views,
-                "expires_hours": expires_hours
-            }
-        )
     
     def log_access(
         self,

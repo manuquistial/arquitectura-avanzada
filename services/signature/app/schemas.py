@@ -2,16 +2,38 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class SignDocumentRequest(BaseModel):
     """Request to sign a document."""
     
-    document_id: str = Field(..., description="Document ID in blob storage")
-    citizen_id: int = Field(..., description="Citizen ID")
+    document_id: str = Field(..., min_length=1, description="Document ID in blob storage")
+    citizen_id: str = Field(..., min_length=1, max_length=20, description="Citizen ID")
     signature_type: str = Field(default="PAdES", description="Signature type: PAdES, XAdES, CAdES")
-    document_title: str = Field(..., description="Document title for hub")
+    document_title: str = Field(..., min_length=1, description="Document title for hub")
+    
+    @validator('signature_type')
+    def validate_signature_type(cls, v):
+        """Validate signature type."""
+        valid_types = ["PAdES", "XAdES", "CAdES"]
+        if v not in valid_types:
+            raise ValueError(f"Invalid signature type: {v}. Must be one of {valid_types}")
+        return v
+    
+    @validator('document_id')
+    def validate_document_id(cls, v):
+        """Validate document ID."""
+        if not v or v.strip() == "":
+            raise ValueError("Document ID cannot be empty")
+        return v.strip()
+    
+    @validator('document_title')
+    def validate_document_title(cls, v):
+        """Validate document title."""
+        if not v or v.strip() == "":
+            raise ValueError("Document title cannot be empty")
+        return v.strip()
 
 
 class SignDocumentResponse(BaseModel):
@@ -28,7 +50,14 @@ class SignDocumentResponse(BaseModel):
 class VerifySignatureRequest(BaseModel):
     """Request to verify a signature."""
     
-    signed_document_id: str = Field(..., description="Signed document ID")
+    signed_document_id: str = Field(..., min_length=1, description="Signed document ID")
+    
+    @validator('signed_document_id')
+    def validate_signed_document_id(cls, v):
+        """Validate signed document ID."""
+        if not v or v.strip() == "":
+            raise ValueError("Signed document ID cannot be empty")
+        return v.strip()
 
 
 class VerifySignatureResponse(BaseModel):
@@ -45,7 +74,7 @@ class VerifySignatureResponse(BaseModel):
 class AuthenticateDocumentRequest(BaseModel):
     """Internal request to authenticate document with hub."""
     
-    citizen_id: int
+    citizen_id: str
     signed_document_id: str
     document_title: str
 

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
 
 from app.database import Base
 
@@ -12,7 +12,7 @@ class Citizen(Base):
 
     __tablename__ = "citizens"
 
-    id = Column(Integer, primary_key=True, index=True)  # Cédula
+    id = Column(String(20), primary_key=True, index=True)  # Cédula (10 dígitos)
     name = Column(String, nullable=False)
     address = Column(String, nullable=False)
     email = Column(String, nullable=False, index=True)

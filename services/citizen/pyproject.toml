@@ -9,11 +9,13 @@ python = "^3.13"
 fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.23"}
+psycopg = {extras = ["binary"], version = "^3.1.0"}
 asyncpg = "^0.30.0"
 alembic = "^1.13.0"
-pydantic = {extras = ["email"], version = "^2.5.0"}
-pydantic-settings = "^2.1.0"
+pydantic = {extras = ["email"], version = "^2.12.3"}
+pydantic-settings = "^2.6.0"
 httpx = ">=0.26.0,<0.27.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 carpeta-common = {path = "../common", develop = true}
 
 [tool.poetry.group.dev.dependencies]

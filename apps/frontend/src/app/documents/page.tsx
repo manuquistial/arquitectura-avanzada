@@ -1,321 +1,309 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/authStore';
-import { api } from '@/lib/api';
-import { FileText, Download, Share2, Trash2, Lock, AlertTriangle, Clock } from 'lucide-react';
+import { apiService } from '@/lib/api';
 
 interface Document {
   id: string;
   title: string;
-  description?: string;
   filename: string;
   content_type: string;
-  size: number;
   status: string;
+  size_bytes?: number;
   created_at: string;
-  // WORM and Retention fields
-  state?: string;  // UNSIGNED | SIGNED
-  worm_locked?: boolean;
-  signed_at?: string;
-  retention_until?: string;
-  hub_signature_ref?: string;
-  lifecycle_tier?: string;  // Hot | Cool | Archive
+  updated_at: string;
 }
 
 export default function DocumentsPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
-  const loadDocuments = useCallback(async () => {
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [session]);
+
+  const fetchDocuments = async () => {
     try {
-      // Call metadata service to get citizen's documents
-      const response = await api.get(`/api/metadata/documents?citizen_id=${user?.id}`);
-      setDocuments(response.data.documents || []);
-    } catch (err) {
-      console.error('Error loading documents:', err);
-      setError('Error al cargar documentos');
-      setDocuments([]);
+      setLoading(true);
+      setError(null);
+      
+      // Usar un ID por defecto si no hay sesión (para testing)
+      const citizenId = session?.user?.id || '1234567890';
+      
+      const data = await apiService.getDocuments(citizenId, session?.user?.roles);
+      setDocuments(data);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      setError('Error al cargar los documentos');
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-
-    loadDocuments();
-  }, [isAuthenticated, router, loadDocuments]);
-
-  const handleDownload = async (documentId: string) => {
-    try {
-      // Get presigned download URL
-      const response = await api.post('/api/documents/download-url', {
-        document_id: documentId,
-      });
-      
-      // Open download URL in new tab
-      window.open(response.data.download_url, '_blank');
-    } catch (err) {
-      alert('Error al descargar documento');
-      console.error('Download error:', err);
-    }
   };
 
-  const handleShare = (documentId: string) => {
-    router.push(`/share?document=${documentId}`);
-  };
-
-  const handleDelete = async (documentId: string, doc: Document) => {
-    // Check if WORM-locked (cannot delete)
-    if (doc.worm_locked) {
-      alert('❌ No se puede eliminar un documento protegido con WORM.\n\nEste documento está firmado y es inmutable por ' + (doc.retention_until ? `hasta ${formatDate(doc.retention_until)}` : '5 años') + '.');
-      return;
-    }
+  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setUploading(true);
     
-    if (!confirm('¿Estás seguro de eliminar este documento?')) {
+    try {
+      const formData = new FormData(event.currentTarget);
+      const file = formData.get('file') as File;
+      const title = formData.get('title') as string;
+      const description = formData.get('description') as string;
+
+      if (!file || !title) {
+        throw new Error('Archivo y título son requeridos');
+      }
+
+      // Upload directly through backend to avoid CORS issues
+      await apiService.uploadDocumentDirect(
+        file,
+        session?.user?.id || '1',
+        title,
+        description
+      );
+
+      setShowUploadModal(false);
+      await fetchDocuments(); // Refresh the list
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      setError('Error al subir el documento');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (documentId: string, filename: string) => {
+    try {
+      // Get download URL
+      const downloadData = await apiService.getDownloadUrl(documentId);
+      
+      // Create download link
+      const a = document.createElement('a');
+      a.href = downloadData.download_url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      setError('Error al descargar el documento');
+    }
+  };
+
+  const handleDelete = async (documentId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este documento?')) {
       return;
     }
 
     try {
-      await api.delete(`/api/metadata/documents/${documentId}`);
-      // Reload documents after deletion
-      await loadDocuments();
-    } catch (err: unknown) {
-      const errorMsg = (err as {response?: {data?: {detail?: string}}})?.response?.data?.detail || 'Error al eliminar documento';
-      alert(errorMsg);
-      console.error('Delete error:', err);
+      await apiService.deleteDocument(documentId, session?.user?.id || '1');
+      await fetchDocuments(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setError('Error al eliminar el documento');
     }
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'N/A';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'authenticated':
-        return 'bg-green-100 text-green-800';
-      case 'signed':
-        return 'bg-blue-100 text-blue-800';
       case 'uploaded':
-        return 'bg-gray-100 text-gray-800';
-      case 'error':
-        return 'bg-red-100 text-red-800';
+        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
+      case 'signed':
+        return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Firmado</span>;
+      case 'pending':
+        return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Pendiente</span>;
       default:
-        return 'bg-gray-100 text-gray-800';
+        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{status}</span>;
     }
   };
 
-  if (!isAuthenticated) {
-    return null;
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Cargando documentos...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Mis Documentos</h1>
-          <div className="flex gap-4">
-            <button
-              onClick={() => router.push('/upload')}
-              className="btn-primary"
-            >
-              Subir Documento
-            </button>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="btn-secondary"
-            >
-              Volver
-            </button>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              📄 Mis Documentos
+            </h1>
+            <p className="mt-2 text-gray-600">
+              Gestiona tus documentos digitales
+            </p>
           </div>
+          
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            📤 Subir Documento
+          </button>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
             {error}
           </div>
         )}
 
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">Cargando documentos...</p>
-          </div>
-        ) : documents.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+        {/* Documents Grid */}
+        {documents.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+            <div className="text-6xl mb-4">📭</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
               No tienes documentos
             </h3>
             <p className="text-gray-600 mb-6">
-              Comienza subiendo tu primer documento
+              Sube tu primer documento para comenzar
             </p>
             <button
-              onClick={() => router.push('/upload')}
-              className="btn-primary"
+              onClick={() => setShowUploadModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
-              Subir Documento
+              📤 Subir Primer Documento
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {documents.map((doc) => (
-              <div key={doc.id} className="card">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <FileText className="w-12 h-12 text-blue-600 flex-shrink-0" />
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {doc.title}
-                      </h3>
-                      {doc.description && (
-                        <p className="text-gray-600 mt-1">{doc.description}</p>
-                      )}
-                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
-                        <span>{doc.filename}</span>
-                        <span>{formatSize(doc.size)}</span>
-                        <span>{formatDate(doc.created_at)}</span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2 items-center">
-                        <span
-                          className={`inline-block px-3 py-1 rounded-full text-sm ${getStatusColor(
-                            doc.status
-                          )}`}
-                        >
-                          {doc.status}
-                        </span>
-                        
-                        {/* WORM Status Badge */}
-                        {doc.state === 'SIGNED' && doc.worm_locked && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800 border border-purple-300">
-                            <Lock className="w-3 h-3" />
-                            <span className="font-semibold">WORM</span>
-                          </span>
-                        )}
-                        
-                        {/* Lifecycle Tier Badge */}
-                        {doc.lifecycle_tier && doc.lifecycle_tier !== 'Hot' && (
-                          <span className="inline-block px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
-                            {doc.lifecycle_tier}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Retention Information */}
-                      {doc.state === 'UNSIGNED' && (
-                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                            <div className="text-sm">
-                              <p className="font-semibold text-yellow-800">Documento sin firmar</p>
-                              <p className="text-yellow-700 mt-1">
-                                Se eliminará automáticamente el{' '}
-                                <span className="font-semibold">
-                                  {new Date(
-                                    new Date(doc.created_at).getTime() + 30 * 24 * 60 * 60 * 1000
-                                  ).toLocaleDateString('es-CO', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </span>
-                                {' '}si no se autentica en MinTIC Hub (TTL: 30 días).
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {doc.state === 'SIGNED' && doc.worm_locked && doc.retention_until && (
-                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                          <div className="flex items-start gap-2">
-                            <Lock className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                            <div className="text-sm">
-                              <p className="font-semibold text-green-800">Documento protegido (WORM)</p>
-                              <p className="text-green-700 mt-1">
-                                Este documento está <span className="font-semibold">firmado y autenticado</span> en MinTIC Hub.
-                                Es <span className="font-semibold">inmutable</span> (no se puede editar ni eliminar).
-                              </p>
-                              <div className="flex items-center gap-4 mt-2 text-green-700">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4" />
-                                  <span>
-                                    Firmado: {doc.signed_at ? formatDate(doc.signed_at) : 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-semibold">
-                                    Retención hasta: {formatDate(doc.retention_until)}
-                                  </span>
-                                </div>
-                              </div>
-                              {doc.hub_signature_ref && (
-                                <p className="text-xs text-green-600 mt-2">
-                                  Ref. Hub: {doc.hub_signature_ref}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => handleDownload(doc.id)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                      title="Descargar"
-                    >
-                      <Download className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleShare(doc.id)}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded"
-                      title="Compartir"
-                    >
-                      <Share2 className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc.id, doc)}
-                      className={`p-2 rounded ${
-                        doc.worm_locked
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : 'text-red-600 hover:bg-red-50'
-                      }`}
-                      title={doc.worm_locked ? 'No se puede eliminar (WORM)' : 'Eliminar'}
-                      disabled={doc.worm_locked}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
+              <div key={doc.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="text-3xl">📄</div>
+                  {getStatusBadge(doc.status)}
+                </div>
+                
+                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                  {doc.title}
+                </h3>
+                
+                <p className="text-sm text-gray-600 mb-2">
+                  {doc.filename}
+                </p>
+                
+                <p className="text-xs text-gray-500 mb-4">
+                  {formatFileSize(doc.size_bytes)} • {new Date(doc.created_at).toLocaleDateString('es-ES')}
+                </p>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDownload(doc.id, doc.filename)}
+                    className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded text-sm font-medium transition-colors"
+                  >
+                    ⬇️ Descargar
+                  </button>
+                  
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded text-sm font-medium transition-colors"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </main>
+
+        {/* Upload Modal */}
+        {showUploadModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                📤 Subir Documento
+              </h2>
+              
+              <form onSubmit={handleUpload} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Archivo
+                  </label>
+                  <input
+                    type="file"
+                    name="file"
+                    required
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Título
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Ej: Cédula de Ciudadanía"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descripción (opcional)
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Descripción del documento..."
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowUploadModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={uploading}
+                  >
+                    Cancelar
+                  </button>
+                  
+                  <button
+                    type="submit"
+                    disabled={uploading}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? 'Subiendo...' : 'Subir'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

@@ -1,0 +1,45 @@
+<policies>
+    <inbound>
+        <!-- Rate Limiting for Citizen Registration -->
+        <rate-limit-by-key calls="10" renewal-period="60" counter-key="@(context.Request.IpAddress)" />
+        
+        <!-- Validate Request -->
+        <validate-content unspecified-content-type-action="prevent" max-size="1048576" size-exceeded-action="prevent" />
+        
+        <!-- Forward to backend -->
+        <forward-request />
+    </inbound>
+    <backend>
+        <forward-request />
+    </backend>
+    <outbound>
+        <!-- Response transformation if needed -->
+    </outbound>
+    <on-error>
+        <!-- Handle rate limit exceeded -->
+        <choose>
+            <when condition="@(context.LastError.Source == "rate-limit-by-key")">
+                <return-response>
+                    <set-status code="429" reason="Too Many Requests" />
+                    <set-body>{"error": "Rate limit exceeded", "message": "Too many requests from this IP"}</set-body>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-header name="Retry-After" exists-action="override">
+                        <value>60</value>
+                    </set-header>
+                </return-response>
+            </when>
+            <otherwise>
+                <return-response>
+                    <set-status code="500" reason="Internal Server Error" />
+                    <set-body>{"error": "Internal Server Error"}</set-body>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                </return-response>
+            </otherwise>
+        </choose>
+    </on-error>
+</policies>
+

@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 
-from app.config import Settings
+from app.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -18,28 +18,47 @@ logger = logging.getLogger(__name__)
 class CryptoService:
     """Handles cryptographic operations (SHA-256 hashing and RSA signing)."""
     
-    def __init__(self, settings: Settings):
+    def __init__(self, config):
         """Initialize crypto service."""
-        self.settings = settings
+        self.config = config
         self.private_key = None
+        self.public_key = None
         
-        if settings.signing_private_key_path and os.path.exists(settings.signing_private_key_path):
+        if config.signing_private_key_path and os.path.exists(config.signing_private_key_path):
             self._load_private_key()
         else:
-            logger.warning("⚠️  No signing key configured, using mock signatures")
+            logger.warning("⚠️  No signing key configured, generating temporary RSA key pair")
+            self._generate_temporary_key_pair()
     
     def _load_private_key(self):
         """Load RSA private key from file (K8s secret mount)."""
         try:
-            with open(self.settings.signing_private_key_path, "rb") as f:
+            with open(self.config.signing_private_key_path, "rb") as f:
                 self.private_key = serialization.load_pem_private_key(
                     f.read(),
                     password=None,
                     backend=default_backend()
                 )
+                self.public_key = self.private_key.public_key()
             logger.info("✅ RSA private key loaded")
         except Exception as e:
             logger.error(f"❌ Failed to load private key: {e}")
+            self._generate_temporary_key_pair()
+    
+    def _generate_temporary_key_pair(self):
+        """Generate temporary RSA key pair for development."""
+        try:
+            # Generate 2048-bit RSA key pair
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+                backend=default_backend()
+            )
+            self.public_key = self.private_key.public_key()
+            logger.info("✅ Temporary RSA key pair generated (2048-bit)")
+        except Exception as e:
+            logger.error(f"❌ Failed to generate temporary key pair: {e}")
+            raise
     
     async def calculate_sha256(self, data: bytes) -> str:
         """Calculate SHA-256 hash of document."""
@@ -57,14 +76,11 @@ class CryptoService:
         """
         hash_bytes = bytes.fromhex(sha256_hash)
         
-        # Use mock signature if no key loaded
         if self.private_key is None:
-            logger.warning("⚠️ Using mock signature")
-            mock_sig = f"MOCK_SIG_{sha256_hash[:16]}"
-            return (base64.b64encode(mock_sig.encode()).decode(), "mock-RS256")
+            raise ValueError("No private key available for signing")
         
         try:
-            # Sign with RSA private key
+            # Sign with RSA private key using PKCS1v15 padding
             signature = self.private_key.sign(
                 hash_bytes,
                 padding.PKCS1v15(),
@@ -72,7 +88,7 @@ class CryptoService:
             )
             
             signature_b64 = base64.b64encode(signature).decode()
-            logger.info(f"✅ Hash signed with RSA")
+            logger.info(f"✅ Hash signed with RSA-2048")
             return (signature_b64, "RS256")
             
         except Exception as e:
@@ -93,25 +109,27 @@ class CryptoService:
         Returns:
             (is_valid, details)
         """
-        # Handle mock signatures
-        if signature_b64.startswith("TU9DS19TSUdf"):  # "MOCK_SIG_" in base64
-            expected_mock = f"MOCK_SIG_{sha256_hash[:16]}"
-            decoded = base64.b64decode(signature_b64).decode()
-            is_valid = decoded == expected_mock
-            details = "Mock signature valid" if is_valid else "Mock signature invalid"
-            return (is_valid, details)
-        
-        # No real verification without public key
-        if self.private_key is None:
-            logger.warning("⚠️ Cannot verify: no key loaded")
-            return (True, "Verification skipped (no key)")
+        if self.public_key is None:
+            logger.warning("⚠️ Cannot verify: no public key available")
+            return (False, "No public key available for verification")
         
         try:
-            # In production, verify with public key
-            # For now, simplified check
-            return (True, "Signature appears valid (simplified check)")
+            # Decode signature
+            signature_bytes = base64.b64decode(signature_b64)
+            hash_bytes = bytes.fromhex(sha256_hash)
+            
+            # Verify signature with public key
+            self.public_key.verify(
+                signature_bytes,
+                hash_bytes,
+                padding.PKCS1v15(),
+                hashes.SHA256()
+            )
+            
+            logger.info("✅ Signature verified successfully")
+            return (True, "Signature verified with RSA-2048")
             
         except Exception as e:
-            logger.error(f"❌ Verification failed: {e}")
-            return (False, f"Verification error: {str(e)}")
+            logger.error(f"❌ Signature verification failed: {e}")
+            return (False, f"Signature verification failed: {str(e)}")
 

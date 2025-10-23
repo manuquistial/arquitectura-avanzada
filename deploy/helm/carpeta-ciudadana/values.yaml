@@ -1,51 +1,80 @@
 # Default values for carpeta-ciudadana
 
 global:
-  environment: development
+  environment: production
   imageRegistry: manuelquistial
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
   logLevel: INFO
   useWorkloadIdentity: true
-  
-  # Workload Identity configuration
+  highAvailability: true  # Habilitar alta disponibilidad
   workloadIdentity:
-    enabled: true
-    clientId: ""  # AKS Managed Identity client ID (from Terraform)
-    tenantId: ""  # Azure tenant ID (from Terraform)
-  
-  # Azure Key Vault integration
-  keyVault:
-    enabled: false  # Set to true when Key Vault is configured
-    name: ""  # Key Vault name (e.g., carpeta-ciudadana-dev-kv)
-    tenantId: ""  # Azure tenant ID
-    clientId: ""  # Same as workloadIdentity.clientId
-    syncToK8sSecrets: true  # Sync to K8s secrets for backward compatibility
-  
-  # CORS Configuration (restrictive)
-  corsOrigins: "http://localhost:3000,http://localhost:3001"  # Update for production with actual domains
-  
-  # Security Headers
-  security:
-    hstsEnabled: false  # Set to true for production HTTPS
-    cspEnabled: true
-    cspReportUri: ""  # Optional CSP violation reporting endpoint
-  
-  # Azure AD B2C configuration
-  azureB2C:
-    enabled: false  # Set to true when B2C is configured
-  
-  # M2M Authentication (inter-service communication)
+    clientId: ""  # Will be set via Kubernetes secret
+    tenantId: ""   # Will be set via Kubernetes secret
   m2mAuth:
     enabled: true
-    secretName: m2m-auth
-    secretKey: ""  # Set via --set or secret (generate with: openssl rand -hex 32)
-    maxTimestampAge: 300  # 5 minutes
-    nonceTtl: 600  # 10 minutes
+
+# Migrations configuration
+migrations:
+  enabled: true  # Enabled for production
+  azureB2C:
+    enabled: true  # Enabled for production
+  workloadIdentity:
+    clientId: ""  # Will be set via Kubernetes secret
+    tenantId: ""   # Will be set via Kubernetes secret
+  # keyVault removed - using traditional Kubernetes secrets
+  m2mAuth:
+    enabled: true  # Enabled for inter-service authentication
+  resourceOptimization:
+    enabled: true  # Enable optimized resource settings
+    maxReplicas: 3  # Maximum replicas per service in limited environments
+    defaultRequests:
+      cpu: "100m"
+      memory: "128Mi"
+    defaultLimits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# Service Bus configuration
+servicebus:
+  enabled: true  # Enabled for inter-service communication
+  namespace: "prod-servicebus"
+
+
+# CORS Configuration - Permitir dominios generados por Azure
+corsOrigins: "*"  # Permitir todos los orígenes para dominios generados por Azure
+
+# Security Headers - Configurado para HTTP
+security:
+  hstsEnabled: false  # Disabled for HTTP-only setup
+  cspEnabled: false  # Disabled for HTTP-only setup
+  cspReportUri: ""  # Optional CSP violation reporting endpoint
+
+# Azure AD B2C configuration - Values will be set via Kubernetes secrets
+azureB2C:
+  enabled: true  # Enabled for production
+  tenantName: ""  # Will be set via Kubernetes secret
+  tenantId: ""    # Will be set via Kubernetes secret
+  clientId: ""    # Will be set via Kubernetes secret
+  clientSecret: "" # Will be set via Kubernetes secret
+  authorityUrl: "" # Will be set via Kubernetes secret
+  issuerUrl: ""     # Will be set via Kubernetes secret
+  jwksUri: ""       # Will be set via Kubernetes secret
+  userFlowName: "B2C_1_signupsignin"
+  redirectUri: "http://localhost:3000/api/auth/callback/azure-ad-b2c"
+  logoutRedirectUri: "http://localhost:3000"
+
+# M2M Authentication (inter-service communication) - Values will be set via Kubernetes secrets
+m2mAuth:
+  enabled: true
+  secretName: m2m-auth
+  secretKey: ""  # Will be set via Kubernetes secret
+  maxTimestampAge: 300  # 5 minutes
+  nonceTtl: 600  # 10 minutes
 
 # Frontend
 frontend:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1  # Reducido para ahorrar recursos
   image:
     repository: carpeta-frontend
     tag: latest
@@ -55,77 +84,55 @@ frontend:
     targetPort: 3000
   resources:
     requests:
-      memory: "128Mi"  # Next.js puede correr con menos en dev
-      cpu: "100m"
+      memory: "256Mi"   # Optimizado para recursos limitados
+      cpu: "200m"       # Reducido pero funcional
     limits:
-      memory: "512Mi"  # Límite para evitar OOM
-      cpu: "500m"
+      memory: "256Mi"  # Límite conservador
+      cpu: "200m"      # Límite conservador
   autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
+    enabled: true      # Habilitado para optimización
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 85
   podDisruptionBudget:
     enabled: true
-    minAvailable: 1
+    minAvailable: 1  # Mantener al menos 1 disponible
+  # NextAuth configuration - Values will be set via Terraform
+  nextAuth:
+    secret: "" # Will be set via Kubernetes secret
+    url: "" # Will be set via Kubernetes secret
+    # Azure AD B2C configuration will be set via Terraform
 
-# Gateway Service - Alto tráfico, crítico
-gateway:
-  enabled: true
-  replicaCount: 3
-  image:
-    repository: carpeta-gateway
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - expuesto vía Ingress
-    port: 8000
-  resources:
-    requests:
-      memory: "256Mi"  # Rate limiter + proxying necesita más memoria
-      cpu: "200m"
-    limits:
-      memory: "512Mi"  # Límite para evitar OOM bajo alta carga
-      cpu: "1000m"     # Puede escalar CPU bajo carga
-  autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 70
-  podDisruptionBudget:
-    minAvailable: 2  # Gateway is critical, keep 2 available
-    # Metrics adicionales (requiere Prometheus Adapter)
-    customMetrics:
-      enabled: false  # Activar si tienes Prometheus Adapter
-      metrics:
-        - type: Pods
-          pods:
-            metric:
-              name: http_request_duration_seconds_p95
-            target:
-              type: AverageValue
-              averageValue: "500m"  # 500ms p95 latency
+    metrics:
+      - type: Pods
+        pods:
+          metric:
+            name: http_request_duration_seconds_p95
+          target:
+            type: AverageValue
+            averageValue: "500m"  # 500ms p95 latency
 
 # Citizen Service - Moderado uso
 citizen:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1  # Reducido para ahorrar recursos
   image:
     repository: carpeta-citizen
     tag: latest
   service:
-    type: ClusterIP  # Interno - acceso vía gateway
+    type: ClusterIP  # Interno - acceso vía Azure API Management
     port: 8000
   resources:
     requests:
-      memory: "128Mi"  # CRUD simple, bajo consumo
-      cpu: "100m"
+      memory: "256Mi"   # Optimizado para recursos limitados
+      cpu: "200m"       # Reducido
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "500m"
+      cpu: "200m"
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
@@ -134,23 +141,23 @@ citizen:
 # Ingestion Service - Genera SAS URLs, no sube archivos
 ingestion:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1  # Reducido para ahorrar recursos
   image:
     repository: carpeta-ingestion
     tag: latest
   service:
-    type: ClusterIP  # Interno - acceso vía gateway
+    type: ClusterIP  # Interno - acceso vía Azure API Management
     port: 8000
   resources:
     requests:
-      memory: "128Mi"  # Solo genera presigned URLs, no procesa archivos
-      cpu: "100m"
+      memory: "256Mi"   # Optimizado para recursos limitados
+      cpu: "200m"       # Reducido
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "500m"
+      cpu: "200m"
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 15
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
@@ -158,49 +165,49 @@ ingestion:
 
 # Signature Service - Alto CPU (criptografía)
 signature:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-signature
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - acceso vía gateway
-    port: 8000
-  resources:
-    requests:
-      memory: "256Mi"  # Operaciones criptográficas necesitan RAM
-      cpu: "200m"      # CPU importante para firmas
-    limits:
-      memory: "512Mi"  # Límite para prevenir OOM
-      cpu: "1000m"     # Puede usar más CPU para operaciones intensivas
-  autoscaling:
     enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-  podDisruptionBudget:
-    minAvailable: 1  # Critical for WORM activation
+    replicaCount: 1  # Reducido para ahorrar recursos
+    image:
+      repository: carpeta-signature
+      tag: latest
+    service:
+      type: ClusterIP  # Interno - acceso vía Azure API Management
+      port: 8000
+    resources:
+      requests:
+        memory: "256Mi"  # Aumentado para evitar OOM
+        cpu: "200m"      # Aumentado para operaciones criptográficas
+      limits:
+        memory: "256Mi"  # Límite para prevenir OOM
+        cpu: "200m"      # Reducido pero suficiente
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    podDisruptionBudget:
+      minAvailable: 1
 
 # Metadata Service - Búsquedas en OpenSearch
 metadata:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1  # Reducido para ahorrar recursos
   image:
     repository: carpeta-metadata
     tag: latest
   service:
-    type: ClusterIP  # Interno - acceso vía gateway
+    type: ClusterIP  # Interno - acceso vía Azure API Management
     port: 8000
   resources:
     requests:
-      memory: "128Mi"  # Búsquedas delegadas a OpenSearch
-      cpu: "100m"
+      memory: "256Mi"   # Optimizado para recursos limitados
+      cpu: "200m"       # Reducido
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "500m"
+      cpu: "200m"
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
@@ -209,82 +216,37 @@ metadata:
 # Transfer Service - Saga pattern, transaccional
 transfer:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1  # Reducido para ahorrar recursos
   image:
     repository: carpeta-transfer
     tag: latest
   service:
-    type: ClusterIP  # Interno - acceso vía gateway (cambiar de LoadBalancer)
+    type: ClusterIP  # Interno - acceso vía Azure API Management (cambiar de LoadBalancer)
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # Saga pattern + DB transactions
-      cpu: "200m"
+      memory: "256Mi"  # Optimizado para recursos limitados
+      cpu: "200m"      # Reducido
     limits:
-      memory: "512Mi"  # Límite para evitar OOM durante sagas complejas
-      cpu: "1000m"     # Puede necesitar CPU para procesamiento concurrente
+      memory: "256Mi"  # Límite para evitar OOM durante sagas complejas
+      cpu: "200m"     # Puede necesitar CPU para procesamiento concurrente
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1  # Critical for saga orchestration
 
-# Sharing Service - Shortlinks (bajo uso)
-sharing:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-sharing
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - acceso vía gateway
-    port: 8000
-  resources:
-    requests:
-      memory: "64Mi"   # Servicio simple de shortlinks
-      cpu: "50m"
-    limits:
-      memory: "128Mi"  # Límite bajo
-      cpu: "200m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-  podDisruptionBudget:
-    minAvailable: 1
 
-# Notification Service - Email + webhooks (bajo uso típicamente)
-notification:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-notification
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - consumidor de eventos
-    port: 8010
-  resources:
-    requests:
-      memory: "64Mi"   # Servicio simple de notificaciones
-      cpu: "50m"
-    limits:
-      memory: "128Mi"  # Límite bajo, previene OOM
-      cpu: "200m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-  podDisruptionBudget:
-    minAvailable: 1
+# Notification Service - DISABLED - not required by reference document
+# notification:
+#   enabled: false
 
 # MinTIC Client Service - Rate limiter + Hub calls
 minticClient:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1  # Reducido para ahorrar recursos
   image:
     repository: carpeta-mintic_client
     tag: latest
@@ -293,14 +255,14 @@ minticClient:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"  # HTTP client + rate limiter
-      cpu: "100m"
+      memory: "256Mi"  # HTTP client + rate limiter
+      cpu: "200m"
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "500m"
+      cpu: "200m"
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
@@ -309,23 +271,23 @@ minticClient:
 # Read Models Service (CQRS) - Consumidor de eventos
 readModels:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
-    repository: carpeta-read-models
+    repository: carpeta-read_models
     tag: latest
   service:
-    type: ClusterIP  # Interno - acceso vía gateway
+    type: ClusterIP  # Interno - acceso vía Azure API Management
     port: 8007
   resources:
     requests:
       memory: "128Mi"  # Event consumer + queries simples
-      cpu: "100m"
+      cpu: "50m"
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "500m"
+      cpu: "100m"
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
@@ -334,29 +296,29 @@ readModels:
 # Auth Service - OIDC Provider + Azure AD B2C
 auth:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: carpeta-auth
     tag: latest
   service:
-    type: ClusterIP  # Interno - acceso vía gateway
-    port: 8011
+    type: ClusterIP  # Interno - acceso vía Azure API Management
+    port: 8000
   resources:
     requests:
-      memory: "128Mi"  # Token validation + session management
-      cpu: "100m"
+      memory: "64Mi"  # Token validation + session management
+      cpu: "25m"
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "500m"
+      memory: "128Mi"  # Límite conservador
+      cpu: "50m"
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
 
 # Transfer Worker - Dedicated consumer for transfers (KEDA auto-scaling)
 transferWorker:
-  enabled: true
+  enabled: true  # Enabled now that KEDA is installed
   replicaCount: 0  # KEDA controls replicas (scales from 0)
   image:
     repository: carpeta-transfer-worker
@@ -377,12 +339,12 @@ transferWorker:
       memory: "256Mi"  # Message processing + DB connections
       cpu: "200m"
     limits:
-      memory: "512Mi"  # Limit to prevent OOM
-      cpu: "1000m"     # Can spike during high load
+      memory: "256Mi"  # Limit to prevent OOM
+      cpu: "200m"     # Can spike during high load
   
   # KEDA auto-scaling configuration
   keda:
-    enabled: true
+    enabled: false  # Disabled for Azure for Students
     pollingInterval: 30  # Check queue every 30 seconds
     cooldownPeriod: 300   # Wait 5 minutes before scaling down
     minReplicas: 0        # Scale to zero when queue is empty
@@ -429,6 +391,24 @@ transferWorker:
               values:
               - transfer-worker
           topologyKey: kubernetes.io/hostname
+
+# Notification service
+notification:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-notification
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía Azure API Management
+    port: 8010
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
   
   # Graceful shutdown
   terminationGracePeriodSeconds: 60
@@ -447,37 +427,61 @@ transferWorker:
     successThreshold: 1
     failureThreshold: 2
   
-  # Prometheus monitoring
+  # Azure Monitor monitoring
   serviceMonitor:
-    enabled: true
+    enabled: false  # Using Azure Monitor instead
   
-  # Pod annotations
+  # Pod annotations for Azure Monitor
   podAnnotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8012"
-    prometheus.io/path: "/metrics"
+    azure-monitor.io/scrape: "true"
+    azure-monitor.io/port: "8012"
+    azure-monitor.io/path: "/metrics"
+    appinsights.microsoft.com/ApplicationInsightsAgent: "true"
+    appinsights.microsoft.com/InstrumentationKey: "${APPINSIGHTS_INSTRUMENTATIONKEY}"
   
   # Pod Disruption Budget (KEDA-aware)
   podDisruptionBudget:
     minAvailable: 0  # Allow scaling to zero
     useMaxUnavailable: true
     maxUnavailable: 50%  # During operation, allow disrupting 50% at a time
+  
+  # Autoscaling configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
 
-# PostgreSQL Configuration (Azure Database for PostgreSQL)
+# PostgreSQL Configuration (Azure Database for PostgreSQL) - Values will be set via Kubernetes secrets
+database:
+  connectionString: "" # Will be set via Kubernetes secret
+  host: "" # Will be set via Kubernetes secret
+  port: 5432
+  username: "" # Will be set via Kubernetes secret
+  password: "" # Will be set via Kubernetes secret
+  database: "carpeta_ciudadana"
+
 postgresql:
   enabled: true
-  host: carpeta-db-server.postgres.database.azure.com
+  host: "" # Will be set via Kubernetes secret
   port: 5432
   auth:
-    username: carpeta_admin
-    password: "" # Set via --set postgresql.auth.password=xxx or secret
+    username: "" # Will be set via Kubernetes secret
+    password: "" # Will be set via Kubernetes secret
     database: carpeta_ciudadana
 
-# Azure Storage Configuration
+# Redis Configuration - Values will be set via Kubernetes secrets
+redis:
+  host: "" # Will be set via Kubernetes secret
+  port: 6379
+  password: "" # Will be set via Kubernetes secret
+  ssl: false
+
+# Azure Storage Configuration - Values will be set via Kubernetes secrets
 azure:
   storage:
-    accountName: "" # Set via --set azure.storage.accountName=xxx or secret
-    accountKey: "" # Set via --set azure.storage.accountKey=xxx or secret
+    accountName: "" # Will be set via Kubernetes secret
+    accountKey: "" # Will be set via Kubernetes secret
     containerName: "documents"
     sasTtlMinutes: 15
 
@@ -490,16 +494,16 @@ circuitBreaker:
 # Service Bus Configuration
 serviceBus:
   enabled: true
-  connectionString: "" # Set via --set serviceBus.connectionString or from Terraform output
+  connectionString: "" # Will be set via Kubernetes secret
   namespace: "" # Service Bus namespace (e.g., carpeta-sb) - for KEDA
 
 # Observability Configuration
 observability:
-  enabled: true
+  enabled: false  # Disabled for Azure for Students
   otel:
     endpoint: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
-  prometheus:
-    enabled: true
+  # prometheus: # Removed - using Azure Monitor instead
+    enabled: false  # Disabled for Azure for Students
     scrapeInterval: 30s
 
 # CORS Configuration
@@ -507,75 +511,25 @@ cors:
   allowedOrigins: "*"  # Overridden in values-dev.yaml and values-prod.yaml
   allowCredentials: false
 
-# OpenSearch Configuration
+# OpenSearch Configuration - Using external OpenSearch in 'search' namespace
+# External OpenSearch endpoint for metadata service
 opensearch:
-  enabled: true
-  image:
-    repository: opensearchproject/opensearch
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
-  
-  # Authentication
-  auth:
-    username: "admin"
-    password: "Admin@123"  # Change in production
-  
-  security:
-    enabled: false  # Set to true for production
-  
-  # Storage
-  storage:
-    size: "8Gi"
-    storageClass: "managed-premium"  # Azure Premium SSD
-  
-  # Java heap size
-  javaOpts:
-    xms: "512m"
-    xmx: "512m"
-  
-  # Resources
-  resources:
-    requests:
-      memory: "1Gi"
-      cpu: "500m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
-  
-  # Service endpoint (for metadata service)
-  host: "carpeta-ciudadana-opensearch"
-  port: 9200
+  external:
+    host: "opensearch-cluster-master.search.svc.cluster.local"
+    port: 9200
+    protocol: "http"
 
 # Configuration
-# OBSOLETE - AWS Configuration (migrated to Azure)
-# config:
-#   database:
-#     host: YOUR_RDS_ENDPOINT
-#     port: 5432
-#     name: carpeta_ciudadana
-#     username: carpeta_admin
-#   s3:
-#     bucket: YOUR_S3_BUCKET
-#   opensearch:
-#     host: YOUR_OPENSEARCH_ENDPOINT
-#     port: 443
-#   cognito:
-#     region: us-east-1
-#     userPoolId: YOUR_USER_POOL_ID
-#     clientId: YOUR_CLIENT_ID
-#   sqs:
-#     queueUrl: YOUR_SQS_QUEUE_URL
-#   sns:
-#     topicArn: YOUR_SNS_TOPIC_ARN
-#   mintic:
-    hubUrl: https://govcarpeta-apis-4905ff3c005b.herokuapp.com
-    allowInsecureUrls: false
-    rateLimit: 10
-    operatorId: YOUR_OPERATOR_ID
-    operatorName: YOUR_OPERATOR_NAME
-  otel:
-    enabled: true
-    endpoint: http://jaeger-collector:4317
+mintic:
+  hubUrl: "" # Will be set via Kubernetes secret
+  allowInsecureUrls: false
+  rateLimit: 10
+  operatorId: "" # Will be set via Kubernetes secret
+  operatorName: "" # Will be set via Kubernetes secret
+
+otel:
+  enabled: true
+  endpoint: http://jaeger-collector:4317
 
 # Service Account (for Workload Identity)
 serviceAccount:
@@ -585,48 +539,84 @@ serviceAccount:
 
 # Network Policies (Zero-Trust Networking)
 networkPolicies:
-  enabled: false  # Set to true to enable (requires NetworkPolicy support in AKS)
+  enabled: true  # Set to true to enable (requires NetworkPolicy support in AKS)
   denyAllByDefault: true  # Deny all traffic by default, allow only specific
   allowDNS: true  # Always allow DNS resolution
-  allowObservability: true  # Allow Prometheus scraping
+  allowObservability: true  # Allow Azure Monitor scraping
 
 # Pod Disruption Budgets (High Availability)
 podDisruptionBudget:
-  enabled: true  # Recommended for production
+  enabled: false  # Disabled temporarily to fix template issues
   # Global defaults (can be overridden per service)
   defaultMinAvailable: 1  # At least 1 pod must be available during disruptions
 
-# Ingress - Solo expone frontend y gateway (público)
+# Gateway - Internal API Gateway (DISABLED - Using Azure API Management instead)
+gateway:
+  enabled: false  # Disabled - Using Azure API Management for API routing
+  replicaCount: 0
+  service:
+    type: ClusterIP  # Internal only
+    port: 8000
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+  autoscaling:
+    enabled: false
+    minReplicas: 0
+    maxReplicas: 0
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 0
+
+# Ingress - Configurado para usar dominios generados por Azure
 ingress:
   enabled: true
-  className: nginx  # Use 'nginx' for cert-manager, 'alb' for AWS ALB
-  annotations: {}
-    # For AWS ALB (if using ALB instead of nginx):
-    # alb.ingress.kubernetes.io/scheme: internet-facing
-    # alb.ingress.kubernetes.io/target-type: ip
-    # alb.ingress.kubernetes.io/certificate-arn: YOUR_ACM_CERT_ARN
+  className: nginx  # Use 'nginx' for cert-manager
+  annotations:
+    # Azure Load Balancer annotations
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: "rg-carpeta-ciudadana"
     
-    # For Azure Application Gateway (if using Azure):
-    # appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    # Nginx Ingress Controller annotations
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # Disabled for HTTP-only setup
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/client-body-buffer-size: "1m"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
   
   # Rate limiting
   rateLimitRps: 100  # Requests per second per IP
   
   tls:
-    enabled: false  # Set to true when domain is configured
+    enabled: false  # Disabled for HTTP-only setup with Azure-generated domains
     secretName: carpeta-ciudadana-tls
     certManager:
-      enabled: true
-      # Use 'letsencrypt-staging' for dev/testing
-      # Use 'letsencrypt-prod' for production
-      clusterIssuer: letsencrypt-staging
-      acmeChallenge: http01
+      enabled: false  # Disabled for HTTP-only setup
       
   hosts:
-    # If no domain available, leave host empty and TLS disabled
-    # The application will be accessible via LoadBalancer IP
-    - host: ""  # Set to your domain when available (e.g., carpeta-ciudadana.example.com)
+    # Usar dominio generado por Azure Load Balancer
+    # El dominio se obtendrá automáticamente del LoadBalancer IP
+    - host: ""  # Dejar vacío para usar LoadBalancer IP
       paths:
+        # API routing through internal gateway
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: gateway
+              port: 8000
         # Frontend (public) - Serves static assets and UI
         - path: /
           pathType: Prefix
@@ -634,23 +624,16 @@ ingress:
             service:
               name: frontend
               port: 80
-        # Gateway (public) - API endpoint, routes to internal services
-        - path: /api
-          pathType: Prefix
-          backend:
-            service:
-              name: gateway
-              port: 8000
 
 # OpenTelemetry Collector
 otel:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   resources:
     requests:
       memory: "256Mi"
-      cpu: "250m"
+      cpu: "200m"
     limits:
-      memory: "512Mi"
-      cpu: "500m"
+      memory: "256Mi"
+      cpu: "200m"
 

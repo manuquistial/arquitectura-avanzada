@@ -1,59 +1,4 @@
-{{- if .Values.minticClient.enabled -}}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-mintic-client
-  labels:
-    app: mintic-client
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-spec:
-  replicas: {{ .Values.minticClient.replicaCount }}
-  selector:
-    matchLabels:
-      app: mintic-client
-  template:
-    metadata:
-      labels:
-        app: mintic-client
-    spec:
-      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
-      containers:
-      - name: mintic-client
-        image: "{{ .Values.global.imageRegistry }}/{{ .Values.minticClient.image.repository }}:{{ .Values.minticClient.image.tag }}"
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-        ports:
-        - containerPort: 8000
-          name: http
-        env:
-        - name: MINTIC_OPERATOR_ID
-          value: {{ .Values.mintic.operatorId | quote }}
-        - name: MINTIC_OPERATOR_NAME
-          value: {{ .Values.mintic.operatorName | quote }}
-        envFrom:
-        - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
-        resources:
-          {{- toYaml .Values.minticClient.resources | nindent 10 }}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-            scheme: HTTP
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 3
-          successThreshold: 1
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8000
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 2
-          successThreshold: 1
-          failureThreshold: 2
+{{- include "carpeta-ciudadana.deployment" (dict "service" "mintic-client" "context" .) }}
 ---
 apiVersion: v1
 kind: Service
@@ -93,6 +38,5 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ .Values.minticClient.autoscaling.targetCPUUtilizationPercentage }}
-{{- end }}
 {{- end }}
 

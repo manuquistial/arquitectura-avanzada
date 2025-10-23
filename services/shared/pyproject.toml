@@ -9,20 +9,15 @@ python = "^3.13"
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
 
-# AWS SDK (legacy)
-boto3 = "^1.34.0"
-
-# Azure SDK (nuevo)
+# Azure SDK
 azure-identity = "^1.15.0"
 azure-storage-blob = "^12.19.0"
 azure-servicebus = "^7.11.4"
-azure-keyvault-certificates = "^4.7.0"
-azure-keyvault-secrets = "^4.7.0"
 
 # Database
 sqlalchemy = "^2.0.23"
 alembic = "^1.13.0"
-asyncpg = "^0.29.0"
+asyncpg = "^0.30.0"
 
 # Search (compatible con ambos)
 opensearch-py = "^2.4.0"
@@ -34,13 +29,7 @@ cryptography = "^41.0.7"
 python-jose = "^3.3.0"
 jwcrypto = "^1.5.0"
 
-# OpenTelemetry
-opentelemetry-api = "^1.22.0"
-opentelemetry-sdk = "^1.22.0"
-opentelemetry-instrumentation-fastapi = "^0.43b0"
-opentelemetry-instrumentation-sqlalchemy = "^0.43b0"
-opentelemetry-instrumentation-httpx = "^0.43b0"
-opentelemetry-exporter-otlp = "^1.22.0"
+# OpenTelemetry removed - using Azure Monitor instead
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

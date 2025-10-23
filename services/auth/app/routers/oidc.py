@@ -8,11 +8,11 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from app.config import get_settings
+from app.config import get_config
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-settings = get_settings()
+config = get_config()
 
 
 @router.get("/openid-configuration")
@@ -23,7 +23,7 @@ async def openid_configuration() -> dict[str, Any]:
     Returns OpenID Connect configuration metadata
     @see https://openid.net/specs/openid-connect-discovery-1_0.html
     """
-    issuer = settings.oidc_issuer_url
+    issuer = config.oidc_issuer_url
     
     return {
         "issuer": issuer,
@@ -84,21 +84,30 @@ async def jwks() -> dict[str, list]:
     JSON Web Key Set (JWKS) endpoint
     
     Returns public keys for JWT signature verification
+    Uses Kubernetes Secrets for key management
     """
-    # TODO: Load actual public key from Key Vault or file
-    # For now, return empty (clients should use Azure AD B2C JWKS)
-    
-    logger.warning("⚠️  JWKS endpoint not fully implemented, using placeholder")
-    
-    return {
-        "keys": [
-            {
-                "kty": "RSA",
-                "use": "sig",
-                "kid": "carpeta-ciudadana-key-1",
-                "alg": "RS256",
-                "n": "placeholder-modulus-value",
-                "e": "AQAB"
-            }
-        ]
-    }
+    try:
+        # Import JWT service for real JWKS
+        from app.services.jwt_service import jwt_service
+        
+        # Get real JWKS from JWT service
+        jwks = jwt_service.get_jwks()
+        
+        logger.info("✅ JWKS endpoint - using real RSA keys")
+        return jwks
+        
+    except Exception as e:
+        logger.error(f"❌ Error in JWKS endpoint: {e}")
+        # Fallback to placeholder
+        return {
+            "keys": [
+                {
+                    "kty": "RSA",
+                    "use": "sig",
+                    "kid": "carpeta-ciudadana-key-1",
+                    "alg": "RS256",
+                    "n": "placeholder-modulus-value",
+                    "e": "AQAB"
+                }
+            ]
+        }

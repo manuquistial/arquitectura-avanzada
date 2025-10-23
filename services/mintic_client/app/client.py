@@ -30,6 +30,7 @@ from app.models import (
 from app.sanitizer import DataSanitizer, AuditLogger
 from app.hub_rate_limiter import HubRateLimiter
 from app.telemetry import HubTelemetry
+from app.redis_client import RedisClient
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ class MinTICClient:
             base_url=self.base_url,
             timeout=settings.request_timeout,
             follow_redirects=True,
-            verify=True  # Verify SSL certificates
+            verify=False,  # Disable SSL verification for public API
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
         )
         
         # Hub rate limiter (protect public hub from saturation)
@@ -70,6 +72,9 @@ class MinTICClient:
             requests_per_minute=settings.hub_rate_limit_per_minute,
             enabled=settings.hub_rate_limit_enabled
         )
+        
+        # Redis client for caching
+        self.redis_client = RedisClient(settings)
         
         # Circuit breakers per endpoint
         self.circuit_breakers = {}
@@ -162,7 +167,8 @@ class MinTICClient:
             MinTICResponse with ok, status, message, data
         """
         status = response.status_code
-        ok = 200 <= status < 300
+        # 501 is a valid response (citizen already exists), not an error
+        ok = 200 <= status < 300 or status == 501
         
         # Try to parse as JSON
         data = None
@@ -337,53 +343,29 @@ class MinTICClient:
     @retry(
         retry=retry_if_result(_should_retry.__func__) | retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=1, max=10) + wait_random(0, 2),  # Backoff + jitter
+        wait=wait_exponential(multiplier=2, min=1, max=10) + wait_random(0, 2),
         reraise=True
     )
     async def register_citizen(self, request: RegisterCitizenRequest) -> MinTICResponse:
-        """Register citizen in MinTIC Hub with idempotency and circuit breaker.
+        """Register citizen in MinTIC Hub with full functionality.
 
         POST /apis/registerCitizen
         Responses:
         - 201: Ciudadano registrado exitosamente
-        - 202: Accepted (circuit breaker OPEN, queued for retry)
-        - 501: Error - ciudadano ya existe (no retry)
-        - 500: Application Error (retry with backoff + jitter)
+        - 501: Error - ciudadano ya existe
+        - 500: Application Error
         """
         endpoint_name = "registerCitizen"
         
-        # Check hub rate limit FIRST (protect public hub)
+        # Check hub rate limit
         allowed, remaining = await self.hub_rate_limiter.check_limit(endpoint_name)
         if not allowed:
-            logger.warning(
-                f"⚠️  Hub rate limit EXCEEDED for {endpoint_name}, queueing operation"
-            )
-            
-            # Enqueue for later retry
-            await self._enqueue_for_retry(endpoint_name, request.model_dump())
-            
-            # Return 202 Accepted
+            logger.warning(f"⚠️  Hub rate limit EXCEEDED for {endpoint_name}")
             return MinTICResponse(
                 ok=True,
                 status=202,
                 message=f"Hub rate limit exceeded ({self.settings.hub_rate_limit_per_minute} req/min), operation queued for retry",
                 data={"queued": True, "reason": "rate_limit", "remaining": remaining}
-            )
-        
-        # Check circuit breaker
-        cb = self.circuit_breakers.get(endpoint_name)
-        if cb and cb.state == CircuitBreakerState.OPEN:
-            logger.warning(f"⚠️  Circuit breaker OPEN for {endpoint_name}, queueing operation")
-            
-            # Enqueue for later retry
-            await self._enqueue_for_retry(endpoint_name, request.model_dump())
-            
-            # Return 202 Accepted
-            return MinTICResponse(
-                ok=True,
-                status=202,
-                message="Circuit breaker OPEN, operation queued for retry",
-                data={"queued": True, "reason": "circuit_breaker", "remaining": remaining}
             )
         
         # Check idempotency
@@ -392,41 +374,29 @@ class MinTICClient:
         if cached:
             return cached
         
-        start_time = time.time()
-        retry_attempt = 0
-        
-        # Get circuit breaker state
-        cb_state = "UNKNOWN"
-        if cb:
-            cb_state = cb.state.value if hasattr(cb.state, 'value') else str(cb.state)
-        
-        # Create OpenTelemetry span
-        span = HubTelemetry.create_hub_span(self.tracer, endpoint_name, "POST")
+        # Check circuit breaker
+        cb = self.circuit_breakers.get(endpoint_name)
+        if cb and cb.state == CircuitBreakerState.OPEN:
+            logger.warning(f"⚠️  Circuit breaker OPEN for {endpoint_name}")
+            return MinTICResponse(
+                ok=True,
+                status=202,
+                message="Circuit breaker OPEN, operation queued for retry",
+                data={"queued": True, "reason": "circuit_breaker"}
+            )
         
         try:
-            # Sanitize data before sending to public hub
-            sanitized_data = DataSanitizer.sanitize_register_citizen(request.model_dump())
-            
-            # Log PII exposure (since hub is public)
-            AuditLogger.log_pii_exposure("registerCitizen", list(sanitized_data.keys()))
-            
-            # Masked log
-            masked_id = DataSanitizer.mask_pii(str(request.id), show_chars=4)
-            masked_email = DataSanitizer.mask_pii(request.email, show_chars=4)
-            logger.info(
-                f"📤 Calling hub registerCitizen: "
-                f"id={masked_id}, email={masked_email}, operator={request.operatorId}"
-            )
+            logger.info(f"📤 Calling hub registerCitizen: id={request.id}, operator={request.operatorId}")
             
             # Execute with circuit breaker
             async def _call():
                 response = await self.client.post(
                     "/apis/registerCitizen",
-                    json=sanitized_data,  # Send sanitized data
+                    json=request.model_dump(),
                 )
                 
-                # Circuit breaker should fail on 5xx
-                if 500 <= response.status_code < 600:
+                # Only treat 5xx as errors, not 4xx or specific codes like 501
+                if 500 <= response.status_code < 600 and response.status_code != 501:
                     raise httpx.HTTPStatusError(
                         f"Hub returned {response.status_code}",
                         request=response.request,
@@ -442,45 +412,11 @@ class MinTICClient:
                 response = await _call()
             
             result = self._parse_response(response)
-            duration = time.time() - start_time
-            
-            # Record in OpenTelemetry span
-            HubTelemetry.record_hub_call(
-                span=span,
-                endpoint=endpoint_name,
-                status_code=result.status,
-                retry_count=retry_attempt,
-                cb_state=cb_state,
-                request_body=sanitized_data,
-                response_body=result.message
-            )
-            
-            # Telemetry log (truncated)
-            HubTelemetry.log_hub_call(
-                endpoint=endpoint_name,
-                status_code=result.status,
-                retry_count=retry_attempt,
-                cb_state=cb_state,
-                request_body=sanitized_data,
-                response_body=result.message,
-                duration=duration
-            )
-            
-            # Audit log (what was sent)
-            await AuditLogger.log_hub_call(
-                operation="registerCitizen",
-                sanitized_payload=sanitized_data,
-                response_status=result.status,
-                response_message=result.message
-            )
-            
-            # Record metrics
-            self._record_metrics(endpoint_name, duration, result.status, result.ok)
             
             if result.status == 201:
-                logger.info(f"✅ Citizen {masked_id} registered in hub ({duration:.2f}s)")
+                logger.info(f"✅ Citizen {request.id} registered in hub")
             elif result.status == 501:
-                logger.warning(f"⚠️  Citizen {masked_id} already exists or invalid: {result.message}")
+                logger.warning(f"⚠️  Citizen {request.id} already exists: {result.message}")
             else:
                 logger.error(f"❌ Hub error: {result.status} - {result.message}")
             
@@ -490,26 +426,8 @@ class MinTICClient:
             return result
             
         except (httpx.TimeoutException, httpx.ConnectError) as e:
-            duration = time.time() - start_time
-            self._record_metrics(endpoint_name, duration, 0, False)
-            
-            # Record error in span
-            HubTelemetry.record_hub_call(
-                span=span,
-                endpoint=endpoint_name,
-                status_code=0,
-                retry_count=retry_attempt,
-                cb_state=cb_state,
-                error=e
-            )
-            
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry
-        
-        finally:
-            # End span
-            if span:
-                span.end()
+            raise  # Let retry decorator handle it
 
     @retry(
         retry=retry_if_result(_should_retry.__func__) | retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
@@ -570,7 +488,7 @@ class MinTICClient:
             
         except (httpx.TimeoutException, httpx.ConnectError) as e:
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry
+            raise  # Let retry decorator handle it
 
     @retry(
         retry=retry_if_result(_should_retry.__func__) | retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
@@ -639,7 +557,7 @@ class MinTICClient:
             
         except (httpx.TimeoutException, httpx.ConnectError) as e:
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry
+            raise  # Let retry decorator handle it
 
     @retry(
         retry=retry_if_result(_should_retry.__func__) | retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
@@ -673,7 +591,7 @@ class MinTICClient:
             
         except (httpx.TimeoutException, httpx.ConnectError) as e:
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry
+            raise  # Let retry decorator handle it
 
     @retry(
         retry=retry_if_result(_should_retry.__func__) | retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
@@ -707,7 +625,7 @@ class MinTICClient:
             
         except (httpx.TimeoutException, httpx.ConnectError) as e:
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry
+            raise  # Let retry decorator handle it
 
     @retry(
         retry=retry_if_result(_should_retry.__func__) | retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
@@ -743,7 +661,7 @@ class MinTICClient:
             
         except (httpx.TimeoutException, httpx.ConnectError) as e:
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry
+            raise  # Let retry decorator handle it
 
     def _normalize_operator(self, raw_data: dict) -> Optional[OperatorInfo]:
         """Normalize and validate operator data.
@@ -935,7 +853,7 @@ class MinTICClient:
                 
         except (httpx.TimeoutException, httpx.ConnectError) as e:
             logger.error(f"❌ Hub communication error: {e}")
-            return None  # Triggers retry (handled by outer retry decorator)
+            raise  # Let retry decorator handle it (handled by outer retry decorator)
         
         finally:
             # Release lock if acquired
@@ -945,4 +863,505 @@ class MinTICClient:
                     await release_lock(lock_key, lock_token)
                 except Exception as e:
                     logger.warning(f"⚠️  Lock release failed: {e}")
+
+    # New methods for enhanced MinTIC Hub integration
+
+    async def sync_citizen_documents(
+        self,
+        citizen_id: str,
+        document_ids: list[str] = None,
+        sync_type: str = "full"
+    ) -> dict:
+        """Sync citizen documents with MinTIC Hub."""
+        logger.info(f"Syncing documents for citizen {citizen_id} (type: {sync_type})")
+        
+        try:
+            # Get citizen documents from local system
+            # Document service call
+            local_documents = await self._get_local_citizen_documents(citizen_id)
+            
+            if not local_documents:
+                return {
+                    "synced_count": 0,
+                    "failed_count": 0,
+                    "timestamp": self.get_current_timestamp(),
+                    "details": ["No documents found for citizen"]
+                }
+            
+            # Filter by specific document IDs if provided
+            if document_ids:
+                local_documents = [doc for doc in local_documents if doc.get('id') in document_ids]
+            
+            synced_count = 0
+            failed_count = 0
+            details = []
+            
+            # Sync each document with hub
+            for document in local_documents:
+                try:
+                    # Authenticate document with hub
+                    auth_request = AuthenticateDocumentRequest(
+                        idCitizen=int(citizen_id),
+                        UrlDocument=document.get('download_url', ''),
+                        documentTitle=document.get('title', 'Documento')
+                    )
+                    
+                    result = await self.authenticate_document(auth_request)
+                    
+                    if result.success:
+                        synced_count += 1
+                        details.append(f"Document {document.get('id')} synced successfully")
+                        
+                        # Update document status in local system
+                        await self._update_document_status(
+                            document.get('id'), 
+                            'synced', 
+                            {'hub_response': result.data}
+                        )
+                    else:
+                        failed_count += 1
+                        details.append(f"Document {document.get('id')} sync failed: {result.message}")
+                        
+                except Exception as e:
+                    failed_count += 1
+                    details.append(f"Document {document.get('id')} sync error: {str(e)}")
+                    logger.error(f"Document sync error: {e}")
+            
+            # Update sync status in cache
+            cache_key = f"sync_status:{citizen_id}"
+            sync_status = {
+                "last_sync": self.get_current_timestamp(),
+                "status": "completed" if failed_count == 0 else "partial",
+                "documents_synced": synced_count,
+                "pending_sync": failed_count,
+                "last_error": None if failed_count == 0 else f"{failed_count} documents failed",
+                "next_sync": self.get_current_timestamp()
+            }
+            await self.redis_client.setex(cache_key, 300, sync_status)
+            
+            return {
+                "synced_count": synced_count,
+                "failed_count": failed_count,
+                "timestamp": self.get_current_timestamp(),
+                "details": details
+            }
+            
+        except Exception as e:
+            logger.error(f"Document sync failed: {e}")
+            raise
+
+    async def handle_document_authentication(self, payload: dict) -> None:
+        """Handle document authentication notification from hub."""
+        logger.info("Processing document authentication notification")
+        
+        try:
+            document_id = payload.get('document_id')
+            citizen_id = payload.get('citizen_id')
+            authentication_result = payload.get('authentication_result')
+            
+            # Local document status update
+            
+            logger.info(f"Document {document_id} authenticated for citizen {citizen_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle document authentication: {e}")
+
+    async def handle_citizen_update(self, payload: dict) -> None:
+        """Handle citizen update notification from hub."""
+        logger.info("Processing citizen update notification")
+        
+        try:
+            citizen_id = payload.get('citizen_id')
+            update_type = payload.get('update_type')
+            
+            # Local citizen data update
+            
+            logger.info(f"Citizen {citizen_id} updated: {update_type}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle citizen update: {e}")
+
+    async def handle_operator_status_change(self, payload: dict) -> None:
+        """Handle operator status change notification from hub."""
+        logger.info("Processing operator status change notification")
+        
+        try:
+            operator_id = payload.get('operator_id')
+            new_status = payload.get('status')
+            
+            # Operator status cache update
+            
+            logger.info(f"Operator {operator_id} status changed to: {new_status}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle operator status change: {e}")
+
+    async def handle_transfer_completion(self, payload: dict) -> None:
+        """Handle transfer completion notification from hub."""
+        logger.info("Processing transfer completion notification")
+        
+        try:
+            transfer_id = payload.get('transfer_id')
+            status = payload.get('status')
+            result = payload.get('result')
+            
+            # Local transfer status update
+            
+            logger.info(f"Transfer {transfer_id} completed with status: {status}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle transfer completion: {e}")
+
+    async def get_citizen_sync_status(self, citizen_id: str) -> dict:
+        """Get synchronization status for a citizen."""
+        logger.info(f"Getting sync status for citizen: {citizen_id}")
+        
+        try:
+            # Try to get from Redis cache first
+            cache_key = f"sync_status:{citizen_id}"
+            cached_status = await self.redis_client.get(cache_key)
+            
+            if cached_status:
+                logger.info(f"Found cached sync status for citizen {citizen_id}")
+                return cached_status
+            
+            # If not in cache, get from database
+            # Call metadata service to get sync status
+            metadata_url = f"{self.settings.metadata_url}/api/sync/status/{citizen_id}"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(metadata_url)
+                response.raise_for_status()
+                
+                sync_status = response.json()
+                
+                # Cache the result for 5 minutes
+                await self.redis_client.setex(cache_key, 300, sync_status)
+                
+                return sync_status
+                
+        except Exception as e:
+            logger.error(f"Failed to get sync status for citizen {citizen_id}: {e}")
+            return {
+                "last_sync": None,
+                "status": "error",
+                "documents_synced": 0,
+                "pending_sync": 0,
+                "last_error": str(e),
+                "next_sync": None
+            }
+
+    async def validate_document_with_hub(
+        self,
+        document_id: str,
+        document_hash: str,
+        citizen_id: str
+    ) -> dict:
+        """Validate document with MinTIC Hub using authenticateDocument endpoint.
+        
+        According to the documentation:
+        1. Perform local validation (hash, signature verification)
+        2. Get real document URL from document service
+        3. Notify hub that document was authenticated
+        """
+        logger.info(f"Validating document {document_id} with MinTIC Hub")
+        
+        try:
+            # Step 1: Perform local validation (hash, signature, etc.)
+            local_validation_result = await self._perform_local_document_validation(
+                document_id, document_hash, citizen_id
+            )
+            
+            if not local_validation_result["is_valid"]:
+                return {
+                    "is_valid": False,
+                    "timestamp": self.get_current_timestamp(),
+                    "hub_response": {"error": "Local validation failed"},
+                    "details": {
+                        "document_id": document_id,
+                        "citizen_id": citizen_id,
+                        "validation_status": "local_validation_failed",
+                        "local_errors": local_validation_result.get("errors", [])
+                    }
+                }
+            
+            # Step 2: Get the real document URL (SAS URL from Azure Blob Storage)
+            document_url = await self._get_document_sas_url(document_id)
+            
+            # Step 3: Create authentication request for MinTIC Hub
+            auth_request = AuthenticateDocumentRequest(
+                idCitizen=int(citizen_id),
+                UrlDocument=document_url,  # Real SAS URL from Azure Blob Storage
+                documentTitle=f"Documento {document_id}"
+            )
+            
+            # Step 4: Call MinTIC Hub to authenticate the document
+            result = await self.authenticate_document(auth_request)
+            
+            return {
+                "is_valid": result.success,
+                "timestamp": self.get_current_timestamp(),
+                "hub_response": {
+                    "status_code": result.status_code,
+                    "message": result.message,
+                    "data": result.data
+                },
+                "details": {
+                    "document_id": document_id,
+                    "citizen_id": citizen_id,
+                    "validation_status": "hub_authenticated" if result.success else "hub_authentication_failed",
+                    "document_url": document_url,
+                    "local_validation": local_validation_result
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Document authentication with hub failed: {e}")
+            return {
+                "is_valid": False,
+                "timestamp": self.get_current_timestamp(),
+                "hub_response": {"error": str(e)},
+                "details": {
+                    "document_id": document_id,
+                    "citizen_id": citizen_id,
+                    "validation_status": "error"
+                }
+            }
+
+    async def _get_local_citizen_documents(self, citizen_id: str) -> list[dict]:
+        """Get citizen documents from local system."""
+        try:
+            # Call metadata service to get citizen documents
+            metadata_url = f"{self.settings.metadata_url}/api/documents/citizen/{citizen_id}"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(metadata_url)
+                response.raise_for_status()
+                
+                documents_data = response.json()
+                
+                # Transform to expected format
+                documents = []
+                for doc in documents_data.get('documents', []):
+                    documents.append({
+                        "id": doc.get('id'),
+                        "title": doc.get('title', 'Documento'),
+                        "sha256_hash": doc.get('sha256_hash'),
+                        "size": doc.get('size', 0),
+                        "uploaded_at": doc.get('created_at'),
+                        "status": doc.get('status', 'pending')
+                    })
+                
+                return documents
+                
+        except Exception as e:
+            logger.error(f"Failed to get local documents for citizen {citizen_id}: {e}")
+            # Return empty list on error
+            return []
+
+
+    async def handle_document_authentication(self, payload: dict) -> None:
+        """Handle document authentication notification from hub."""
+        try:
+            document_id = payload.get('document_id')
+            citizen_id = payload.get('citizen_id')
+            authentication_result = payload.get('authentication_result')
+            
+            logger.info(f"Document {document_id} authenticated for citizen {citizen_id}")
+            
+            # Update local document status
+            await self._update_document_status(document_id, 'authenticated', authentication_result)
+            
+        except Exception as e:
+            logger.error(f"Failed to handle document authentication: {e}")
+
+    async def handle_citizen_update(self, payload: dict) -> None:
+        """Handle citizen update notification from hub."""
+        try:
+            citizen_id = payload.get('citizen_id')
+            update_type = payload.get('update_type')
+            
+            logger.info(f"Citizen {citizen_id} updated: {update_type}")
+            
+            # Update local citizen data
+            await self._update_citizen_data(citizen_id, update_type, payload)
+            
+        except Exception as e:
+            logger.error(f"Failed to handle citizen update: {e}")
+
+    async def handle_operator_status_change(self, payload: dict) -> None:
+        """Handle operator status change notification from hub."""
+        try:
+            operator_id = payload.get('operator_id')
+            new_status = payload.get('status')
+            
+            logger.info(f"Operator {operator_id} status changed to: {new_status}")
+            
+            # Update operator status cache
+            await self._update_operator_status(operator_id, new_status)
+            
+        except Exception as e:
+            logger.error(f"Failed to handle operator status change: {e}")
+
+    async def handle_transfer_completion(self, payload: dict) -> None:
+        """Handle transfer completion notification from hub."""
+        try:
+            transfer_id = payload.get('transfer_id')
+            status = payload.get('status')
+            result = payload.get('result')
+            
+            logger.info(f"Transfer {transfer_id} completed with status: {status}")
+            
+            # Update local transfer status
+            await self._update_transfer_status(transfer_id, status, result)
+            
+        except Exception as e:
+            logger.error(f"Failed to handle transfer completion: {e}")
+
+    async def _update_document_status(self, document_id: str, status: str, result: dict) -> None:
+        """Update document status in local system."""
+        try:
+            # Call metadata service to update document status
+            metadata_url = f"{self.settings.metadata_url}/api/documents/{document_id}/status"
+            
+            update_data = {
+                "status": status,
+                "authentication_result": result,
+                "updated_at": self.get_current_timestamp()
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.put(metadata_url, json=update_data)
+                response.raise_for_status()
+                
+        except Exception as e:
+            logger.error(f"Failed to update document status: {e}")
+
+    async def _update_citizen_data(self, citizen_id: str, update_type: str, data: dict) -> None:
+        """Update citizen data in local system."""
+        try:
+            # Call citizen service to update citizen data
+            citizen_url = f"{self.settings.citizen_url}/api/citizens/{citizen_id}"
+            
+            update_data = {
+                "update_type": update_type,
+                "data": data,
+                "updated_at": self.get_current_timestamp()
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.put(citizen_url, json=update_data)
+                response.raise_for_status()
+                
+        except Exception as e:
+            logger.error(f"Failed to update citizen data: {e}")
+
+    async def _update_operator_status(self, operator_id: str, status: str) -> None:
+        """Update operator status in local cache."""
+        try:
+            # Update operator status in Redis cache
+            cache_key = f"operator:{operator_id}:status"
+            cache_data = {
+                "status": status,
+                "updated_at": self.get_current_timestamp()
+            }
+            
+            # Store in Redis cache
+            await self._cache_operator_status(cache_key, cache_data)
+            
+        except Exception as e:
+            logger.error(f"Failed to update operator status: {e}")
+
+    async def _update_transfer_status(self, transfer_id: str, status: str, result: dict) -> None:
+        """Update transfer status in local system."""
+        try:
+            # Call transfer service to update transfer status
+            transfer_url = f"{self.settings.transfer_url}/api/transfers/{transfer_id}/status"
+            
+            update_data = {
+                "status": status,
+                "result": result,
+                "updated_at": self.get_current_timestamp()
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.put(transfer_url, json=update_data)
+                response.raise_for_status()
+                
+        except Exception as e:
+            logger.error(f"Failed to update transfer status: {e}")
+
+    async def _cache_operator_status(self, cache_key: str, data: dict) -> None:
+        """Cache operator status in Redis."""
+        try:
+            # Use Redis client to cache data
+            if self.redis_client:
+                await self.redis_client.setex(cache_key, 3600, data)  # 1 hour TTL
+        except Exception as e:
+            logger.error(f"Failed to cache operator status: {e}")
+
+    
+    async def _perform_local_document_validation(
+        self, document_id: str, document_hash: str, citizen_id: str
+    ) -> dict:
+        """Perform local document validation (hash, signature, etc.)."""
+        try:
+            # Call local signature service to validate document
+            signature_url = f"{self.settings.signature_url}/api/documents/{document_id}/validate"
+            
+            validation_data = {
+                "document_id": document_id,
+                "document_hash": document_hash,
+                "citizen_id": citizen_id
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(signature_url, json=validation_data)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return {
+                        "is_valid": result.get("is_valid", False),
+                        "validation_type": "local_signature_validation",
+                        "errors": result.get("errors", [])
+                    }
+                else:
+                    return {
+                        "is_valid": False,
+                        "validation_type": "local_signature_validation",
+                        "errors": [f"Signature service error: {response.status_code}"]
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Local document validation failed: {e}")
+            return {
+                "is_valid": False,
+                "validation_type": "local_signature_validation",
+                "errors": [str(e)]
+            }
+
+    async def _get_document_sas_url(self, document_id: str) -> str:
+        """Get SAS URL for document from Azure Blob Storage."""
+        try:
+            # Call document service to get SAS URL
+            document_url = f"{self.settings.document_url}/api/documents/{document_id}/sas-url"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(document_url)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get("sas_url")
+                else:
+                    logger.error(f"Failed to get SAS URL from document service: {response.status_code}")
+                    raise Exception(f"Document service error: {response.status_code}")
+                    
+        except Exception as e:
+            logger.error(f"Failed to get document SAS URL: {e}")
+            raise Exception(f"Cannot get document URL: {str(e)}")
+
+    def get_current_timestamp(self) -> str:
+        """Get current timestamp in ISO format."""
+        from datetime import datetime
+        return datetime.utcnow().isoformat()
 

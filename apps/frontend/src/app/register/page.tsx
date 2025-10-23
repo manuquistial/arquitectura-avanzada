@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { apiService } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -56,13 +56,13 @@ export default function RegisterPage() {
 
     try {
       // Register citizen (trim all fields)
-      await api.post('/api/citizens/register', {
-        id: parseInt(formData.id),
+      await apiService.registerCitizen({
+        id: formData.id,
         name: formData.name.trim(),
         address: formData.address.trim(),
         email: formData.email.trim(),
-        operatorId: process.env.NEXT_PUBLIC_OPERATOR_ID || '',
-        operatorName: process.env.NEXT_PUBLIC_OPERATOR_NAME || '',
+        operator_id: process.env.NEXT_PUBLIC_OPERATOR_ID || 'OP001',
+        operator_name: process.env.NEXT_PUBLIC_OPERATOR_NAME || 'Operador Demo',
       });
 
       setSuccess(true);

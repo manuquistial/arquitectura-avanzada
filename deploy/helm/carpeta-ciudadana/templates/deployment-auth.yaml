@@ -23,17 +23,16 @@ spec:
         image: "{{ .Values.global.imageRegistry }}/{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 8011
+        - containerPort: 8000
           name: http
           protocol: TCP
         env:
         # OIDC Configuration
         - name: OIDC_ISSUER_URL
-          value: "{{ .Values.auth.oidcIssuerUrl }}"
-        - name: JWT_ACCESS_TOKEN_EXPIRE
-          value: "{{ .Values.auth.jwtAccessTokenExpireMinutes }}"
-        - name: JWT_REFRESH_TOKEN_EXPIRE_DAYS
-          value: "{{ .Values.auth.jwtRefreshTokenExpireDays }}"
+          value: "{{ .Values.auth.oidcIssuerUrl | default "" }}"
+        # JWT configuration - these values come from the ConfigMap
+        # - name: JWT_ACCESS_TOKEN_EXPIRE (defined in ConfigMap)
+        # - name: JWT_REFRESH_TOKEN_EXPIRE_DAYS (defined in ConfigMap)
         
         # Azure AD B2C
         - name: AZURE_AD_B2C_TENANT_NAME
@@ -57,21 +56,21 @@ spec:
         
         # Redis (session storage)
         - name: REDIS_HOST
-          value: "{{ .Values.global.redis.host }}"
+          value: "redis-master"
         - name: REDIS_PORT
-          value: "{{ .Values.global.redis.port }}"
+          value: "6379"
         - name: REDIS_SESSION_DB
           value: "1"
         
         # CORS
         - name: CORS_ALLOWED_ORIGINS
-          value: "{{ .Values.global.corsOrigins }}"
+          value: "{{ .Values.global.corsOrigins | default "http://localhost:3000" }}"
         
         # Logging
         - name: LOG_LEVEL
-          value: "{{ .Values.auth.logLevel }}"
+          value: "{{ .Values.auth.logLevel | default "INFO" }}"
         - name: ENVIRONMENT
-          value: "{{ .Values.global.environment }}"
+          value: "{{ .Values.global.environment | default "dev" }}"
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
@@ -85,7 +84,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8011
+            port: 8000
             scheme: HTTP
           initialDelaySeconds: 15
           periodSeconds: 10
@@ -95,7 +94,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /ready
-            port: 8011
+            port: 8000
             scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 5
@@ -114,7 +113,7 @@ spec:
   type: {{ .Values.auth.service.type }}
   ports:
   - port: {{ .Values.auth.service.port }}
-    targetPort: 8011
+    targetPort: 8000
     protocol: TCP
     name: http
   selector:
@@ -144,4 +143,3 @@ spec:
         averageUtilization: {{ .Values.auth.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
 {{- end }}
-

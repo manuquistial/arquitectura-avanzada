@@ -27,17 +27,74 @@ spec:
           name: http
           protocol: TCP
         env:
-        - name: NEXT_PUBLIC_API_URL
-          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-gateway:8000"
+        # Service URLs for frontend
+        - name: NEXT_PUBLIC_AUTH_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/auth"
+        - name: NEXT_PUBLIC_CITIZEN_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/users"
+        - name: NEXT_PUBLIC_INGESTION_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/documents"
+        - name: NEXT_PUBLIC_METADATA_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/metadata"
+        - name: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/signature"
+        - name: NEXT_PUBLIC_TRANSFER_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/transfers"
+        - name: NEXT_PUBLIC_MINTIC_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/mintic"
+        - name: NEXT_PUBLIC_READ_MODELS_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/dashboard"
+        - name: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
+          value: "{{ .Values.frontend.nextAuth.url }}/api/notifications"
         - name: NEXT_PUBLIC_OPERATOR_ID
           value: "{{ .Values.global.operatorId | default "operator-demo" }}"
         - name: NEXT_PUBLIC_OPERATOR_NAME
           value: "{{ .Values.global.operatorName | default "Carpeta Ciudadana Demo" }}"
         - name: NODE_ENV
-          value: "{{ .Values.global.environment }}"
+          value: "production"
+        # NextAuth Configuration - from Kubernetes secrets
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: nextauth-secret
+              key: NEXTAUTH_SECRET
+              optional: true
+        - name: NEXTAUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: nextauth-secret
+              key: NEXTAUTH_URL
+              optional: true
+        # Azure AD Configuration - from Kubernetes secrets
+        - name: AZURE_AD_B2C_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c-secrets
+              key: tenant_id
+              optional: true
+        - name: AZURE_AD_B2C_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c-secrets
+              key: client_id
+              optional: true
+        - name: AZURE_AD_B2C_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: azure-b2c-secrets
+              key: client_secret
+              optional: true
+        - name: AZURE_AD_B2C_PRIMARY_USER_FLOW
+          value: "{{ .Values.azureB2C.userFlowName | default "B2C_1_signupsignin1" }}"
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+            optional: true
+        - configMapRef:
+            name: frontend-auth-config
+            optional: true
+        - secretRef:
+            name: nextauth-secret
             optional: true
         resources:
           {{- toYaml .Values.frontend.resources | nindent 10 }}
@@ -46,21 +103,21 @@ spec:
             path: /
             port: 3000
             scheme: HTTP
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
-          timeoutSeconds: 5
+          timeoutSeconds: 10
           successThreshold: 1
-          failureThreshold: 3
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /
             port: 3000
             scheme: HTTP
-          initialDelaySeconds: 20
+          initialDelaySeconds: 45
           periodSeconds: 5
-          timeoutSeconds: 3
+          timeoutSeconds: 5
           successThreshold: 1
-          failureThreshold: 2
+          failureThreshold: 5
 ---
 apiVersion: v1
 kind: Service
@@ -111,4 +168,3 @@ spec:
   {{- end }}
 {{- end }}
 {{- end }}
-

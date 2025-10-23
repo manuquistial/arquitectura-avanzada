@@ -1,6 +1,7 @@
 """Citizen Service - Main application."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -29,9 +30,19 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
     logger.info("Starting Citizen Service...")
-    await init_db()
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.warning(f"Database initialization failed: {e}")
+        logger.info("Continuing without database for testing purposes")
+    logger.info("Citizen Service started")
     yield
-    await engine.dispose()
+    try:
+        await engine.dispose()
+        logger.info("Database connection disposed")
+    except Exception as e:
+        logger.warning(f"Error disposing database connection: {e}")
     logger.info("Shutting down Citizen Service...")
 
 
@@ -66,6 +77,15 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy"}
+
+    @app.get("/ready")
+    async def ready() -> dict[str, str | bool]:
+        """Readiness check endpoint."""
+        # Health check for dependencies
+        return {
+            "status": "ready",
+            "service": "citizen"
+        }
 
     return app
 

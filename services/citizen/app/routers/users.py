@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models_users import User
+from ..middleware.auth import AuthMiddleware
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -63,8 +64,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login_at: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ========================================
@@ -137,34 +137,30 @@ async def bootstrap_user(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    user_id: str,  # TODO: Extract from JWT token
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(AuthMiddleware.get_current_user)
 ):
     """
     Get current user profile
     """
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    return user
+    return current_user
 
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(
     user_id: str,
+    current_user: User = Depends(AuthMiddleware.get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get user by ID
+    Get user by ID (requires authentication)
     """
+    # Check if user is requesting their own data or has admin role
+    if user_id != current_user.id and "admin" not in current_user.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    
     result = await db.execute(
         select(User).where(User.id == user_id)
     )

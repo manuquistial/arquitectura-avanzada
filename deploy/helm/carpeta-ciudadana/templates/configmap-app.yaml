@@ -1,0 +1,224 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+  labels:
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+    component: application
+data:
+  # =============================================================================
+  # APPLICATION CONFIGURATION
+  # =============================================================================
+  
+  # MinTIC Hub Configuration
+  HUB_BASE_URL: "{{ .Values.mintic.hubUrl | default "https://govcarpeta-apis-4905ff3c005b.herokuapp.com" }}"
+  ALLOW_INSECURE_OPERATOR_URLS: "{{ .Values.mintic.allowInsecureUrls | default "false" }}"
+  RATE_LIMIT_TO_HUB: "{{ .Values.mintic.rateLimit | default "10" }}"
+  
+  # Azure Storage SAS Configuration
+  SAS_TTL_MINUTES: "{{ .Values.azure.storage.sasTtlMinutes | default "15" }}"
+  
+  # Circuit Breaker Configuration
+  CB_WINDOW: "{{ .Values.circuitBreaker.window | default "60s" }}"
+  CB_THRESHOLD: "{{ .Values.circuitBreaker.threshold | default "5" }}"
+  CB_COOLDOWN: "{{ .Values.circuitBreaker.cooldown | default "120s" }}"
+  
+  # Service URLs (internal)
+  GATEWAY_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-gateway:8000"
+  AUTH_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
+  CITIZEN_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
+  INGESTION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
+  METADATA_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000"
+  TRANSFER_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000"
+  SIGNATURE_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000"
+  NOTIFICATION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-notification:8010"
+  READ_MODELS_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-read-models:8007"
+  MINTIC_CLIENT_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
+  
+  # Frontend URLs (for service-to-service communication)
+  FRONTEND_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-frontend:80"
+  
+  # OpenSearch Configuration
+  OPENSEARCH_HOST: "opensearch-cluster-master.default.svc.cluster.local"
+  OPENSEARCH_PORT: "9200"
+  OPENSEARCH_USE_SSL: "true"
+  OPENSEARCH_VERIFY_CERTS: "false"
+  
+  # Redis Configuration
+  REDIS_PORT: "6379"
+  
+  # Application Configuration
+  LOG_LEVEL: "{{ .Values.global.logLevel | default "INFO" }}"
+  ENVIRONMENT: "{{ .Values.global.environment }}"
+  
+  # OpenTelemetry Configuration
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_SERVICE_NAME: "{{ .Values.global.environment }}"
+  OTEL_RESOURCE_ATTRIBUTES: "service.namespace=carpeta-ciudadana,deployment.environment={{ .Values.global.environment }}"
+  
+  # Feature Flags
+  ENABLE_TELEMETRY: "{{ .Values.observability.enabled | default "true" }}"
+  USE_MANAGED_IDENTITY: "true"
+  PREFER_USER_DELEGATION_SAS: "true"
+  
+  # =============================================================================
+  # CORS CONFIGURATION
+  # =============================================================================
+  
+  # CORS Configuration (restrictive)
+  CORS_ORIGINS: {{ .Values.global.corsOrigins | quote }}
+  CORS_ALLOW_CREDENTIALS: "true"
+  
+  # Allowed methods (restrictive)
+  CORS_ALLOW_METHODS: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+  
+  # Allowed headers (restrictive)
+  CORS_ALLOW_HEADERS: "Content-Type,Authorization,X-Request-ID,X-Trace-ID,X-Span-ID,Accept,Accept-Language,Content-Language"
+  
+  # Expose headers
+  CORS_EXPOSE_HEADERS: "X-Request-ID,X-RateLimit-Limit,X-RateLimit-Remaining,X-RateLimit-Reset"
+  
+  # Preflight cache (1 hour)
+  CORS_MAX_AGE: "3600"
+  
+  # Security Headers Configuration
+  SECURITY_HEADERS_ENABLED: "true"
+  HSTS_ENABLED: {{ .Values.security.hstsEnabled | quote }}
+  CSP_ENABLED: {{ .Values.security.cspEnabled | quote }}
+  CSP_REPORT_URI: {{ .Values.security.cspReportUri | quote }}
+
+{{- if .Values.gateway.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-gateway-config
+  labels:
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+    component: gateway
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+        
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+        
+        access_log /var/log/nginx/access.log main;
+        error_log /var/log/nginx/error.log;
+        
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        
+        include /etc/nginx/conf.d/*.conf;
+    }
+  
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # API routing to backend services
+        
+        # Authentication service
+        location /api/auth/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Citizen service
+        location /api/users/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Document services
+        location /api/documents/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        location /api/metadata/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        location /api/signature/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Transfer service
+        location /api/transfers/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # MinTIC service
+        location /api/mintic/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Read Models service (Dashboard)
+        location /api/dashboard/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-read-models:8007/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Notification service
+        location /api/notifications/ {
+            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-notification:8010/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # Default route - return 404 for unmatched API routes
+        location /api {
+            return 404 "API endpoint not found";
+        }
+    }
+{{- end }}

@@ -20,37 +20,32 @@ _redis_client: Optional[redis.Redis] = None
 
 
 def get_redis_url() -> str:
-    """Build Redis URL from environment variables.
+    """Build Redis URL for Azure Cache for Redis.
     
-    Azure Cache for Redis:
+    Azure Cache for Redis configuration:
         - REDIS_HOST: <name>.redis.cache.windows.net
-        - REDIS_PORT: 6380
-        - REDIS_SSL: true
+        - REDIS_PORT: 6380 (TLS port)
+        - REDIS_SSL: true (always required for Azure)
         - REDIS_PASSWORD: <primary-key>
-    
-    Local development:
-        - REDIS_HOST: localhost
-        - REDIS_PORT: 6379
-        - REDIS_SSL: false (no TLS)
+        - REDIS_DB: 0 (default database)
     """
-    host = os.getenv("REDIS_HOST", "localhost")
-    port = int(os.getenv("REDIS_PORT", "6379"))
-    password = os.getenv("REDIS_PASSWORD", "")
-    ssl = os.getenv("REDIS_SSL", "false").lower() == "true"
+    host = os.getenv("REDIS_HOST")
+    if not host:
+        raise ValueError("REDIS_HOST environment variable is required for Azure Cache for Redis")
+    
+    port = int(os.getenv("REDIS_PORT", "6380"))  # Default to TLS port
+    password = os.getenv("REDIS_PASSWORD")
+    if not password:
+        raise ValueError("REDIS_PASSWORD environment variable is required for Azure Cache for Redis")
+    
     db = int(os.getenv("REDIS_DB", "0"))
     
-    # Build URL
-    if ssl:
-        scheme = "rediss"  # Redis with TLS
-    else:
-        scheme = "redis"
+    # Azure Cache for Redis always uses TLS
+    scheme = "rediss"  # Redis with TLS
     
-    if password:
-        url = f"{scheme}://:{password}@{host}:{port}/{db}"
-    else:
-        url = f"{scheme}://{host}:{port}/{db}"
+    url = f"{scheme}://:{password}@{host}:{port}/{db}"
     
-    logger.info(f"Redis URL: {scheme}://{host}:{port}/{db} (SSL={ssl})")
+    logger.info(f"Azure Redis URL: {scheme}://{host}:{port}/{db} (Azure Cache for Redis)")
     return url
 
 

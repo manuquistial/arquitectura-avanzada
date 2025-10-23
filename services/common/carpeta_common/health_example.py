@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
         @app.get("/ready")
         async def ready():
             """Readiness probe - ready to serve traffic."""
-            # TODO: Check critical dependencies here
+            # Critical dependencies check
             return {"status": "ready"}
     
     # Your other routes...

@@ -1,0 +1,134 @@
+version: '3.9'
+
+# Override para desarrollo local - construir imágenes localmente
+services:
+  frontend:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./apps/frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_OPERATOR_ID=operator-demo
+      - NEXT_PUBLIC_OPERATOR_NAME=Carpeta Demo
+      - NEXTAUTH_SECRET=your-secret-key-for-development-only-change-in-production
+      - NEXTAUTH_URL=http://localhost:3000
+
+  citizen:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/citizen/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - MINTIC_CLIENT_URL=http://mintic-client:8000
+    depends_on:
+      - postgres
+
+  ingestion:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/ingestion/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - CLOUD_PROVIDER=azure
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
+      - AZURE_STORAGE_ACCOUNT_KEY=${AZURE_STORAGE_ACCOUNT_KEY}
+      - AZURE_STORAGE_CONTAINER_NAME=documents
+    depends_on:
+      - postgres
+
+  metadata:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/metadata/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+    depends_on:
+      - postgres
+      - opensearch
+
+  transfer:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/transfer/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+    depends_on:
+      - postgres
+
+  mintic-client:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/mintic_client/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+      - MINTIC_OPERATOR_ID=operator-demo
+      - MINTIC_OPERATOR_NAME=Carpeta Ciudadana Demo
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_SSL=false
+
+  signature:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/signature/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
+      - AZURE_STORAGE_ACCOUNT_KEY=${AZURE_STORAGE_ACCOUNT_KEY}
+      - MINTIC_HUB_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_SSL=false
+      - SERVICE_BUS_ENABLED=false
+    depends_on:
+      - postgres
+
+  auth:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/auth/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      - postgres
+
+
+  read-models:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/read_models/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      - postgres

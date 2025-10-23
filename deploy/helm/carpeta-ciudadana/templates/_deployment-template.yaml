@@ -1,0 +1,172 @@
+{{/*
+Generic deployment template for microservices
+Usage: {{ include "carpeta-ciudadana.deployment" (dict "service" "ingestion" "context" $) }}
+*/}}
+{{- define "carpeta-ciudadana.deployment" -}}
+{{- $service := .service -}}
+{{- $context := .context -}}
+{{- $serviceValues := index $context.Values $service -}}
+{{- if $serviceValues.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" $context }}-{{ $service }}
+  labels:
+    app: {{ $service }}
+    {{- include "carpeta-ciudadana.labels" $context | nindent 4 }}
+spec:
+  replicas: {{ $serviceValues.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ $service }}
+  template:
+    metadata:
+      labels:
+        app: {{ $service }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" $context }}
+      containers:
+      - name: {{ $service }}
+        image: "{{ $context.Values.global.imageRegistry }}/{{ $serviceValues.image.repository }}:{{ $serviceValues.image.tag }}"
+        imagePullPolicy: {{ $context.Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: {{ if eq $service "notification" }}8010{{ else if eq $service "read-models" }}8007{{ else }}{{ $serviceValues.service.port | default 8000 }}{{ end }}
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: {{ $context.Values.global.environment | default "dev" }}
+        - name: CLOUD_PROVIDER
+          value: "azure"
+        # Azure Workload Identity - from Kubernetes secrets
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: AZURE_CLIENT_ID
+              optional: true
+        - name: AZURE_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: AZURE_TENANT_ID
+              optional: true
+        # Azure Storage - from Kubernetes secrets
+        - name: AZURE_STORAGE_ACCOUNT_NAME
+          valueFrom:
+            secretKeyRef:
+              name: azure-storage-secret
+              key: account-name
+              optional: true
+        - name: AZURE_STORAGE_ACCOUNT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: azure-storage-secret
+              key: account-key
+              optional: true
+        - name: AZURE_STORAGE_CONTAINER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: azure-storage-secret
+              key: container-name
+              optional: true
+        # Application configuration
+        - name: MAX_FILE_SIZE
+          value: "104857600"  # 100MB
+        - name: ALLOWED_EXTENSIONS
+          value: ".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+        - name: HEALTH_CHECK_TIMEOUT
+          value: "5"
+        {{- if $context.Values.serviceBus.enabled }}
+        - name: SERVICEBUS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: SERVICEBUS_CONNECTION_STRING
+              optional: true
+        - name: SERVICEBUS_ENABLED
+          value: "true"
+        - name: SERVICEBUS_NAMESPACE
+          value: {{ $context.Values.serviceBus.namespace | default "" | quote }}
+        {{- end }}
+        {{- if eq $service "citizen" }}
+        - name: MINTIC_CLIENT_URL
+          value: "http://{{ include "carpeta-ciudadana.fullname" $context }}-mintic-client:8000"
+        {{- end }}
+        {{- if eq $service "mintic-client" }}
+        - name: MINTIC_OPERATOR_ID
+          valueFrom:
+            secretKeyRef:
+              name: mintic-secrets
+              key: MINTIC_OPERATOR_ID
+              optional: true
+        - name: MINTIC_OPERATOR_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mintic-secrets
+              key: MINTIC_OPERATOR_NAME
+              optional: true
+        - name: MINTIC_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: mintic-secrets
+              key: MINTIC_BASE_URL
+              optional: true
+        - name: ALLOW_INSECURE_OPERATOR_URLS
+          value: {{ $context.Values.mintic.allowInsecureUrls | quote }}
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" $context }}-app-config
+        - secretRef:
+            name: database-secrets
+        - secretRef:
+            name: azure-secrets
+        - secretRef:
+            name: azure-storage-secret
+            optional: true
+        - secretRef:
+            name: azure-b2c-secrets
+            optional: true
+        - secretRef:
+            name: nextauth-secret
+            optional: true
+        {{- if eq $service "read-models" }}
+        - secretRef:
+            name: app-secrets
+            optional: true
+        {{- end }}
+        {{- if eq $service "mintic-client" }}
+        - secretRef:
+            name: db-secrets
+            optional: true
+        - secretRef:
+            name: redis-secrets
+            optional: true
+        - secretRef:
+            name: mintic-secrets
+            optional: true
+        {{- end }}
+        resources:
+          {{- toYaml $serviceValues.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ $serviceValues.service.port | default 8000 }}
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: {{ $serviceValues.service.port | default 8000 }}
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 2
+{{- end }}
+{{- end }}

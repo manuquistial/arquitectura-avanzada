@@ -19,8 +19,8 @@ resource "kubernetes_secret" "opensearch_auth" {
   }
 
   data = {
-    OS_USERNAME = var.opensearch_username
-    OS_PASSWORD = var.opensearch_password
+    OS_USERNAME    = var.opensearch_username
+    OS_PASSWORD    = var.opensearch_password
     OPENSEARCH_URL = "http://opensearch-cluster-master:9200"
   }
 
@@ -36,9 +36,7 @@ resource "helm_release" "opensearch" {
   namespace        = var.namespace
   create_namespace = true
 
-  values = [
-    file("${path.module}/../../../../deploy/helm/values-opensearch.yaml")
-  ]
+  # Using inline values instead of external file
 
   # Override values for single-node dev environment
   set {
@@ -87,15 +85,10 @@ resource "helm_release" "opensearch" {
     value = "-Xms${var.heap_size} -Xmx${var.heap_size}"
   }
 
-  # Basic auth credentials
-  set_sensitive {
-    name  = "extraEnvs[0].name"
-    value = "OPENSEARCH_INITIAL_ADMIN_PASSWORD"
-  }
-
-  set_sensitive {
-    name  = "extraEnvs[0].value"
-    value = var.opensearch_password
+  # Security configuration - disable security for simplicity
+  set {
+    name  = "config.opensearch.yml"
+    value = "plugins.security.disabled: true"
   }
 
   depends_on = [kubernetes_secret.opensearch_auth]

@@ -1,0 +1,509 @@
+{
+  "version": 4,
+  "terraform_version": "1.13.3",
+  "serial": 852,
+  "lineage": "f5742a08-329c-61fd-821c-119ba14f6aec",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "azurerm_resource_group",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg",
+            "location": "eastus",
+            "managed_by": "",
+            "name": "carpeta-ciudadana-production-rg",
+            "tags": {
+              "Environment": "production",
+              "ManagedBy": "Terraform",
+              "Project": "carpeta-ciudadana"
+            },
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo1NDAwMDAwMDAwMDAwLCJkZWxldGUiOjU0MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjo1NDAwMDAwMDAwMDAwfX0="
+        }
+      ]
+    },
+    {
+      "module": "module.cert_manager",
+      "mode": "managed",
+      "type": "kubernetes_manifest",
+      "name": "letsencrypt_prod",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": []
+    },
+    {
+      "module": "module.cert_manager",
+      "mode": "managed",
+      "type": "kubernetes_manifest",
+      "name": "letsencrypt_staging",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": []
+    },
+    {
+      "module": "module.keda",
+      "mode": "managed",
+      "type": "kubernetes_manifest",
+      "name": "keda_service_monitor",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": []
+    },
+    {
+      "module": "module.keda",
+      "mode": "managed",
+      "type": "kubernetes_manifest",
+      "name": "servicebus_trigger_auth",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": []
+    },
+    {
+      "module": "module.postgresql",
+      "mode": "managed",
+      "type": "azurerm_subnet",
+      "name": "postgresql_update",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "address_prefixes": [
+              "10.0.3.0/24"
+            ],
+            "default_outbound_access_enabled": true,
+            "delegation": [
+              {
+                "name": "postgres-delegation",
+                "service_delegation": [
+                  {
+                    "actions": [
+                      "Microsoft.Network/virtualNetworks/subnets/join/action"
+                    ],
+                    "name": "Microsoft.DBforPostgreSQL/flexibleServers"
+                  }
+                ]
+              }
+            ],
+            "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/virtualNetworks/production-vnet/subnets/db-subnet",
+            "ip_address_pool": [],
+            "name": "db-subnet",
+            "private_endpoint_network_policies": "Disabled",
+            "private_link_service_network_policies_enabled": true,
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "service_endpoint_policy_ids": [],
+            "service_endpoints": [
+              "Microsoft.Storage"
+            ],
+            "sharing_scope": "",
+            "timeouts": null,
+            "virtual_network_name": "production-vnet"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "identity": {
+            "name": "db-subnet",
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "subscription_id": "635ab07e-b29c-417e-b2b2-008bc4fc57d6",
+            "virtual_network_name": "production-vnet"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjoxODAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azurerm_resource_group.main",
+            "module.vnet.azurerm_subnet.aks",
+            "module.vnet.azurerm_subnet.db",
+            "module.vnet.azurerm_virtual_network.main"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.redis[0]",
+      "mode": "managed",
+      "type": "azurerm_private_dns_zone",
+      "name": "redis",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": []
+    },
+    {
+      "module": "module.redis[0]",
+      "mode": "managed",
+      "type": "azurerm_private_dns_zone_virtual_network_link",
+      "name": "redis",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": []
+    },
+    {
+      "module": "module.redis[0]",
+      "mode": "managed",
+      "type": "azurerm_private_endpoint",
+      "name": "redis",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": []
+    },
+    {
+      "module": "module.redis[0]",
+      "mode": "managed",
+      "type": "azurerm_redis_firewall_rule",
+      "name": "aks_subnet",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": []
+    },
+    {
+      "module": "module.redis[0]",
+      "mode": "managed",
+      "type": "azurerm_redis_firewall_rule",
+      "name": "azure_services",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": []
+    },
+    {
+      "module": "module.vnet",
+      "mode": "managed",
+      "type": "azurerm_subnet",
+      "name": "aks",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "address_prefixes": [
+              "10.0.1.0/24"
+            ],
+            "default_outbound_access_enabled": true,
+            "delegation": [],
+            "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/virtualNetworks/production-vnet/subnets/aks-subnet",
+            "ip_address_pool": [],
+            "name": "aks-subnet",
+            "private_endpoint_network_policies": "Disabled",
+            "private_link_service_network_policies_enabled": true,
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "service_endpoint_policy_ids": [],
+            "service_endpoints": [],
+            "sharing_scope": "",
+            "timeouts": null,
+            "virtual_network_name": "production-vnet"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "identity": {
+            "name": "aks-subnet",
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "subscription_id": "635ab07e-b29c-417e-b2b2-008bc4fc57d6",
+            "virtual_network_name": "production-vnet"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjoxODAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azurerm_resource_group.main",
+            "module.vnet.azurerm_virtual_network.main"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.vnet",
+      "mode": "managed",
+      "type": "azurerm_subnet",
+      "name": "db",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "address_prefixes": [
+              "10.0.3.0/24"
+            ],
+            "default_outbound_access_enabled": true,
+            "delegation": [
+              {
+                "name": "postgres-delegation",
+                "service_delegation": [
+                  {
+                    "actions": [
+                      "Microsoft.Network/virtualNetworks/subnets/join/action"
+                    ],
+                    "name": "Microsoft.DBforPostgreSQL/flexibleServers"
+                  }
+                ]
+              }
+            ],
+            "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/virtualNetworks/production-vnet/subnets/db-subnet",
+            "ip_address_pool": [],
+            "name": "db-subnet",
+            "private_endpoint_network_policies": "Disabled",
+            "private_link_service_network_policies_enabled": true,
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "service_endpoint_policy_ids": [],
+            "service_endpoints": [
+              "Microsoft.Storage"
+            ],
+            "sharing_scope": "",
+            "timeouts": null,
+            "virtual_network_name": "production-vnet"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "identity": {
+            "name": "db-subnet",
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "subscription_id": "635ab07e-b29c-417e-b2b2-008bc4fc57d6",
+            "virtual_network_name": "production-vnet"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjoxODAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azurerm_resource_group.main",
+            "module.vnet.azurerm_virtual_network.main"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.vnet",
+      "mode": "managed",
+      "type": "azurerm_virtual_network",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "address_space": [
+              "10.0.0.0/16"
+            ],
+            "bgp_community": "",
+            "ddos_protection_plan": [],
+            "dns_servers": [],
+            "edge_zone": "",
+            "encryption": [],
+            "flow_timeout_in_minutes": 0,
+            "guid": "09656314-bfa1-4a81-8e40-23864252da22",
+            "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/virtualNetworks/production-vnet",
+            "ip_address_pool": [],
+            "location": "eastus",
+            "name": "production-vnet",
+            "private_endpoint_vnet_policies": "Disabled",
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "subnet": [
+              {
+                "address_prefixes": [
+                  "10.0.1.0/24"
+                ],
+                "default_outbound_access_enabled": true,
+                "delegation": [],
+                "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/virtualNetworks/production-vnet/subnets/aks-subnet",
+                "name": "aks-subnet",
+                "private_endpoint_network_policies": "Disabled",
+                "private_link_service_network_policies_enabled": true,
+                "route_table_id": "",
+                "security_group": "",
+                "service_endpoint_policy_ids": [],
+                "service_endpoints": []
+              },
+              {
+                "address_prefixes": [
+                  "10.0.3.0/24"
+                ],
+                "default_outbound_access_enabled": true,
+                "delegation": [
+                  {
+                    "name": "postgres-delegation",
+                    "service_delegation": [
+                      {
+                        "actions": [
+                          "Microsoft.Network/virtualNetworks/subnets/join/action"
+                        ],
+                        "name": "Microsoft.DBforPostgreSQL/flexibleServers"
+                      }
+                    ]
+                  }
+                ],
+                "id": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/virtualNetworks/production-vnet/subnets/db-subnet",
+                "name": "db-subnet",
+                "private_endpoint_network_policies": "Disabled",
+                "private_link_service_network_policies_enabled": true,
+                "route_table_id": "",
+                "security_group": "/subscriptions/635ab07e-b29c-417e-b2b2-008bc4fc57d6/resourceGroups/carpeta-ciudadana-production-rg/providers/Microsoft.Network/networkSecurityGroups/production-postgresql-nsg",
+                "service_endpoint_policy_ids": [],
+                "service_endpoints": [
+                  "Microsoft.Storage"
+                ]
+              }
+            ],
+            "tags": {
+              "Environment": "production"
+            },
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "identity": {
+            "name": "production-vnet",
+            "resource_group_name": "carpeta-ciudadana-production-rg",
+            "subscription_id": "635ab07e-b29c-417e-b2b2-008bc4fc57d6"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjoxODAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azurerm_resource_group.main"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": [
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.maintenance_day",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.redis.var.sku_name",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.redis_sku",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.current_ip_address",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.redis.var.minimum_tls_version",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.database_collation",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.sku_name",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.allow_current_ip",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.maintenance_start_minute",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.redis_minimum_tls_version",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.storage_mb",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.maintenance_start_hour",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.allow_azure_services",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.postgresql_version",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.redis.var.family",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.database_name",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.admin_username",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.backup_retention_days",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.storage.var.defender_storage_tier",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.database_charset",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.redis_maxmemory_policy",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.aks_egress_ip",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.postgresql.var.high_availability_mode",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.redis.var.maxmemory_policy",
+      "status": "unknown",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.redis_family",
+      "status": "unknown",
+      "objects": null
+    }
+  ]
+}

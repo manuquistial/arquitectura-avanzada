@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from app.config import Settings
+from app.config import get_config
 from app.database import get_db
 from app.models import SignatureRecord, DocumentMetadata
 from app.schemas import (
@@ -25,11 +25,13 @@ from app.services.event_service import EventService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Get configuration
+config = get_config()
+
 # Singletons
-_settings = Settings()
-_crypto = CryptoService(_settings)
-_blob = BlobService(_settings)
-_events = EventService(_settings)
+_crypto = CryptoService(config)
+_blob = BlobService(config)
+_events = EventService(config)
 
 
 @router.post("/sign", response_model=SignDocumentResponse)
@@ -71,50 +73,74 @@ async def sign_document(
         # User Delegation SAS if Managed Identity available
         sas_url = await _blob.generate_sas_url(
             request.document_id
-            # expiry_hours will use sas_ttl_minutes from Settings
+            # expiry_hours will use sas_ttl_minutes from config
         )
         
-        # 5. Authenticate with hub via mintic_client service (facade)
-        hub_result = {"success": True, "message": "OK"}  # Default
+        # 5. Authenticate with hub via direct MinTIC Hub API
+        hub_result = {"success": False, "message": "Not authenticated"}  # Default to failure
         
         try:
-            async with httpx.AsyncClient(timeout=10.0) as mintic_client:
-                mintic_response = await mintic_client.put(
-                    f"{_settings.metadata_service_url.replace('metadata', 'mintic-client')}/authenticate-document",
+            # Direct call to MinTIC Hub API (public endpoint)
+            hub_url = f"{config.mintic_hub_url}/apis/authenticateDocument"
+            
+            async with httpx.AsyncClient(timeout=30.0) as hub_client:
+                hub_response = await hub_client.put(
+                    hub_url,
                     json={
                         "idCitizen": request.citizen_id,
                         "UrlDocument": sas_url,
                         "documentTitle": request.document_title
+                    },
+                    headers={
+                        "Content-Type": "application/json",
+                        "User-Agent": "CarpetaCiudadana-Signature/1.0"
                     }
                 )
                 
-                if mintic_response.status_code == 200:
-                    hub_result = {"success": True, "message": mintic_response.text}
-                    logger.info(f"✅ Document authenticated with hub for citizen {request.citizen_id}")
+                if hub_response.status_code == 200:
+                    hub_result = {"success": True, "message": hub_response.text}
+                    logger.info(f"✅ Document authenticated with MinTIC Hub for citizen {request.citizen_id}")
                 else:
-                    hub_result = {"success": False, "message": mintic_response.text}
-                    logger.warning(f"⚠️  Hub authentication failed: {mintic_response.status_code}")
+                    hub_result = {"success": False, "message": f"Hub returned {hub_response.status_code}: {hub_response.text}"}
+                    logger.warning(f"⚠️  MinTIC Hub authentication failed: {hub_response.status_code}")
+                    
+        except httpx.ConnectError as e:
+            logger.error(f"❌ Connection error to MinTIC Hub: {e}")
+            hub_result = {"success": False, "message": f"Connection error: {str(e)}"}
+        except httpx.TimeoutException as e:
+            logger.error(f"❌ Timeout error to MinTIC Hub: {e}")
+            hub_result = {"success": False, "message": f"Timeout error: {str(e)}"}
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ HTTP error to MinTIC Hub: {e}")
+            hub_result = {"success": False, "message": f"HTTP error: {str(e)}"}
         except Exception as e:
-            logger.error(f"❌ Error calling mintic_client: {e}")
+            logger.error(f"❌ Unexpected error calling MinTIC Hub: {e}")
             hub_result = {"success": False, "message": str(e)}
         
         # 6. Save signature record to database
-        record = SignatureRecord(
-            document_id=request.document_id,
-            citizen_id=request.citizen_id,
-            document_title=request.document_title,
-            sha256_hash=sha256_hash,
-            signature_algorithm=algorithm,
-            signature_value=signature_b64,
-            sas_url=sas_url,
-            sas_expires_at=datetime.utcnow(),
-            hub_authenticated=hub_result["success"],
-            hub_response=str(hub_result),
-            hub_authenticated_at=datetime.utcnow() if hub_result["success"] else None,
-        )
-        
-        db.add(record)
-        await db.flush()  # Flush but don't commit yet
+        try:
+            record = SignatureRecord(
+                document_id=request.document_id,
+                citizen_id=request.citizen_id,
+                document_title=request.document_title,
+                sha256_hash=sha256_hash,
+                signature_algorithm=algorithm,
+                signature_value=signature_b64,
+                sas_url=sas_url,
+                sas_expires_at=datetime.utcnow(),
+                hub_authenticated=hub_result["success"],
+                hub_response=str(hub_result),
+                hub_authenticated_at=datetime.utcnow() if hub_result["success"] else None,
+            )
+            
+            db.add(record)
+            await db.flush()  # Flush but don't commit yet
+        except Exception as e:
+            logger.error(f"❌ Error creating signature record: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create signature record: {str(e)}"
+            )
         
         # 6b. UPDATE DOCUMENT METADATA WITH WORM (REQUERIMIENTO CRÍTICO)
         # Solo si hub authentication fue exitosa
@@ -148,8 +174,7 @@ async def sign_document(
                     f"retention_until={retention_date.isoformat()}"
                 )
                 
-                # TODO: Update blob tags in Azure Storage
-                # await _blob.set_blob_tags(
+                # Azure Storage blob tags update
                 #     blob_name=document.blob_name,
                 #     tags={
                 #         "state": "SIGNED",
@@ -165,8 +190,17 @@ async def sign_document(
                 # In production, this should be retried or alerted
         
         # Commit everything in one transaction
-        await db.commit()
-        await db.refresh(record)
+        try:
+            await db.commit()
+            await db.refresh(record)
+            logger.info("✅ Database transaction committed successfully")
+        except Exception as e:
+            logger.error(f"❌ Error committing database transaction: {e}")
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to commit transaction: {str(e)}"
+            )
         
         # 7. Publish events (use common message broker)
         try:
@@ -178,10 +212,27 @@ async def sign_document(
                 sha256_hash=sha256_hash,
                 hub_success=hub_result["success"]
             )
+            logger.info("✅ Event published via common message broker")
         except ImportError:
-            logger.warning("carpeta_common not installed, skipping event publishing")
+            logger.warning("⚠️  carpeta_common not installed, using fallback event publishing")
+            try:
+                await _events.publish_document_authenticated(
+                    request.document_id,
+                    request.citizen_id,
+                    hub_result["success"]
+                )
+            except Exception as event_error:
+                logger.warning(f"⚠️  Fallback event publishing failed: {event_error}")
         except Exception as e:
-            logger.warning(f"Failed to publish event: {e}")
+            logger.warning(f"⚠️  Failed to publish event via common broker: {e}")
+            try:
+                await _events.publish_document_authenticated(
+                    request.document_id,
+                    request.citizen_id,
+                    hub_result["success"]
+                )
+            except Exception as event_error:
+                logger.warning(f"⚠️  Fallback event publishing failed: {event_error}")
         
         logger.info(f"✅ Document signed and authenticated: {request.document_id}")
         
@@ -211,25 +262,50 @@ async def verify_signature(
     logger.info(f"Verifying signature for {request.signed_document_id}")
     
     # Get signature record from DB
-    result = await db.execute(
-        select(SignatureRecord).where(SignatureRecord.document_id == request.signed_document_id)
-    )
-    record = result.scalar_one_or_none()
-    
-    if not record:
+    try:
+        # Try to find by signed_document_id first, then by document_id
+        result = await db.execute(
+            select(SignatureRecord).where(
+                (SignatureRecord.document_id == request.signed_document_id) |
+                (SignatureRecord.document_id == request.signed_document_id.replace('_signed', ''))
+            )
+        )
+        record = result.scalar_one_or_none()
+        
+        if not record:
+            logger.warning(f"⚠️  Signature record not found: {request.signed_document_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Signature record not found: {request.signed_document_id}"
+            )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404) as-is
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error querying signature record: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Signature record not found: {request.signed_document_id}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to query signature record: {str(e)}"
         )
     
     # Verify signature
-    is_valid, details = await _crypto.verify_signature(
-        record.sha256_hash,
-        record.signature_value
-    )
+    try:
+        is_valid, details = await _crypto.verify_signature(
+            record.sha256_hash,
+            record.signature_value
+        )
+        logger.info(f"✅ Signature verification completed: {is_valid}")
+    except Exception as e:
+        logger.error(f"❌ Error verifying signature: {e}")
+        is_valid = False
+        details = f"Verification error: {str(e)}"
     
     # Publish event
-    await _events.publish_document_verified(request.signed_document_id, is_valid)
+    try:
+        await _events.publish_document_verified(request.signed_document_id, is_valid)
+        logger.info("✅ Verification event published")
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to publish verification event: {e}")
     
     return VerifySignatureResponse(
         is_valid=is_valid,

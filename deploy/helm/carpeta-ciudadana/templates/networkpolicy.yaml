@@ -1,0 +1,206 @@
+{{- if .Values.networkPolicies.enabled }}
+# =============================================================================
+# UNIFIED NETWORK POLICY FOR CARPETA CIUDADANA
+# =============================================================================
+# This single network policy manages all service-to-service communication
+# with intelligent rules based on service labels and namespaces
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-unified
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+    component: networking
+spec:
+  # Apply to all pods with carpeta-ciudadana labels
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow traffic from gateway to all services
+  - from:
+    - podSelector:
+        matchLabels:
+          app: gateway
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8007  # read-models
+    - protocol: TCP
+      port: 8010  # notification
+  
+  # Allow frontend to auth and citizen services
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  # Allow inter-service communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app: auth
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: citizen
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ingestion
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: metadata
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: transfer
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: signature
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: mintic-client
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: transfer-worker
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8010  # notification
+  
+  # Allow observability namespace to scrape metrics
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: observability
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8007
+    - protocol: TCP
+      port: 8010
+  
+  egress:
+  # DNS resolution (always required)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  
+  # Database access (PostgreSQL)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+  
+  # Redis access
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  
+  # OpenSearch access (metadata service)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: search
+    ports:
+    - protocol: TCP
+      port: 9200
+  
+  # External HTTPS traffic (Azure services, MinTIC, etc.)
+  - ports:
+    - protocol: TCP
+      port: 443
+  
+  # SMTP traffic (notification service)
+  - ports:
+    - protocol: TCP
+      port: 587
+    - protocol: TCP
+      port: 25
+  
+  # Service Bus traffic (Azure Service Bus)
+  - ports:
+    - protocol: TCP
+      port: 5671  # AMQPS
+    - protocol: TCP
+      port: 5672  # AMQP
+
+# =============================================================================
+# DENY-ALL POLICY (Zero Trust)
+# =============================================================================
+# This policy ensures that any pod not explicitly allowed is denied
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-deny-all
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+    component: security
+spec:
+  podSelector: {}  # Apply to all pods
+  policyTypes:
+  - Ingress
+  - Egress
+  # No rules = deny all (overridden by the unified policy above)
+{{- end }}

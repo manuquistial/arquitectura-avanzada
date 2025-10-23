@@ -38,9 +38,7 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
-        - secretRef:
-            name: opensearch-auth
-            optional: true
+        # OpenSearch auth removed - using external OpenSearch without auth
         resources:
           {{- toYaml .Values.metadata.resources | nindent 10 }}
         livenessProbe:
@@ -104,4 +102,3 @@ spec:
         averageUtilization: {{ .Values.metadata.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
 {{- end }}
-

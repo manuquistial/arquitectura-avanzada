@@ -7,26 +7,115 @@
 
 import NextAuth, { NextAuthOptions } from "next-auth";
 import AzureADB2CProvider from "next-auth/providers/azure-ad-b2c";
+import CredentialsProvider from "next-auth/providers/credentials";
 
-// const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME || "carpetaciudadana"; // Reserved for future use
+// Azure AD B2C Configuration
+const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME || "carpetaciudadana";
 const tenantId = process.env.AZURE_AD_B2C_TENANT_ID || "";
-const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW || "B2C_1_signupsignin1";
 const clientId = process.env.AZURE_AD_B2C_CLIENT_ID || "";
 const clientSecret = process.env.AZURE_AD_B2C_CLIENT_SECRET || "";
+const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW || "B2C_1_signupsignin1";
 
 const authOptions: NextAuthOptions = {
   providers: [
-    AzureADB2CProvider({
-      tenantId,
-      clientId,
-      clientSecret,
-      primaryUserFlow: userFlow,
-      authorization: {
-        params: {
-          scope: "openid profile email offline_access",
+    // Azure AD B2C Provider
+    ...(clientId && clientSecret ? [
+      AzureADB2CProvider({
+        tenantId: tenantId,
+        clientId: clientId,
+        clientSecret: clientSecret,
+        primaryUserFlow: userFlow,
+        authorization: {
+          params: {
+            scope: "openid profile email",
+            response_type: "code",
+            response_mode: "query"
+          }
         },
+        profile(profile) {
+          return {
+            id: profile.sub,
+            name: profile.name || `${profile.given_name} ${profile.family_name}`,
+            email: profile.email,
+            given_name: profile.given_name,
+            family_name: profile.family_name,
+            roles: profile.extension_Role || ["user"],
+            permissions: profile.extension_Permissions || ["read"]
+          };
+        }
+      })
+    ] : []),
+    
+    // Traditional Login Provider (fallback)
+    CredentialsProvider({
+      id: "credentials",
+      name: "Credenciales",
+      credentials: {
+        email: { label: "Email", type: "email", placeholder: "tu@email.com" },
+        password: { label: "Contraseña", type: "password" }
       },
-    }),
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        try {
+          // Llamar al servicio de autenticación backend
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password
+            })
+          });
+
+          if (response.ok) {
+            const user = await response.json();
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              given_name: user.given_name,
+              family_name: user.family_name,
+              roles: user.roles || ["user"],
+              permissions: user.permissions || ["read"]
+            };
+          }
+        } catch (error) {
+          console.error('Error authenticating user:', error);
+        }
+
+        // Fallback para credenciales de demo
+        if (credentials.email === "admin@carpeta.com" && credentials.password === "admin123") {
+          return {
+            id: "1",
+            email: "admin@carpeta.com",
+            name: "Administrador",
+            given_name: "Admin",
+            family_name: "Carpeta",
+            roles: ["admin"],
+            permissions: ["all"]
+          };
+        }
+
+        if (credentials.email === "demo@carpeta.com" && credentials.password === "demo123") {
+          return {
+            id: "2",
+            email: "demo@carpeta.com", 
+            name: "Usuario Demo",
+            given_name: "Usuario",
+            family_name: "Demo",
+            roles: ["user"],
+            permissions: ["read"]
+          };
+        }
+
+        return null;
+      }
+    })
   ],
   
   callbacks: {
@@ -34,7 +123,7 @@ const authOptions: NextAuthOptions = {
      * JWT Callback - Called when JWT is created or updated
      * Store user info from Azure AD B2C in the token
      */
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account, profile, user }) {
       // Initial sign in
       if (account && profile) {
         token.accessToken = account.access_token;
@@ -51,6 +140,27 @@ const authOptions: NextAuthOptions = {
         // Custom claims (if configured in B2C)
         token.roles = (profile as Record<string, unknown>).extension_Role as string[] || [];
         token.permissions = (profile as Record<string, unknown>).extension_Permissions as string[] || [];
+      }
+
+      // Credentials provider (or any flow that supplies a user object)
+      if (user) {
+        // Narrow unknown user shape safely
+        const u = user as unknown as {
+          id?: string;
+          email?: string;
+          name?: string;
+          given_name?: string;
+          family_name?: string;
+          roles?: string[];
+          permissions?: string[];
+        };
+        token.sub = u.id ?? (token.sub as string);
+        token.email = u.email ?? (token.email as string);
+        token.name = u.name ?? (token.name as string);
+        token.given_name = u.given_name ?? (token.given_name as string);
+        token.family_name = u.family_name ?? (token.family_name as string);
+        token.roles = u.roles ?? ((token.roles as string[] | undefined) ?? []);
+        token.permissions = u.permissions ?? ((token.permissions as string[] | undefined) ?? []);
       }
       
       return token;
@@ -106,7 +216,7 @@ const authOptions: NextAuthOptions = {
 
   secret: process.env.NEXTAUTH_SECRET,
 
-  debug: process.env.NODE_ENV === "development",
+  debug: true, // Enable debug mode to see what's happening
 };
 
 const handler = NextAuth(authOptions);

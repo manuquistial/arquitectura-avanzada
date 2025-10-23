@@ -1,11 +1,11 @@
-"""OpenSearch client for document indexing and search."""
+"""OpenSearch client for document indexing and search - Updated for Azure."""
 
 import logging
 from typing import Any, Dict, List, Optional
-from opensearchpy import OpenSearch, AsyncOpenSearch, RequestError
-from opensearchpy.helpers import async_bulk
+from opensearchpy import OpenSearch, RequestError
+from opensearchpy.helpers import bulk
 
-from app.config import Settings
+from app.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,12 @@ class OpenSearchClient:
                 "createdAt": {"type": "date"},
                 "updatedAt": {"type": "date"},
                 "status": {"type": "keyword"},
-                "contentType": {"type": "keyword"}
+                "contentType": {"type": "keyword"},
+                "state": {"type": "keyword"},
+                "wormLocked": {"type": "boolean"},
+                "signedAt": {"type": "date"},
+                "retentionUntil": {"type": "date"},
+                "lifecycleTier": {"type": "keyword"}
             }
         },
         "settings": {
@@ -44,54 +49,74 @@ class OpenSearchClient:
         }
     }
     
-    def __init__(self, settings: Settings):
+    def __init__(self, config):
         """Initialize OpenSearch client."""
-        self.settings = settings
-        self.client: Optional[AsyncOpenSearch] = None
+        self.config = config
+        self.client: Optional[OpenSearch] = None
         
-        if settings.opensearch_host:
+        if config.opensearch.host:
             self._init_client()
     
     def _init_client(self):
-        """Initialize async OpenSearch client."""
+        """Initialize async OpenSearch client with Azure-specific error handling."""
         try:
             auth = None
-            if self.settings.opensearch_username and self.settings.opensearch_password:
+            if self.config.opensearch.username and self.config.opensearch.password:
                 auth = (
-                    self.settings.opensearch_username,
-                    self.settings.opensearch_password
+                    self.config.opensearch.username,
+                    self.config.opensearch.password
                 )
             
-            self.client = AsyncOpenSearch(
+            self.client = OpenSearch(
                 hosts=[{
-                    'host': self.settings.opensearch_host,
-                    'port': self.settings.opensearch_port
+                    'host': self.config.opensearch.host,
+                    'port': self.config.opensearch.port
                 }],
                 http_auth=auth,
-                use_ssl=self.settings.opensearch_use_ssl,
-                verify_certs=self.settings.opensearch_verify_certs,
+                use_ssl=self.config.opensearch.use_ssl,
+                verify_certs=self.config.opensearch.verify_certs,
                 timeout=30
             )
             
             logger.info(
                 f"✅ OpenSearch client initialized: "
-                f"{self.settings.opensearch_host}:{self.settings.opensearch_port}"
+                f"{self.config.opensearch.host}:{self.config.opensearch.port}"
             )
+            
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Failed to initialize OpenSearch: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed - check network and credentials")
+                logger.error("💡 Verify OpenSearch cluster is running and accessible")
+            elif "ssl" in str(e).lower():
+                logger.error("❌ SSL connection failed - check SSL configuration")
+                logger.error("💡 Verify SSL certificates and OpenSearch SSL settings")
+            elif "authentication" in str(e).lower():
+                logger.error("❌ Authentication failed - check OpenSearch credentials")
+                logger.error("💡 Verify username and password for OpenSearch")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ Connection timeout - check OpenSearch availability")
+                logger.error("💡 Verify OpenSearch cluster is running and network connectivity")
+            else:
+                logger.error(f"❌ Unexpected OpenSearch initialization error: {error_type}")
+                
             self.client = None
     
-    async def ensure_index(self):
-        """Create index if it doesn't exist."""
+    def ensure_index(self):
+        """Create index if it doesn't exist with Azure-specific error handling."""
         if not self.client:
             logger.warning("OpenSearch client not initialized")
-            return
+            raise ConnectionError("OpenSearch client not available")
         
         try:
-            exists = await self.client.indices.exists(index=self.INDEX_NAME)
+            exists = self.client.indices.exists(index=self.INDEX_NAME)
             
             if not exists:
-                await self.client.indices.create(
+                self.client.indices.create(
                     index=self.INDEX_NAME,
                     body=self.INDEX_MAPPING
                 )
@@ -100,10 +125,46 @@ class OpenSearchClient:
                 logger.debug(f"Index {self.INDEX_NAME} already exists")
                 
         except RequestError as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Failed to create index: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "index_already_exists" in str(e).lower():
+                logger.warning("⚠️ Index already exists, continuing...")
+            elif "permission" in str(e).lower():
+                logger.error("❌ Permission denied creating OpenSearch index")
+                logger.error("💡 Check OpenSearch user permissions for index creation")
+                raise
+            elif "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during index creation")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+                raise
+            else:
+                logger.error(f"❌ Unexpected OpenSearch index creation error: {error_type}")
+                raise
+                
+        except Exception as e:
+            error_type = type(e).__name__
+            logger.error(f"❌ OpenSearch connection failed: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed - check network and credentials")
+                logger.error("💡 Verify OpenSearch cluster is running and accessible")
+            elif "ssl" in str(e).lower():
+                logger.error("❌ SSL connection failed - check SSL configuration")
+                logger.error("💡 Verify SSL certificates and OpenSearch SSL settings")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ Connection timeout - check OpenSearch availability")
+                logger.error("💡 Verify OpenSearch cluster is running and network connectivity")
+            else:
+                logger.error(f"❌ Unexpected OpenSearch connection error: {error_type}")
+                
             raise
     
-    async def index_document(
+    def index_document(
         self,
         document_id: str,
         citizen_id: int,
@@ -157,7 +218,7 @@ class OpenSearchClient:
                 "updatedAt": updated_at
             }
             
-            response = await self.client.index(
+            response = self.client.index(
                 index=self.INDEX_NAME,
                 id=document_id,
                 body=doc_body,
@@ -168,13 +229,32 @@ class OpenSearchClient:
             return response['result'] in ['created', 'updated']
             
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Failed to index document {document_id}: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during document indexing")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.error("❌ Permission denied indexing document in OpenSearch")
+                logger.error("💡 Check OpenSearch user permissions for document indexing")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ Connection timeout during document indexing")
+                logger.error("💡 Check OpenSearch cluster performance and network latency")
+            elif "index_not_found" in str(e).lower():
+                logger.error("❌ OpenSearch index not found during document indexing")
+                logger.error("💡 Check if OpenSearch index exists and is accessible")
+            else:
+                logger.error(f"❌ Unexpected OpenSearch indexing error: {error_type}")
+                
             return False
     
-    async def search_documents(
+    def search_documents(
         self,
         query: str = "",
-        citizen_id: Optional[int] = None,
+        citizen_id: Optional[str] = None,
         tags: Optional[List[str]] = None,
         status: Optional[str] = None,
         from_: int = 0,
@@ -216,7 +296,7 @@ class OpenSearchClient:
             
             if citizen_id:
                 filter_clauses.append({
-                    "term": {"citizenId": citizen_id}
+                    "term": {"citizen_id": citizen_id}
                 })
             
             if tags:
@@ -241,7 +321,7 @@ class OpenSearchClient:
                 search_query = {"match_all": {}}
             
             # Execute search
-            response = await self.client.search(
+            response = self.client.search(
                 index=self.INDEX_NAME,
                 body={
                     "query": search_query,
@@ -273,29 +353,75 @@ class OpenSearchClient:
             return results
             
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Search failed: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during search")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.error("❌ Permission denied searching OpenSearch")
+                logger.error("💡 Check OpenSearch user permissions for search operations")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ Connection timeout during search")
+                logger.error("💡 Check OpenSearch cluster performance and network latency")
+            elif "index_not_found" in str(e).lower():
+                logger.error("❌ OpenSearch index not found during search")
+                logger.error("💡 Check if OpenSearch index exists and is accessible")
+            elif "query" in str(e).lower():
+                logger.error("❌ Invalid search query")
+                logger.error("💡 Check search query syntax and parameters")
+            else:
+                logger.error(f"❌ Unexpected OpenSearch search error: {error_type}")
+                
             return {"total": 0, "hits": []}
     
-    async def delete_document(self, document_id: str) -> bool:
-        """Delete document from index."""
+    def delete_document(self, document_id: str) -> bool:
+        """Delete document from index with Azure-specific error handling."""
         if not self.client:
             return False
         
         try:
-            await self.client.delete(
+            self.client.delete(
                 index=self.INDEX_NAME,
                 id=document_id,
                 refresh='wait_for'
             )
             logger.info(f"🗑️  Deleted document from index: {document_id}")
             return True
+            
         except Exception as e:
+            error_type = type(e).__name__
             logger.error(f"❌ Failed to delete document: {e}")
+            logger.error(f"Error type: {error_type}")
+            
+            # Azure-specific error handling
+            if "connection" in str(e).lower():
+                logger.error("❌ OpenSearch connection failed during document deletion")
+                logger.error("💡 Check OpenSearch cluster availability and network connectivity")
+            elif "permission" in str(e).lower():
+                logger.error("❌ Permission denied deleting document from OpenSearch")
+                logger.error("💡 Check OpenSearch user permissions for document deletion")
+            elif "timeout" in str(e).lower():
+                logger.error("❌ Connection timeout during document deletion")
+                logger.error("💡 Check OpenSearch cluster performance and network latency")
+            elif "not_found" in str(e).lower():
+                logger.warning(f"⚠️ Document {document_id} not found in OpenSearch index")
+                logger.info("💡 Document may have been already deleted or never indexed")
+                return True  # Consider this a success since document is not in index
+            elif "index_not_found" in str(e).lower():
+                logger.error("❌ OpenSearch index not found during document deletion")
+                logger.error("💡 Check if OpenSearch index exists and is accessible")
+            else:
+                logger.error(f"❌ Unexpected OpenSearch deletion error: {error_type}")
+                
             return False
     
-    async def close(self):
+    def close(self):
         """Close OpenSearch client."""
         if self.client:
-            await self.client.close()
+            self.client.close()
             logger.info("OpenSearch client closed")
 

@@ -18,3 +18,7 @@ output "db_subnet_id" {
   value       = azurerm_subnet.db.id
 }
 
+# Note: APIM and Redis subnets are not created in this simplified VNet module
+# output "apim_subnet_id" - Not created
+# output "redis_subnet_id" - Not created
+

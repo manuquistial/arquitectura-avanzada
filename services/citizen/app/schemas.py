@@ -8,21 +8,20 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 class CitizenBase(BaseModel):
     """Base citizen schema."""
 
-    id: int = Field(..., description="Citizen ID (cédula)", gt=0)
+    id: str = Field(..., description="Citizen ID (cédula)", min_length=10, max_length=10)
     name: str = Field(..., description="Full name", min_length=1, max_length=255)
     address: str = Field(..., description="Address", min_length=1, max_length=500)
     email: EmailStr = Field(..., description="Email")
 
     @field_validator("id")
     @classmethod
-    def validate_citizen_id(cls, v: int) -> int:
+    def validate_citizen_id(cls, v: str) -> str:
         """Validate citizen ID has exactly 10 digits (required by GovCarpeta API)."""
-        id_str = str(v)
-        if len(id_str) != 10:
+        if len(v) != 10:
             raise ValueError(
-                f"Citizen ID must be exactly 10 digits, got {len(id_str)} digits"
+                f"Citizen ID must be exactly 10 digits, got {len(v)} digits"
             )
-        if not id_str.isdigit():
+        if not v.isdigit():
             raise ValueError("Citizen ID must contain only digits")
         return v
 
@@ -59,15 +58,12 @@ class CitizenResponse(CitizenBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        """Pydantic config."""
-
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class CitizenUnregister(BaseModel):
     """Unregister citizen schema."""
 
-    id: int = Field(..., description="Citizen ID")
+    id: str = Field(..., description="Citizen ID")
     operator_id: str = Field(..., description="Operator ID")
 

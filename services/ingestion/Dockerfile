@@ -1,16 +1,26 @@
 FROM python:3.13-slim
 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 WORKDIR /app/services/ingestion
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
 RUN pip install --no-cache-dir poetry==2.2.1
 
 # Copy common package to ../common (as expected by pyproject.toml)
 COPY services/common ../common/
 
-# Copy poetry files (pyproject.toml expects ../common)
-COPY services/ingestion/pyproject.toml services/ingestion/poetry.lock* ./
+# Copy poetry files
+COPY services/ingestion/pyproject.toml ./
 
-# Install dependencies (no sed needed, paths match)
+# Install dependencies
 RUN poetry config virtualenvs.create false \
     && poetry install --without dev --no-root --no-interaction --no-ansi
 
@@ -21,7 +31,11 @@ COPY services/ingestion/app/ ./app/
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port (varies by service)
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
 EXPOSE 8000
 
 # Run application

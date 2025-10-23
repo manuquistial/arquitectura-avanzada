@@ -1,10 +1,14 @@
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.7"
   
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.80"
+      version = "~> 4.0"
+    }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
     }
     helm = {
       source  = "hashicorp/helm"
@@ -29,6 +33,17 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
+  
+  # Usar OIDC (Federated Identity) para autenticación en GitHub Actions
+  use_oidc = true
+  
+  # Subscription ID - se puede obtener automáticamente o especificar explícitamente
+  subscription_id = var.azure_subscription_id
+}
+
+# Provider para Azure AD
+provider "azuread" {
+  use_oidc = true
 }
 
 # Provider para Helm
@@ -37,6 +52,7 @@ provider "azurerm" {
 provider "helm" {
   kubernetes {
     config_path = "~/.kube/config"
+    config_context = "carpeta-ciudadana-production-admin"
   }
 }
 
@@ -45,6 +61,7 @@ provider "helm" {
 # For initial deployment, use two-stage apply (see CI/CD pipeline)
 provider "kubernetes" {
   config_path = "~/.kube/config"
+  config_context = "carpeta-ciudadana-production-admin"
 }
 
 # Resource Group principal
@@ -89,6 +106,7 @@ module "aks" {
   sku_tier                = var.aks_sku_tier
   authorized_ip_ranges    = var.aks_authorized_ip_ranges
   admin_group_object_ids  = var.aks_admin_groups
+  tenant_id               = data.azurerm_client_config.current.tenant_id
   
   # Availability zones (multi-AZ)
   availability_zones = var.aks_availability_zones
@@ -128,25 +146,88 @@ module "aks" {
   vm_size    = var.aks_vm_size
 }
 
-# PostgreSQL Flexible Server
+# PostgreSQL Flexible Server con Private Endpoint
 module "postgresql" {
-  source = "./modules/postgresql"
+  source = "./modules/postgresql-flexible"
 
+  # Environment and location
   environment         = var.environment
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  subnet_id           = module.vnet.db_subnet_id
-  admin_username      = var.db_admin_username
-  admin_password      = var.db_admin_password
-  sku_name            = var.db_sku_name
-  storage_mb          = var.db_storage_mb
   
-  # Firewall configuration
-  aks_egress_ip        = var.db_aks_egress_ip
-  allow_azure_services = var.db_allow_azure_services
+  # Dependencies
+  depends_on = [module.vnet]
   
-  depends_on = [module.aks]
+  # Authentication
+  admin_username = var.db_admin_username
+  admin_password = var.db_admin_password
+  
+  # Database configuration
+  database_name = "carpeta_ciudadana"
+  
+  # PostgreSQL configuration
+  postgresql_version = "16"  # Updated to PostgreSQL 16
+  sku_name          = var.db_sku_name
+  storage_mb        = var.db_storage_mb
+  
+  # Network configuration - Private Endpoint
+  vnet_name             = module.vnet.vnet_name
+  vnet_id               = module.vnet.vnet_id
+  postgresql_subnet_cidr = var.subnet_cidrs.db
+  
+  # Backup and availability
+  backup_retention_days        = 7
+  geo_redundant_backup        = false
+  availability_zone           = "1"
+  high_availability_mode      = "Disabled"
+  
+  # Security - Private Endpoint configuration
+  public_network_access_enabled = false  # Disabled for private access
+  allow_azure_services          = false   # Not needed with private endpoint
+  allow_current_ip             = false   # Not needed with private endpoint
+  current_ip_address           = "0.0.0.0"  # Not used
+  aks_egress_ip               = ""       # Not needed with private endpoint
 }
+
+# Kubernetes Secrets para conexión privada - DISABLED
+# module "kubernetes_secrets" {
+#   source = "./modules/kubernetes-secrets"
+
+#   # Namespace
+#   namespace = "${var.project_name}-${var.environment}"
+
+#   # PostgreSQL configuration
+#   postgresql_fqdn        = module.postgresql.fqdn
+#   postgresql_username    = var.db_admin_username
+#   postgresql_password    = var.db_admin_password
+#   postgresql_database    = "carpeta_ciudadana"
+
+#   # Azure Storage
+#   azure_storage_enabled        = true
+#   azure_storage_account_name   = module.storage.storage_account_name
+#   azure_storage_account_key    = module.storage.primary_access_key
+#   azure_storage_container_name = "documents"
+
+#   # Service Bus
+#   servicebus_enabled           = true
+#   servicebus_connection_string = module.servicebus.primary_connection_string
+
+#   # Redis
+#   redis_enabled   = var.redis_enabled
+#   redis_host      = var.redis_enabled ? module.redis[0].redis_hostname : ""
+#   redis_port      = var.redis_enabled ? module.redis[0].redis_port : "6380"
+#   redis_password  = var.redis_enabled ? module.redis[0].redis_primary_key : ""
+#   redis_ssl       = "true"
+
+#   # Azure AD B2C
+#   azure_b2c_enabled        = var.azure_b2c_enabled
+#   azure_b2c_tenant_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_id : ""
+#   azure_b2c_client_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_id : ""
+#   azure_b2c_client_secret  = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_secret : ""
+
+#   # M2M Authentication
+#   m2m_secret_key = var.m2m_secret_key
+# }
 
 # Blob Storage
 module "storage" {
@@ -158,21 +239,15 @@ module "storage" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   domain_name         = var.domain_name
+  
+  # Security Center contact
+  security_contact_email = var.security_contact_email
+  security_contact_phone = var.security_contact_phone
 }
 
-# Azure Cognitive Search (equivalente a OpenSearch)
-# Comentado para ahorrar costos ($75/mes)
-# Usaremos Elasticsearch self-hosted en AKS
-# module "search" {
-#   source = "./modules/search"
-#
-#   environment         = var.environment
-#   resource_group_name = azurerm_resource_group.main.name
-#   location            = azurerm_resource_group.main.location
-#   sku                 = var.search_sku
-# }
+# Azure Cognitive Search removed - using OpenSearch instead
 
-# Service Bus (equivalente a SQS/SNS)
+# Service Bus (Azure messaging)
 module "servicebus" {
   source = "./modules/servicebus"
 
@@ -186,6 +261,54 @@ module "servicebus" {
   }
 }
 
+# Redis for caching and rate limiting
+# Habilitado para suscripción estándar
+module "redis" {
+  count  = var.redis_enabled ? 1 : 0
+  source = "./modules/redis"
+
+  environment         = var.environment
+  location            = var.azure_region
+  resource_group_name = azurerm_resource_group.main.name
+  
+  # Redis configuration
+  capacity                    = var.redis_capacity
+  family                      = var.redis_family
+  sku_name                    = var.redis_sku
+  enable_non_ssl_port         = var.redis_enable_non_ssl_port
+  minimum_tls_version         = var.redis_minimum_tls_version
+  enable_authentication       = var.redis_enable_authentication
+  maxmemory_policy           = var.redis_maxmemory_policy
+  enable_vnet_integration     = var.redis_enable_vnet_integration
+  subnet_id                  = var.redis_enable_vnet_integration ? module.vnet.subnet_ids["aks"] : null
+  private_static_ip_address  = var.redis_enable_vnet_integration ? "10.0.1.10" : null
+  vnet_id                    = var.redis_enable_vnet_integration ? module.vnet.vnet_id : null
+  private_endpoint_subnet_id = var.redis_enable_vnet_integration ? module.vnet.subnet_ids["aks"] : null
+  enable_firewall_rules       = var.redis_enable_firewall_rules
+  aks_subnet_start_ip        = var.redis_enable_firewall_rules ? "10.0.1.0" : null
+  aks_subnet_end_ip          = var.redis_enable_firewall_rules ? "10.0.1.255" : null
+  allow_azure_services        = var.redis_allow_azure_services
+  
+  depends_on = [module.aks]
+}
+
+# DNS Zone for application domain
+module "dns" {
+  source = "./modules/dns"
+
+  dns_zone_name       = var.dns_zone_name
+  resource_group_name = azurerm_resource_group.main.name
+  app_subdomain       = var.app_subdomain
+  ingress_ip          = "135.224.5.72"  # IP del ingress controller
+  
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+  
+  depends_on = [module.aks]
+}
+
 # KEDA (Kubernetes Event-Driven Autoscaling)
 module "keda" {
   source = "./modules/keda"
@@ -195,78 +318,61 @@ module "keda" {
   app_namespace                 = "${var.project_name}-${var.environment}"
   replica_count                 = var.keda_replica_count
   enable_servicebus_trigger     = true
-  enable_prometheus_monitoring  = true  # Always enable for production
+  enable_prometheus_monitoring  = false  # Disabled for cost optimization
 
   depends_on = [module.aks, module.servicebus]
 }
 
-# Azure Key Vault (for secrets management)
-module "keyvault" {
-  source = "./modules/keyvault"
+# Azure Key Vault removed - using environment variables instead
 
-  project_name               = var.project_name
-  environment                = var.environment
-  location                   = azurerm_resource_group.main.location
-  resource_group_name        = azurerm_resource_group.main.name
-  tenant_id                  = data.azurerm_client_config.current.tenant_id
-  aks_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
-  
-  # Secrets values
-  postgres_host                 = module.postgresql.fqdn
-  postgres_username             = var.db_admin_username
-  postgres_password             = var.db_admin_password
-  postgres_database             = "carpeta_ciudadana"
-  servicebus_connection_string  = module.servicebus.primary_connection_string
-  m2m_secret_key                = var.m2m_secret_key
-  storage_account_name          = module.storage.storage_account_name
-  redis_password                = var.redis_password
-  opensearch_username           = var.opensearch_username
-  opensearch_password           = var.opensearch_password
-  azure_b2c_tenant_id           = var.azure_b2c_tenant_id
-  azure_b2c_client_id           = var.azure_b2c_client_id
-  azure_b2c_client_secret       = var.azure_b2c_client_secret
-  
-  # Configuration
-  sku_name                      = var.keyvault_sku
-  enable_public_access          = var.keyvault_enable_public_access
-  purge_protection_enabled      = var.keyvault_purge_protection
-  soft_delete_retention_days    = var.keyvault_soft_delete_days
+# CSI Secrets Store Driver removed - using environment variables instead
 
-  depends_on = [module.aks, module.postgresql, module.servicebus, module.storage]
+# Azure API Management (API Gateway) - REMOVED
+# APIM is overkill for this application, using Front Door instead
+
+# Azure AD B2C (authentication)
+# Habilitado con configuración optimizada para Azure for Students
+module "azure_ad_b2c" {
+  count  = var.azure_b2c_enabled ? 1 : 0
+  source = "./modules/azure-ad-b2c"
+
+  environment           = var.environment
+  b2c_tenant_name       = var.azure_b2c_tenant_name
+  redirect_uris         = var.azure_b2c_redirect_uris
+  logout_redirect_uri   = var.azure_b2c_logout_redirect_uri
+  user_flow_name        = var.azure_b2c_user_flow_name
+  enable_implicit_flow  = var.azure_b2c_enable_implicit_flow
+  enable_authorization_code_flow = var.azure_b2c_enable_authorization_code_flow
+  enable_client_credentials_flow = var.azure_b2c_enable_client_credentials_flow
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }
 
-# CSI Secrets Store Driver (for Key Vault integration)
-module "csi_secrets_driver" {
-  source = "./modules/csi-secrets-driver"
+# Azure Front Door (HTTPS Gateway)
+module "frontdoor" {
+  count  = var.frontdoor_enabled ? 1 : 0
+  source = "./modules/frontdoor"
 
-  namespace                = var.csi_secrets_namespace
-  enable_secret_rotation   = var.csi_enable_rotation
-  rotation_poll_interval   = var.csi_rotation_interval
-
-  depends_on = [module.aks, module.keyvault]
+  environment         = var.environment
+  resource_group_name = azurerm_resource_group.main.name
+  frontend_hostname   = var.frontdoor_frontend_hostname
+  api_hostname        = var.frontdoor_api_hostname
+  enable_waf          = var.frontdoor_enable_waf
+  
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+  
+  depends_on = [module.aks]
 }
 
-# Azure AD B2C (equivalente a Cognito)
-# Comentado - Requiere permisos especiales en Azure for Students
-# Usaremos autenticación simple por ahora
-# module "adb2c" {
-#   source = "./modules/adb2c"
-#
-#   environment         = var.environment
-#   resource_group_name = azurerm_resource_group.main.name
-#   domain_name         = var.adb2c_domain_name
-# }
-
-# Container Registry (ACR - equivalente a ECR)
-# Comentado para ahorrar $5/mes - Usaremos Docker Hub (gratis)
-# module "acr" {
-#   source = "./modules/acr"
-#
-#   environment         = var.environment
-#   resource_group_name = azurerm_resource_group.main.name
-#   location            = azurerm_resource_group.main.location
-#   sku                 = var.acr_sku
-# }
+# Azure Container Registry removed - using Docker Hub instead
 
 # Key Vault (para certificados mTLS)
 # Comentado - Requiere permisos adicionales
@@ -327,40 +433,106 @@ module "cert_manager" {
   depends_on = [module.aks]
 }
 
-# Observability stack (OpenTelemetry + Prometheus)
-module "observability" {
-  source = "./modules/observability"
+# Observability stack removed - using Azure Monitor instead
 
-  namespace                  = var.observability_namespace
-  otel_chart_version         = var.otel_chart_version
-  otel_replicas              = var.otel_replicas
-  prometheus_chart_version   = var.prometheus_chart_version
-  prometheus_retention       = var.prometheus_retention
-  prometheus_storage_size    = var.prometheus_storage_size
 
-  depends_on = [module.aks]
-}
-
-# OpenSearch deployment via Helm
+# OpenSearch deployment
 module "opensearch" {
   source = "./modules/opensearch"
-
-  namespace           = var.opensearch_namespace
-  chart_version       = var.opensearch_chart_version
-  storage_size        = var.opensearch_storage_size
-  storage_class       = var.opensearch_storage_class
-  memory_request      = var.opensearch_memory_request
-  memory_limit        = var.opensearch_memory_limit
-  cpu_request         = var.opensearch_cpu_request
-  cpu_limit           = var.opensearch_cpu_limit
-  heap_size           = var.opensearch_heap_size
+  
   opensearch_username = var.opensearch_username
   opensearch_password = var.opensearch_password
-  enable_dashboards   = var.opensearch_enable_dashboards
+  
+  depends_on = [
+    module.aks
+  ]
+}
 
-  depends_on = [module.aks]
+
+# Carpeta Ciudadana Application (main services) - ENABLED
+module "carpeta_ciudadana" {
+  source = "./modules/carpeta-ciudadana"
+
+  # Namespace configuration
+  namespace         = "carpeta-ciudadana-${var.environment}"
+  create_namespace  = true
+  
+  # Chart configuration
+  chart_path    = "../../deploy/helm/carpeta-ciudadana"
+  chart_version = "0.1.0"
+  timeout       = 600
+  
+  # Global configuration
+  environment         = var.environment
+  image_registry      = "manuelquistial"
+  image_pull_policy   = "IfNotPresent"
+  log_level           = "INFO"
+  
+  # Workload Identity
+  use_workload_identity        = true
+  workload_identity_client_id  = azurerm_user_assigned_identity.aks_identity.client_id
+  workload_identity_tenant_id  = data.azurerm_client_config.current.tenant_id
+  
+  # Feature flags
+  m2m_auth_enabled     = true
+  migrations_enabled   = true  # Enabled for production
+  servicebus_enabled   = true  # Enabled for production
+  servicebus_namespace = "${var.environment}-carpeta-servicebus"
+  servicebus_connection_string = module.servicebus.primary_connection_string
+  
+  # Resource optimization
+  resource_optimization_enabled = true
+  max_replicas                  = 2
+  default_cpu_request           = "100m"
+  default_memory_request        = "128Mi"
+  default_cpu_limit             = "300m"
+  default_memory_limit          = "512Mi"
+  
+  # Security configuration
+  cors_origins   = "http://localhost:3000,http://localhost:3001"
+  hsts_enabled   = false  # Set to true for production HTTPS
+  csp_enabled    = true
+  csp_report_uri = ""
+  
+  # Database configuration - Using Private Endpoint
+  database_url    = module.postgresql.connection_string_asyncpg
+  postgres_uri    = module.postgresql.connection_string_uri
+  m2m_secret_key  = var.m2m_secret_key
+  
+  # Azure configuration
+  azure_storage_account_name    = module.storage.storage_account_name
+  azure_storage_account_key     = module.storage.primary_access_key
+  azure_storage_container_name  = "documents"
+  
+  # Azure B2C configuration (enabled for production)
+  azure_b2c_enabled        = var.azure_b2c_enabled
+  azure_b2c_tenant_name    = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_name : ""
+  azure_b2c_tenant_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_id : ""
+  azure_b2c_client_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_id : ""
+  azure_b2c_client_secret  = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_secret : ""
+  
+  # MinTIC configuration
+  mintic_hub_url      = "https://govcarpeta-apis-4905ff3c005b.herokuapp.com"
+  mintic_operator_id  = "demo-operator"
+  mintic_operator_name = "Demo Operator"
+
+  depends_on = [
+    module.aks,
+    module.postgresql,
+    module.storage,
+    module.servicebus,
+    module.keda,
+    module.azure_ad_b2c,
+    module.redis,
+    module.cert_manager
+  ]
 }
 
 # Data sources
 data "azurerm_client_config" "current" {}
+
+# Get current IP address for firewall rules
+data "http" "current_ip" {
+  url = "https://ipv4.icanhazip.com"
+}
 

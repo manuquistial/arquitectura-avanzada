@@ -10,7 +10,7 @@ from typing import Any, AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
+from app.config import get_config
 from app.routers import auth, oidc, sessions
 
 # Import from common package (with fallback)
@@ -30,15 +30,27 @@ else:
     )
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
+config = get_config()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan"""
     logger.info("🚀 Starting Auth Service...")
-    logger.info(f"Environment: {settings.environment}")
-    logger.info(f"OIDC Issuer: {settings.oidc_issuer_url}")
+    logger.info(f"Environment: {config.environment}")
+    logger.info(f"OIDC Issuer: {config.oidc_issuer_url}")
+    
+    # Initialize database
+    try:
+        from app.database import init_db, check_db_connection
+        await init_db()
+        db_connected = await check_db_connection()
+        if db_connected:
+            logger.info("✅ Database connection established")
+        else:
+            logger.warning("⚠️ Database connection failed")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
     
     yield
     
@@ -57,7 +69,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=config.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -77,7 +89,7 @@ def create_app() -> FastAPI:
     @app.get("/ready")
     async def ready() -> dict[str, str | bool]:
         """Readiness check endpoint"""
-        # TODO: Check database connection, Redis, etc.
+        # Health check for dependencies
         return {
             "status": "ready",
             "service": "auth",
@@ -90,7 +102,7 @@ def create_app() -> FastAPI:
         return {
             "service": "auth",
             "version": "1.0.0",
-            "oidc_issuer": settings.oidc_issuer_url,
+            "oidc_issuer": config.oidc_issuer_url,
             "endpoints": {
                 "oidc_discovery": "/.well-known/openid-configuration",
                 "jwks": "/.well-known/jwks.json",
@@ -111,7 +123,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8011,
+        port=8000,
         log_level="info",
         reload=True
     )

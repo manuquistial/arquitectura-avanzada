@@ -39,6 +39,11 @@ frontend:
   image:
     repository: carpeta-ciudadana-frontend
     tag: latest
+  env:
+    NEXT_PUBLIC_API_URL: "https://production-carpeta-endpoint-czh6asc2fagng0b7.z01.azurefd.net"
+  nextAuth:
+    secret: "" # Set via CI/CD from Terraform outputs
+    url: "https://app.carpeta-ciudadana.com" # Configurable domain
   resources:
     requests:
       cpu: 200m
@@ -55,25 +60,49 @@ frontend:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
 
-# Gateway
+# Gateway - DISABLED (Using Azure API Management instead)
 gateway:
-  enabled: true
-  replicaCount: 3
+  enabled: false  # Disabled - Using Azure API Management for API routing
+  replicaCount: 0
   image:
     repository: carpeta-ciudadana-gateway
     tag: latest
   resources:
     requests:
+      cpu: 0m
+      memory: 0Mi
+    limits:
+      cpu: 0m
+      memory: 0Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 0
+    maxReplicas: 0
+    targetCPUUtilizationPercentage: 70
+
+# Transfer Worker
+transferWorker:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: carpeta-ciudadana-transfer-worker
+    tag: latest
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
       cpu: 500m
       memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
   autoscaling:
     enabled: true
-    minReplicas: 3
-    maxReplicas: 20
+    minReplicas: 2
+    maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    useMaxUnavailable: true
+    maxUnavailable: 1
 
 # Citizen Service
 citizen:
@@ -196,6 +225,9 @@ readModels:
   image:
     repository: carpeta-ciudadana-read-models
     tag: latest
+  service:
+    type: ClusterIP
+    port: 8007
   resources:
     requests:
       cpu: 100m
@@ -207,6 +239,7 @@ readModels:
     enabled: true
     minReplicas: 3
     maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
 
 # Notification Service
 notification:
@@ -223,20 +256,6 @@ notification:
       cpu: 200m
       memory: 256Mi
 
-# Sharing Service
-sharing:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: carpeta-ciudadana-sharing
-    tag: latest
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
 
 # Ingress
 ingress:
@@ -250,12 +269,28 @@ ingress:
     enabled: true
     secretName: carpeta-ciudadana-tls
 
+# Database Configuration (Production)
+database:
+  connectionString: "" # Set via CI/CD from Terraform outputs
+  host: "production-psql-k85bv.postgres.database.azure.com"
+  port: 5432
+  username: "psqladmin"
+  password: "" # Set via CI/CD from Terraform outputs
+  database: "carpeta_ciudadana"
+
 # PostgreSQL (external)
 postgresql:
   enabled: false  # We use Azure PostgreSQL Flexible Server
   external:
     enabled: true
     # Host will be set by CI/CD from Terraform outputs
+
+# Redis Configuration (Production)
+redis:
+  host: "production-redis.redis.cache.windows.net"
+  port: 6380  # SSL port
+  password: "" # Set via CI/CD from Terraform outputs
+  ssl: true
 
 # Redis (external)
 redis:
@@ -279,11 +314,28 @@ servicebus:
   enabled: true
   # Connection string will be set by CI/CD
 
-# Azure Storage (Managed Identity)
+# Azure Storage Configuration (Production)
 azure:
   storage:
+    accountName: "productioncarpetastorage"
+    accountKey: "" # Set via CI/CD from Terraform outputs
+    containerName: "documents"
     useManagedIdentity: true
     # Account name will be set by CI/CD
+
+# Azure AD B2C Configuration (Production)
+azureB2C:
+  enabled: true
+  tenantName: "carpetaciudadana" # Set via CI/CD from Terraform outputs
+  tenantId: "48d06645-ab3b-4ac4-b121-c63bb238ef6e" # Set via CI/CD from Terraform outputs
+  clientId: "fad953e9-2497-4098-add3-fedaad529ac0" # Set via CI/CD from Terraform outputs
+  clientSecret: "" # Set via CI/CD from Terraform outputs
+  authorityUrl: "https://carpetaciudadana.b2clogin.com/carpetaciudadana.onmicrosoft.com/B2C_1_signupsignin1/v2.0"
+  issuerUrl: "https://carpetaciudadana.b2clogin.com/carpetaciudadana.onmicrosoft.com/B2C_1_signupsignin1/v2.0"
+  jwksUri: "https://carpetaciudadana.b2clogin.com/carpetaciudadana.onmicrosoft.com/B2C_1_signupsignin1/discovery/v2.0/keys"
+  userFlowName: "B2C_1_signupsignin1"
+  redirectUri: "https://app.carpeta-ciudadana.com/api/auth/callback/azure-ad-b2c"
+  logoutRedirectUri: "https://app.carpeta-ciudadana.com"
 
 # Database Migrations
 migrations:
@@ -301,9 +353,12 @@ podDisruptionBudget:
   enabled: true
   minAvailable: 1
 
-# Network Policies
-networkPolicy:
+# Network Policies (Zero-Trust Networking)
+networkPolicies:
   enabled: true
+  denyAllByDefault: true
+  allowDNS: true
+  allowObservability: true
 
 # Security Context
 podSecurityContext:

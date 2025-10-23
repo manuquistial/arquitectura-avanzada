@@ -130,15 +130,4 @@ class Transfer(BaseModel):
     error_message: str | None = None
 
 
-class Share(BaseModel):
-    """Share model."""
-
-    id: UUID
-    citizen_id: int
-    document_ids: list[UUID]
-    recipient_email: str
-    expires_at: datetime
-    access_token: str
-    accessed_at: datetime | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 

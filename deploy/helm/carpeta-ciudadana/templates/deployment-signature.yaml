@@ -26,38 +26,31 @@ spec:
           name: http
         env:
         - name: ENVIRONMENT
-          value: {{ .Values.global.environment }}
-        - name: DATABASE_URL
-          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+          value: {{ .Values.global.environment | default "dev" }}
+        # DATABASE_URL is provided by the secret db-secrets
         - name: AZURE_STORAGE_ACCOUNT_NAME
-          value: {{ .Values.azure.storage.accountName | quote }}
+          value: {{ .Values.azure.storage.accountName | default "devstorage" | quote }}
         - name: AZURE_STORAGE_ACCOUNT_KEY
           valueFrom:
             secretKeyRef:
               name: azure-storage-secret
               key: account-key
-        - name: AZURE_STORAGE_CONTAINER
-          value: {{ .Values.azure.storage.containerName | quote }}
-        - name: MINTIC_HUB_URL
-          value: {{ .Values.mintic.hubUrl | quote }}
-        - name: MINTIC_OPERATOR_ID
-          value: {{ .Values.mintic.operatorId | quote }}
-        - name: MINTIC_OPERATOR_NAME
-          value: {{ .Values.mintic.operatorName | quote }}
-        - name: REDIS_HOST
-          value: {{ .Values.global.redis.host | quote }}
-        - name: REDIS_PORT
-          value: "{{ .Values.global.redis.port }}"
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.global.redis.passwordSecretName }}
-              key: password
               optional: true
-        - name: REDIS_SSL
-          value: "{{ .Values.global.redis.ssl }}"
+        - name: AZURE_STORAGE_CONTAINER
+          value: {{ .Values.azure.storage.containerName | default "devcontainer" | quote }}
+        - name: MINTIC_HUB_URL
+          value: {{ .Values.mintic.hubUrl | default "https://govcarpeta-apis-4905ff3c005b.herokuapp.com" | quote }}
+        - name: MINTIC_OPERATOR_ID
+          value: {{ .Values.mintic.operatorId | default "demo-operator" | quote }}
+        - name: MINTIC_OPERATOR_NAME
+          value: {{ .Values.mintic.operatorName | default "Demo Operator" | quote }}
+        # Redis configuration - commented out since Redis is not working
+        # - name: REDIS_HOST
+        # - name: REDIS_PORT
+        # - name: REDIS_PASSWORD
+        # - name: REDIS_SSL
         - name: SERVICE_BUS_ENABLED
-          value: "{{ .Values.serviceBus.enabled }}"
+          value: "{{ .Values.serviceBus.enabled | default false }}"
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:
@@ -69,6 +62,8 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+        - secretRef:
+            name: db-secrets
         resources:
           {{- toYaml .Values.signature.resources | nindent 10 }}
         livenessProbe:
@@ -83,7 +78,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: 8000
             scheme: HTTP
           initialDelaySeconds: 15
@@ -132,4 +127,3 @@ spec:
         averageUtilization: {{ .Values.signature.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
 {{- end }}
-

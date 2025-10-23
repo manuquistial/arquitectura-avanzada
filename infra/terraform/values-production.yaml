@@ -1,0 +1,225 @@
+# Production Environment Configuration
+global:
+  environment: production
+  imageRegistry: manuelquistial
+  imagePullPolicy: IfNotPresent
+  logLevel: INFO
+  useWorkloadIdentity: true
+  workloadIdentity:
+    clientId: "7a9de5c0-250c-4e00-a3f8-861b6cbc1c8c"  # AKS Managed Identity Client ID
+    tenantId: "48d06645-ab3b-4ac4-b121-c63bb238ef6e"
+  
+  m2mAuth:
+    enabled: true
+  
+  resourceOptimization:
+    enabled: false
+  
+  security:
+    hstsEnabled: true
+  
+        redis:
+          host: "production-redis.redis.cache.windows.net"  # Azure Redis hostname
+          port: 6380  # SSL port
+          ssl: true
+          passwordSecretName: redis-secrets
+
+# Database configuration
+database:
+  host: "production-psql-k85bv.postgres.database.azure.com"
+  port: 5432
+  name: "carpeta_ciudadana"
+  username: "psqladmin"
+  password: "CarpetaCiudadana2024!Secure"
+  
+# PostgreSQL connection strings (from Terraform outputs)
+postgresql:
+  connectionString: "postgresql://psqladmin:CarpetaCiudadana2024%21Secure@production-psql-k85bv.postgres.database.azure.com:5432/carpeta_ciudadana?sslmode=require"
+  connectionStringUri: "postgresql://psqladmin:CarpetaCiudadana2024%21Secure@production-psql-k85bv.postgres.database.azure.com:5432/carpeta_ciudadana?sslmode=require"
+
+# Service Bus configuration
+servicebus:
+  namespace: production-carpeta-servicebus
+  connectionString: ""  # Will be set from Key Vault
+
+# Azure Storage configuration
+azureStorage:
+  accountName: productioncarpetastorage
+  connectionString: ""  # Will be set from Key Vault
+
+# MinTIC Hub configuration
+mintic:
+  hubUrl: "https://hub.mintic.gov.co"
+  allowInsecureUrls: false
+
+# Enable all services
+# notification: disabled - not required by reference document
+signature:
+  enabled: true
+ingestion:
+  enabled: true
+readModels:
+  enabled: true
+transfer:
+  enabled: true
+metadata:
+  enabled: true
+citizen:
+  enabled: true
+auth:
+  enabled: true
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-frontend
+    tag: latest
+  service:
+    type: LoadBalancer
+    port: 80
+    targetPort: 3000
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "25m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+  autoscaling:
+    enabled: false  # Disabled to save resources
+
+# gateway: REMOVED - Using Azure API Management instead
+# gateway:
+#   enabled: false  # Replaced by Azure API Management
+
+# Backend services - OPTIMIZED FOR QUOTA LIMITS
+citizen:
+  enabled: true
+  replicaCount: 1  # Reduced from 2 to 1
+  image:
+    repository: carpeta-citizen
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "32Mi"   # Reduced from 128Mi
+      cpu: "10m"       # Reduced from 50m
+    limits:
+      memory: "64Mi"   # Reduced from 256Mi
+      cpu: "50m"       # Reduced from 200m
+  autoscaling:
+    enabled: false     # Disabled to save resources
+
+# OPTIMIZED RESOURCES FOR QUOTA LIMITS - ALL SERVICES
+ingestion:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "16Mi"   # Ultra-minimal
+      cpu: "5m"        # Ultra-minimal
+    limits:
+      memory: "32Mi"
+      cpu: "25m"
+
+metadata:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "16Mi"   # Ultra-minimal
+      cpu: "5m"        # Ultra-minimal
+    limits:
+      memory: "32Mi"
+      cpu: "25m"
+
+readModels:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "16Mi"   # Ultra-minimal
+      cpu: "5m"        # Ultra-minimal
+    limits:
+      memory: "32Mi"
+      cpu: "25m"
+
+signature:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "32Mi"   # Slightly more for crypto operations
+      cpu: "10m"
+    limits:
+      memory: "64Mi"
+      cpu: "50m"
+
+transfer:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "32Mi"   # Slightly more for saga operations
+      cpu: "10m"
+    limits:
+      memory: "64Mi"
+      cpu: "50m"
+
+       # notification: disabled - not required by reference document
+
+minticClient:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "16Mi"   # Ultra-minimal
+      cpu: "5m"        # Ultra-minimal
+    limits:
+      memory: "32Mi"
+      cpu: "25m"
+
+# Ingress configuration - Frontend only (API traffic goes through APIM)
+ingress:
+  enabled: true
+  className: nginx
+  tls:
+    enabled: true
+    secretName: carpeta-ciudadana-tls
+    certManager:
+      enabled: true
+      clusterIssuer: letsencrypt-prod
+      acmeChallenge: http01
+  hosts:
+    - host: "app.carpeta-ciudadana.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: frontend
+              port: 80
+        # API traffic now goes through Azure API Management
+        # - path: /api - REMOVED (handled by APIM)
+
+# Monitoring
+monitoring:
+  enabled: false
+
+# observability:
+#   prometheus: REMOVED - not required by reference document
+
+# Disable migration hooks for initial deployment
+migrations:
+  enabled: false
+
+# Service Account configuration
+serviceAccount:
+  create: true
+  annotations:
+    azure.workload.identity/client-id: "7a9de5c0-250c-4e00-a3f8-861b6cbc1c8c"
+    azure.workload.identity/tenant-id: "48d06645-ab3b-4ac4-b121-c63bb238ef6e"

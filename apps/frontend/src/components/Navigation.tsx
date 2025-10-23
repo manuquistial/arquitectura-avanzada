@@ -28,6 +28,11 @@ export default function Navigation() {
     { name: 'Notificaciones', href: '/notifications', icon: '🔔' },
   ];
 
+  // Add admin navigation for mintic users
+  const adminNavigationItems = [
+    { name: 'Administración', href: '/admin', icon: '⚙️' },
+  ];
+
   const isActive = (href: string) => {
     return pathname === href || pathname?.startsWith(href + '/');
   };
@@ -55,6 +60,22 @@ export default function Navigation() {
                     isActive(item.href)
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <span className="mr-1.5">{item.icon}</span>
+                  {item.name}
+                </Link>
+              ))}
+              
+              {/* Admin Navigation */}
+              {session?.user?.roles?.includes('mintic') && adminNavigationItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive(item.href)
+                      ? 'bg-purple-50 text-purple-700'
+                      : 'text-purple-700 hover:bg-purple-50 hover:text-purple-900'
                   }`}
                 >
                   <span className="mr-1.5">{item.icon}</span>
@@ -125,6 +146,23 @@ export default function Navigation() {
                   isActive(item.href)
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span className="mr-2">{item.icon}</span>
+                {item.name}
+              </Link>
+            ))}
+            
+            {/* Admin Navigation for Mobile */}
+            {session?.user?.roles?.includes('mintic') && adminNavigationItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'bg-purple-50 text-purple-700'
+                    : 'text-purple-700 hover:bg-purple-50'
                 }`}
               >
                 <span className="mr-2">{item.icon}</span>

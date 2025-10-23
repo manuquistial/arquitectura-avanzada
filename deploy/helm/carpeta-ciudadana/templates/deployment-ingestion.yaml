@@ -1,75 +1,4 @@
-{{- if .Values.ingestion.enabled -}}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-ingestion
-  labels:
-    app: ingestion
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-spec:
-  replicas: {{ .Values.ingestion.replicaCount }}
-  selector:
-    matchLabels:
-      app: ingestion
-  template:
-    metadata:
-      labels:
-        app: ingestion
-    spec:
-      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
-      containers:
-      - name: ingestion
-        image: "{{ .Values.global.imageRegistry }}/{{ .Values.ingestion.image.repository }}:{{ .Values.ingestion.image.tag }}"
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-        ports:
-        - containerPort: 8000
-          name: http
-        env:
-        - name: ENVIRONMENT
-          value: {{ .Values.global.environment }}
-        - name: CLOUD_PROVIDER
-          value: "azure"
-        - name: DATABASE_URL
-          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
-        - name: AZURE_STORAGE_ACCOUNT_NAME
-          value: {{ .Values.azure.storage.accountName | quote }}
-        - name: AZURE_STORAGE_ACCOUNT_KEY
-          value: {{ .Values.azure.storage.accountKey | quote }}
-        - name: AZURE_STORAGE_CONTAINER_NAME
-          value: {{ .Values.azure.storage.containerName | quote }}
-        {{- if .Values.serviceBus.enabled }}
-        - name: SERVICEBUS_CONNECTION_STRING
-          valueFrom:
-            secretKeyRef:
-              name: sb-conn
-              key: SERVICEBUS_CONNECTION_STRING
-              optional: true
-        {{- end }}
-        envFrom:
-        - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
-        resources:
-          {{- toYaml .Values.ingestion.resources | nindent 10 }}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-            scheme: HTTP
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 3
-          successThreshold: 1
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8000
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 2
-          successThreshold: 1
-          failureThreshold: 2
+{{- include "carpeta-ciudadana.deployment" (dict "service" "ingestion" "context" .) }}
 ---
 apiVersion: v1
 kind: Service
@@ -109,6 +38,5 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ .Values.ingestion.autoscaling.targetCPUUtilizationPercentage }}
-{{- end }}
 {{- end }}
 

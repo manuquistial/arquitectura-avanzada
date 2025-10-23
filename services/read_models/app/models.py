@@ -24,6 +24,7 @@ class ReadDocument(Base):
     filename = Column(String, nullable=False)
     content_type = Column(String, nullable=True)
     title = Column(String, nullable=True)
+    blob_name = Column(String, nullable=True)  # Azure Blob Storage path
     
     # Hash and signature
     sha256_hash = Column(String(64), nullable=True, index=True)

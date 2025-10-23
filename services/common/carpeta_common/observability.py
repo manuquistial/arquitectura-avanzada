@@ -61,7 +61,7 @@ class ObservabilityConfig:
             SERVICE_VERSION: service_version,
             "deployment.environment": os.getenv("ENVIRONMENT", "development"),
             "cloud.provider": "azure",
-            "cloud.region": os.getenv("AZURE_REGION", "northcentralus")
+            "cloud.region": os.getenv("AZURE_REGION", "eastus")
         })
 
 
@@ -174,7 +174,9 @@ def instrument_fastapi(app, config: ObservabilityConfig):
 def instrument_httpx():
     """Instrument httpx client for external HTTP calls."""
     logger.info("🔧 Instrumenting httpx...")
-    HTTPXClientInstrumentor().instrument()
+    # Temporarily disabled due to httpx base_url=None issue
+    # HTTPXClientInstrumentor().instrument()
+    logger.info("⚠️  HTTPX instrumentation disabled")
 
 
 def instrument_redis():

@@ -9,42 +9,30 @@ class AzureConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="AZURE_")
 
-    # Storage (equivalente a S3)
-    storage_account_name: str = Field(default="")
-    storage_account_key: str = Field(default="")
-    storage_connection_string: str = Field(default="")
+    # Storage (Azure Blob)
+    storage_account_name: str = Field(default="mock_storage_account")
+    storage_account_key: str = Field(default="mock_storage_key_123")
+    storage_connection_string: str = Field(default="mock_connection_string")
     storage_container_name: str = Field(default="documents")
 
-    # Service Bus (equivalente a SQS/SNS)
-    servicebus_connection_string: str = Field(default="")
-    servicebus_namespace: str = Field(default="")
+    # Service Bus (Azure messaging)
+    servicebus_connection_string: str = Field(default="mock_servicebus_connection")
+    servicebus_namespace: str = Field(default="mock_namespace")
     servicebus_queue_name: str = Field(default="events-queue")
     servicebus_topic_name: str = Field(default="notifications-topic")
 
     # Key Vault (equivalente a ACM PCA)
-    keyvault_url: str = Field(default="")
+    keyvault_url: str = Field(default="https://mock-keyvault.vault.azure.net/")
 
-    # Azure AD B2C (equivalente a Cognito)
-    tenant_id: str = Field(default="")
-    client_id: str = Field(default="")
-    client_secret: str = Field(default="")
-    b2c_tenant_name: str = Field(default="")
+    # Azure AD B2C (authentication)
+    tenant_id: str = Field(default="mock_tenant_id_123")
+    client_id: str = Field(default="mock_client_id_123")
+    client_secret: str = Field(default="mock_client_secret_123")
+    b2c_tenant_name: str = Field(default="mock_tenant")
     b2c_policy_name: str = Field(default="B2C_1_signupsignin")
 
 
-# Mantener AWS Config para retrocompatibilidad
-class AWSConfig(BaseSettings):
-    """AWS configuration (legacy)."""
-
-    model_config = SettingsConfigDict(env_prefix="AWS_")
-
-    region: str = Field(default="us-east-1")
-    s3_bucket: str = Field(default="carpeta-ciudadana-documents")
-    sqs_queue_url: str = Field(default="")
-    sns_topic_arn: str = Field(default="")
-    cognito_user_pool_id: str = Field(default="")
-    cognito_client_id: str = Field(default="")
-    acm_pca_arn: str = Field(default="")
+# AWS configuration removed - using Azure only
 
 
 class DatabaseConfig(BaseSettings):
@@ -52,11 +40,11 @@ class DatabaseConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="DB_")
 
-    host: str = Field(default="localhost")
+    host: str = Field(default="mock-postgres-host.database.azure.com")
     port: int = Field(default=5432)
     name: str = Field(default="carpeta_ciudadana")
-    user: str = Field(default="postgres")
-    password: str = Field(default="postgres")
+    user: str = Field(default="mock_user")
+    password: str = Field(default="mock_password_123")
 
     @property
     def url(self) -> str:
@@ -77,14 +65,20 @@ class SearchConfig(BaseSettings):
 
 
 class RedisConfig(BaseSettings):
-    """Redis configuration."""
+    """Azure Cache for Redis configuration."""
 
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
-    host: str = Field(default="localhost")
-    port: int = Field(default=6379)
-    db: int = Field(default=0)
-    password: str | None = Field(default=None)
+    host: str = Field(default="mock-redis-host.redis.cache.windows.net", description="Azure Cache for Redis hostname (e.g., mycache.redis.cache.windows.net)")
+    port: int = Field(default=6380, description="Azure Cache for Redis TLS port")
+    db: int = Field(default=0, description="Redis database number")
+    password: str = Field(default="mock_redis_password_123", description="Azure Cache for Redis primary key")
+    ssl: bool = Field(default=True, description="Always true for Azure Cache for Redis")
+    
+    @property
+    def url(self) -> str:
+        """Build Azure Cache for Redis URL."""
+        return f"rediss://:{self.password}@{self.host}:{self.port}/{self.db}"
 
 
 class OTelConfig(BaseSettings):
@@ -102,11 +96,11 @@ class MinTICConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="MINTIC_")
 
-    base_url: str = Field(default="https://hub.mintic.gov.co")
-    operator_id: str = Field(default="")
-    operator_name: str = Field(default="")
-    client_id: str = Field(default="")
-    client_secret: str = Field(default="")
+    base_url: str = Field(default="https://mock-mintic-hub.example.com")
+    operator_id: str = Field(default="mock_operator")
+    operator_name: str = Field(default="Mock Operator")
+    client_id: str = Field(default="mock_client_id_123")
+    client_secret: str = Field(default="mock_client_secret_123")
     mtls_cert_path: str = Field(default="/etc/ssl/certs/client.crt")
     mtls_key_path: str = Field(default="/etc/ssl/private/client.key")
     ca_bundle_path: str = Field(default="/etc/ssl/certs/ca-bundle.crt")
@@ -117,7 +111,7 @@ class SecurityConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="SECURITY_")
 
-    jwt_secret: str = Field(default="change-me-in-production")
+    jwt_secret: str = Field(default="mock_jwt_secret_123")
     jwt_algorithm: str = Field(default="RS256")
     jwt_expiration_seconds: int = Field(default=3600)
     rate_limit_per_minute: int = Field(default=60)
@@ -130,13 +124,10 @@ class Settings(BaseSettings):
 
     environment: str = Field(default="development")
     log_level: str = Field(default="INFO")
-    cloud_provider: str = Field(default="azure")  # "aws" o "azure"
+    cloud_provider: str = Field(default="azure")  # Azure only
 
-    # Azure (nuevo)
+    # Azure configuration
     azure: AzureConfig = Field(default_factory=AzureConfig)
-    
-    # AWS (legacy, mantener para retrocompatibilidad)
-    aws: AWSConfig = Field(default_factory=AWSConfig)
     
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)

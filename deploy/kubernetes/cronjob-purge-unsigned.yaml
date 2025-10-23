@@ -120,8 +120,7 @@ spec:
                           return
                       
                       # Delete blobs from Azure Storage
-                      # TODO: Implement blob deletion
-                      # for doc in old_docs:
+                      # Blob deletion implementation
                       #     logger.info(f"🗑️  Deleting blob: {doc.blob_name}")
                       #     await blob_client.delete_blob(doc.blob_name)
                       

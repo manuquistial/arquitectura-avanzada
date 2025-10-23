@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 # revision identifiers
 revision = '003'
-down_revision = '002'
+down_revision = '002_create_users'
 branch_labels = None
 depends_on = None
 

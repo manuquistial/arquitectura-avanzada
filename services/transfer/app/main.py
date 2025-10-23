@@ -7,7 +7,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 
 from app.database import engine, init_db
-from app.routers import transfer
+from app.routers import transfer, auth
 
 # Import from common package (with fallback)
 try:
@@ -61,11 +61,21 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(transfer.router, prefix="/api", tags=["transfer"])
+    app.include_router(auth.router, prefix="/api", tags=["auth"])
 
     @app.get("/health")
     async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy"}
+
+    @app.get("/ready")
+    async def ready() -> dict[str, str | bool]:
+        """Readiness check endpoint."""
+        # Health check for dependencies
+        return {
+            "status": "ready",
+            "service": "transfer"
+        }
 
     return app
 

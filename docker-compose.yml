@@ -41,21 +41,9 @@ services:
     volumes:
       - opensearch_data:/usr/share/opensearch/data
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+  # Redis removed - using Azure Cache for Redis only
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
+  # Jaeger removed - using Azure Application Insights instead
 
   # ═══════════════════════════════════════════════════════════
   # APLICACIÓN (profile: app)
@@ -63,34 +51,21 @@ services:
 
   frontend:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-frontend:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-frontend:${TAG:-latest}
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_OPERATOR_ID=operator-demo
       - NEXT_PUBLIC_OPERATOR_NAME=Carpeta Demo
+      - NEXTAUTH_SECRET=your-secret-key-for-development-only-change-in-production
+      - NEXTAUTH_URL=http://localhost:3000
 
-  gateway:
-    profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-gateway:${TAG:-local}
-    ports:
-      - "8000:8000"
-    environment:
-      - ENVIRONMENT=development
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CITIZEN_SERVICE_URL=http://citizen:8000
-      - INGESTION_SERVICE_URL=http://ingestion:8000
-      - METADATA_SERVICE_URL=http://metadata:8000
-      - TRANSFER_SERVICE_URL=http://transfer:8000
-      - MINTIC_CLIENT_URL=http://mintic-client:8000
-    depends_on:
-      - redis
+  # Gateway removed - using Azure API Management instead
 
   citizen:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-citizen:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-citizen:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -100,7 +75,7 @@ services:
 
   ingestion:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ingestion:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-ingestion:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - CLOUD_PROVIDER=azure
@@ -113,7 +88,7 @@ services:
 
   metadata:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-metadata:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-metadata:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -125,7 +100,7 @@ services:
 
   transfer:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-transfer:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-transfer:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -134,48 +109,49 @@ services:
 
   mintic-client:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-mintic_client:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-mintic_client:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - MINTIC_BASE_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
       - MINTIC_OPERATOR_ID=operator-demo
       - MINTIC_OPERATOR_NAME=Carpeta Ciudadana Demo
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_SSL=false
 
   signature:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-signature:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-signature:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
       - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
       - AZURE_STORAGE_ACCOUNT_KEY=${AZURE_STORAGE_ACCOUNT_KEY}
       - MINTIC_HUB_URL=https://govcarpeta-apis-4905ff3c005b.herokuapp.com
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_SSL=false
       - SERVICE_BUS_ENABLED=false
     depends_on:
       - postgres
-      - redis
 
   auth:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-auth:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-auth:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     depends_on:
       - postgres
-      - redis
 
   notification:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-notification:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-notification:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
@@ -185,17 +161,16 @@ services:
 
   read-models:
     profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-read_models:${TAG:-local}
+    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-read_models:${TAG:-latest}
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=6380
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     depends_on:
       - postgres
-      - redis
 
 volumes:
   postgres_data:
   opensearch_data:
-  redis_data:

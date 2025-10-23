@@ -13,9 +13,10 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    // Admin routes - require 'admin' role
+    // Admin routes - require 'admin' or 'mintic' role
     if (path.startsWith("/admin")) {
-      if (!token?.roles?.includes("admin")) {
+      const hasAdminAccess = token?.roles?.includes("admin") || token?.roles?.includes("mintic");
+      if (!hasAdminAccess) {
         return NextResponse.redirect(new URL("/unauthorized", req.url));
       }
     }
@@ -55,9 +56,12 @@ export const config = {
      * - /favicon.ico, /robots.txt (public files)
      * - / (public home)
      * - /login (login page)
+     * - /register (registration page)
      * - /auth/* (auth pages)
+     * - /api/* (API routes)
+     * - /_next/static/* (static assets)
      */
-    "/((?!api/auth|_next|static|favicon.ico|robots.txt|login|auth|$).*)",
+    "/((?!api/auth|api/|_next/static|_next/image|favicon.ico|robots.txt|login|auth|register|$).*)",
   ],
 };
 

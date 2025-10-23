@@ -17,12 +17,7 @@ metadata:
     {{- end }}
     {{- end }}
     # Security Headers
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      more_set_headers "X-Frame-Options: DENY";
-      more_set_headers "X-Content-Type-Options: nosniff";
-      more_set_headers "X-XSS-Protection: 1; mode=block";
-      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
-      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+    nginx.ingress.kubernetes.io/custom-http-errors: "404,500,502,503,504"
     {{- if .Values.ingress.tls.enabled }}
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/hsts: "true"
@@ -30,9 +25,8 @@ metadata:
     nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
     nginx.ingress.kubernetes.io/hsts-preload: "true"
     {{- end }}
-    # Content Security Policy
-    nginx.ingress.kubernetes.io/server-snippet: |
-      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://govcarpeta-apis-4905ff3c005b.herokuapp.com; frame-ancestors 'none';" always;
+    # Basic security settings
+    nginx.ingress.kubernetes.io/enable-access-log: "true"
     # Body size limits (gateway handles metadata, not file uploads)
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/client-body-buffer-size: "1m"
@@ -69,15 +63,92 @@ spec:
   - http:
   {{- end }}
       paths:
-      {{- range .paths }}
-      - path: {{ .path }}
-        pathType: {{ .pathType }}
+      # Frontend routes (Next.js app)
+      - path: /
+        pathType: Prefix
         backend:
           service:
-            name: {{ include "carpeta-ciudadana.fullname" $ }}-{{ .backend.service.name }}
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
             port:
-              number: {{ .backend.service.port }}
-      {{- end }}
+              number: 80
+      # API routes - Auth Service
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-auth
+            port:
+              number: 8000
+      # API routes - Citizen Service
+      - path: /api/users
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-citizen
+            port:
+              number: 8000
+      # API routes - Document Services
+      - path: /api/documents
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-ingestion
+            port:
+              number: 8000
+      - path: /api/metadata
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-metadata
+            port:
+              number: 8000
+      - path: /api/signature
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-signature
+            port:
+              number: 8000
+      # API routes - Transfer Service
+      - path: /api/transfers
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-transfer
+            port:
+              number: 8000
+      # API routes - MinTIC Service
+      - path: /api/mintic
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-mintic-client
+            port:
+              number: 8000
+      # API routes - Read Models Service
+      - path: /api/dashboard
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-read-models
+            port:
+              number: 8007
+      # API routes - Notification Service
+      - path: /api/notifications
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-notification
+            port:
+              number: 8010
+      # Health check routes
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-gateway
+            port:
+              number: 8000
   {{- end }}
 {{- end }}
 

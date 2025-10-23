@@ -1,0 +1,37 @@
+# Azure Monitor Configuration for Carpeta Ciudadana
+# This file contains the configuration for Azure Monitor and Application Insights
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azure-monitor-config
+  namespace: carpeta-ciudadana
+data:
+  # Application Insights Configuration
+  APPINSIGHTS_INSTRUMENTATIONKEY: "${APPINSIGHTS_INSTRUMENTATIONKEY}"
+  APPINSIGHTS_CONNECTIONSTRING: "${APPINSIGHTS_CONNECTIONSTRING}"
+  
+  # Azure Monitor Configuration
+  AZURE_MONITOR_WORKSPACE_ID: "${AZURE_MONITOR_WORKSPACE_ID}"
+  AZURE_MONITOR_WORKSPACE_KEY: "${AZURE_MONITOR_WORKSPACE_KEY}"
+  
+  # Log Analytics Configuration
+  LOG_ANALYTICS_WORKSPACE_ID: "${LOG_ANALYTICS_WORKSPACE_ID}"
+  LOG_ANALYTICS_WORKSPACE_KEY: "${LOG_ANALYTICS_WORKSPACE_KEY}"
+  
+  # Metrics Configuration
+  METRICS_ENABLED: "true"
+  METRICS_INTERVAL: "60s"
+  
+  # Tracing Configuration
+  TRACING_ENABLED: "true"
+  TRACING_SAMPLING_RATE: "0.1"
+  
+  # Logging Configuration
+  LOGGING_ENABLED: "true"
+  LOG_LEVEL: "INFO"
+  
+  # Alerting Configuration
+  ALERTS_ENABLED: "true"
+  ALERT_EMAIL: "${ALERT_EMAIL}"
+  ALERT_WEBHOOK_URL: "${ALERT_WEBHOOK_URL}"

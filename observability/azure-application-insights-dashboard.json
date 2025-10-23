@@ -1,0 +1,127 @@
+{
+  "id": "carpeta-ciudadana-dashboard",
+  "title": "Carpeta Ciudadana - Application Insights Dashboard",
+  "description": "Dashboard principal para monitoreo de la aplicación Carpeta Ciudadana",
+  "version": "1.0.0",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": "api-requests",
+      "title": "API Requests",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "requests | where timestamp > ago(1h) | summarize count() by bin(timestamp, 1m)",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": "response-time",
+      "title": "Response Time (P95)",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "requests | where timestamp > ago(1h) | summarize percentile(duration, 95) by bin(timestamp, 1m)",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": "error-rate",
+      "title": "Error Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "query": "requests | where timestamp > ago(1h) | summarize error_rate = countif(success == false) * 100.0 / count() by bin(timestamp, 1m)",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": "dependencies",
+      "title": "Dependencies",
+      "type": "table",
+      "targets": [
+        {
+          "query": "dependencies | where timestamp > ago(1h) | summarize count(), avg(duration) by name",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": "exceptions",
+      "title": "Exceptions",
+      "type": "table",
+      "targets": [
+        {
+          "query": "exceptions | where timestamp > ago(1h) | summarize count() by type, outerMessage",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": "custom-events",
+      "title": "Custom Events",
+      "type": "table",
+      "targets": [
+        {
+          "query": "customEvents | where timestamp > ago(1h) | summarize count() by name",
+          "format": "table"
+        }
+      ]
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "datasource": "Application Insights",
+        "enable": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "Environment",
+        "type": "query",
+        "query": "requests | summarize by tostring(customDimensions.Environment)",
+        "current": {
+          "text": "production",
+          "value": "production"
+        }
+      }
+    ]
+  }
+}

@@ -69,7 +69,7 @@ spec:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
         - secretRef:
-            name: sb-secrets
+            name: sb-conn
         - secretRef:
             name: db-secrets
         - secretRef:
@@ -85,11 +85,10 @@ spec:
             path: /health
             port: 8012
             scheme: HTTP
-          initialDelaySeconds: {{ .Values.transferWorker.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.transferWorker.livenessProbe.periodSeconds }}
-          timeoutSeconds: {{ .Values.transferWorker.livenessProbe.timeoutSeconds }}
-          successThreshold: {{ .Values.transferWorker.livenessProbe.successThreshold }}
-          failureThreshold: {{ .Values.transferWorker.livenessProbe.failureThreshold }}
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         
         # Readiness probe
         readinessProbe:
@@ -97,11 +96,10 @@ spec:
             path: /ready
             port: 8012
             scheme: HTTP
-          initialDelaySeconds: {{ .Values.transferWorker.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.transferWorker.readinessProbe.periodSeconds }}
-          timeoutSeconds: {{ .Values.transferWorker.readinessProbe.timeoutSeconds }}
-          successThreshold: {{ .Values.transferWorker.readinessProbe.successThreshold }}
-          failureThreshold: {{ .Values.transferWorker.readinessProbe.failureThreshold }}
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
         
         # Lifecycle hooks for graceful shutdown
         lifecycle:
@@ -126,26 +124,6 @@ spec:
     name: http
   selector:
     app: transfer-worker
-
-{{- if .Values.transferWorker.serviceMonitor.enabled }}
----
-# ServiceMonitor for Prometheus (if prometheus-operator is installed)
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer-worker
-  labels:
-    app: transfer-worker
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-spec:
-  selector:
-    matchLabels:
-      app: transfer-worker
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 30s
-{{- end }}
 
 {{- end }}
 

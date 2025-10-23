@@ -16,11 +16,11 @@ aks_vm_size    = "Standard_B1s"  # $3.80/mes - Free tier optimizado
 # PostgreSQL Configuration
 db_admin_username = "psqladmin"
 db_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"
-db_sku_name       = "B_Standard_B1ms"  # $13.87/mes - Free tier optimizado
+db_sku_name       = "GP_Standard_D2s_v5"  # $40/mes - General Purpose for better performance
 db_storage_mb     = 32768              # 32GB
 
 # PostgreSQL Firewall (Security)
-db_enable_public_access  = true   # Set to false for private endpoint only
+db_enable_public_access  = false  # Set to false for VNet integration only
 db_aks_egress_ip         = ""     # Leave empty to allow all AKS, or specify egress IP
 db_allow_azure_services  = false  # Set to true to allow Azure backup/monitoring
 
@@ -47,7 +47,7 @@ prometheus_storage_size   = "10Gi"
 # cert-manager Configuration (deployed via Helm in AKS)
 cert_manager_namespace      = "cert-manager"
 cert_manager_chart_version  = "v1.13.3"
-letsencrypt_email          = "your-email@example.com"  # CHANGE THIS - Email for Let's Encrypt notifications
+letsencrypt_email          = "manuelquistial@outlook.com"  # CHANGE THIS - Email for Let's Encrypt notifications
 cert_manager_ingress_class = "nginx"
 enable_tls                 = false  # Set to true when you have a domain configured
 domain_name                = ""     # Set your domain when available (e.g., "carpeta-ciudadana.example.com")

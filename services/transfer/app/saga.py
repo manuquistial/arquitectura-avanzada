@@ -132,28 +132,52 @@ class TransferSaga:
         """Step 1: Generate SAS URLs for all citizen documents."""
         logger.info(f"📝 [Saga {self.transfer_id}] Step 1: Generating SAS URLs")
         
-        # TODO: Get documents from database
-        # TODO: Generate SAS URLs for each document
-        # For now, mock
-        self.sas_urls = [
-            f"https://storage.blob.core.windows.net/docs/doc1.pdf?sas=mock",
-            f"https://storage.blob.core.windows.net/docs/doc2.pdf?sas=mock"
-        ]
-        self.document_ids = ["doc1", "doc2"]
-        
-        # Record compensation action
-        self.compensation_actions.append({
-            "action": "revoke_sas",
-            "sas_urls": self.sas_urls.copy()
-        })
-        
-        self.current_step = SagaStep.SAS_GENERATED
-        await self._publish_saga_event("transfer.step.sas_generated", {
-            "transfer_id": self.transfer_id,
-            "document_count": len(self.sas_urls)
-        })
-        
-        logger.info(f"✅ [Saga {self.transfer_id}] SAS URLs generated: {len(self.sas_urls)}")
+        try:
+            # Get documents from metadata service
+            documents = await self._get_citizen_documents(self.citizen_id)
+            
+            if not documents:
+                raise Exception("No documents found for citizen")
+            
+            # Generate SAS URLs for each document
+            sas_urls = []
+            document_ids = []
+            
+            for doc in documents:
+                try:
+                    # Generate SAS URL for document
+                    sas_url = await self._generate_sas_url(doc['blob_name'], doc['container'])
+                    sas_urls.append(sas_url)
+                    document_ids.append(doc['id'])
+                    
+                except Exception as e:
+                    logger.error(f"Failed to generate SAS URL for document {doc['id']}: {e}")
+                    # Continue with other documents
+                    continue
+            
+            if not sas_urls:
+                raise Exception("Failed to generate any SAS URLs")
+            
+            self.sas_urls = sas_urls
+            self.document_ids = document_ids
+            
+            # Record compensation action
+            self.compensation_actions.append({
+                "action": "revoke_sas",
+                "sas_urls": self.sas_urls.copy()
+            })
+            
+            self.current_step = SagaStep.SAS_GENERATED
+            await self._publish_saga_event("transfer.step.sas_generated", {
+                "transfer_id": self.transfer_id,
+                "document_count": len(self.sas_urls)
+            })
+            
+            logger.info(f"✅ [Saga {self.transfer_id}] SAS URLs generated: {len(self.sas_urls)}")
+            
+        except Exception as e:
+            logger.error(f"❌ [Saga {self.transfer_id}] Failed to generate SAS URLs: {e}")
+            raise
     
     async def _step_send_transfer(self):
         """Step 2: Send transfer request to destination operator."""
@@ -296,4 +320,113 @@ class TransferSaga:
             )
         except Exception as e:
             logger.warning(f"Failed to publish saga event: {e}")
+
+    async def _get_citizen_documents(self, citizen_id: str) -> list[dict]:
+        """Get citizen documents from metadata service."""
+        try:
+            import httpx
+            
+            # Call metadata service
+            metadata_url = f"{self.metadata_service_url}/api/documents/citizen/{citizen_id}"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(metadata_url)
+                response.raise_for_status()
+                
+                data = response.json()
+                return data.get('documents', [])
+                
+        except Exception as e:
+            logger.error(f"Failed to get citizen documents: {e}")
+            return []
+
+    async def _generate_sas_url(self, blob_name: str, container: str) -> str:
+        """Generate SAS URL for blob."""
+        try:
+            from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+            from datetime import datetime, timedelta
+            
+            # Get Azure Storage credentials
+            account_name = self.storage_account_name
+            account_key = self.storage_account_key
+            
+            # Create blob service client
+            blob_service_client = BlobServiceClient(
+                account_url=f"https://{account_name}.blob.core.windows.net",
+                credential=account_key
+            )
+            
+            # Generate SAS token (valid for 1 hour)
+            sas_token = generate_blob_sas(
+                account_name=account_name,
+                container_name=container,
+                blob_name=blob_name,
+                account_key=account_key,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.utcnow() + timedelta(hours=1)
+            )
+            
+            # Construct SAS URL
+            sas_url = f"https://{account_name}.blob.core.windows.net/{container}/{blob_name}?{sas_token}"
+            
+            return sas_url
+            
+        except Exception as e:
+            logger.error(f"Failed to generate SAS URL for {blob_name}: {e}")
+            raise
+
+    async def _send_transfer_request(self, destination_operator: dict, documents: list[dict]) -> dict:
+        """Send transfer request to destination operator."""
+        try:
+            import httpx
+            
+            # Prepare transfer request
+            transfer_request = {
+                "citizen_id": self.citizen_id,
+                "source_operator_id": self.source_operator_id,
+                "destination_operator_id": self.destination_operator_id,
+                "documents": documents,
+                "transfer_id": self.transfer_id
+            }
+            
+            # Send to destination operator
+            destination_url = destination_operator.get('transfer_endpoint')
+            if not destination_url:
+                raise Exception("Destination operator has no transfer endpoint")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    destination_url,
+                    json=transfer_request,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                
+                return response.json()
+                
+        except Exception as e:
+            logger.error(f"Failed to send transfer request: {e}")
+            raise
+
+    async def _update_transfer_status(self, status: str, message: str = None):
+        """Update transfer status in database."""
+        try:
+            import httpx
+            
+            # Update in transfer service
+            transfer_url = f"{self.transfer_service_url}/api/transfers/{self.transfer_id}/status"
+            
+            update_data = {
+                "status": status,
+                "message": message,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.put(transfer_url, json=update_data)
+                response.raise_for_status()
+                
+        except Exception as e:
+            logger.error(f"Failed to update transfer status: {e}")
+            # Don't raise exception for status update failures
 

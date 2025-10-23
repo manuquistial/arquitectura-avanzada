@@ -1,63 +1,4 @@
-{{- if .Values.readModels.enabled -}}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-read-models
-  labels:
-    app: read-models
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-spec:
-  replicas: {{ .Values.readModels.replicaCount }}
-  selector:
-    matchLabels:
-      app: read-models
-  template:
-    metadata:
-      labels:
-        app: read-models
-        azure.workload.identity/use: "true"
-    spec:
-      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
-      containers:
-      - name: read-models
-        image: "{{ .Values.global.imageRegistry }}/{{ .Values.readModels.image.repository }}:{{ .Values.readModels.image.tag }}"
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-        ports:
-        - containerPort: 8007
-          name: http
-          protocol: TCP
-        envFrom:
-        - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
-        - secretRef:
-            name: db-secrets
-        - secretRef:
-            name: sb-secrets
-        - secretRef:
-            name: redis-auth
-            optional: true
-        resources:
-          {{- toYaml .Values.readModels.resources | nindent 10 }}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8007
-            scheme: HTTP
-          initialDelaySeconds: 20
-          periodSeconds: 10
-          timeoutSeconds: 3
-          successThreshold: 1
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8007
-            scheme: HTTP
-          initialDelaySeconds: 15
-          periodSeconds: 5
-          timeoutSeconds: 2
-          successThreshold: 1
-          failureThreshold: 2
+{{- include "carpeta-ciudadana.deployment" (dict "service" "read-models" "context" .) }}
 ---
 apiVersion: v1
 kind: Service
@@ -98,5 +39,4 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ .Values.readModels.autoscaling.targetCPUUtilizationPercentage }}
-{{- end }}
 {{- end }}

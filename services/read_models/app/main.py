@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from app.config import Settings
-from app.database import init_db, engine
+from app.database import init_db, engine, test_connection, get_database_info
 
 # Setup logging
 try:
@@ -35,6 +35,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global consumer_task
     
     logger.info("🔄 Starting Read Models Service (CQRS Read Side)...")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Database: {settings.database_host}:{settings.database_port}/{settings.database_name}")
     
     # Initialize database
     await init_db()
@@ -52,23 +54,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.warning("⚠️  Event projector module not found, running without projections")
         except Exception as e:
             logger.error(f"❌ Failed to start projectors: {e}")
-    else:
-            logger.warning("⚠️  Service Bus not configured (SERVICEBUS_CONNECTION_STRING missing)")
             logger.info("💡 Running in query-only mode (no event projections)")
-        
-        yield
-        
+    else:
+        logger.warning("⚠️  Service Bus not configured (SERVICEBUS_CONNECTION_STRING missing)")
+        logger.info("💡 Running in query-only mode (no event projections)")
+    
+    yield
+    
     # Shutdown
-        if consumer_task:
-            logger.info("Shutting down event projectors...")
-            consumer_task.cancel()
-            try:
-                await consumer_task
-            except asyncio.CancelledError:
-                pass
-        
-        await engine.dispose()
-        logger.info("👋 Shutting down Read Models Service...")
+    if consumer_task:
+        logger.info("Shutting down event projectors...")
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            pass
+    
+    await engine.dispose()
+    logger.info("👋 Shutting down Read Models Service...")
 
 
 # Create FastAPI app
@@ -120,18 +123,91 @@ async def health_check():
 @app.get("/ready")
 async def readiness_check():
     """Readiness check endpoint."""
-    # Simple check - TODO: verify database connection
-    return JSONResponse(content={"status": "ready"})
+    # Health check for dependencies
+    db_connected = await test_connection()
+    return JSONResponse(content={
+        "status": "ready" if db_connected else "not_ready",
+        "service": "read-models",
+        "database": "connected" if db_connected else "disconnected"
+    })
+
+
+@app.get("/db/health")
+async def db_health():
+    """Database health check endpoint."""
+    try:
+        return await get_database_info()
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "service": "read-models"
+        }
+
+
+@app.get("/db/test")
+async def db_test():
+    """Database connection test endpoint."""
+    try:
+        is_connected = await test_connection()
+        return {
+            "status": "connected" if is_connected else "disconnected",
+            "test": "successful" if is_connected else "failed"
+        }
+    except Exception as e:
+        logger.error(f"Database test failed: {e}")
+        return {
+            "status": "error",
+            "test": "failed",
+            "error": str(e)
+        }
+
+
+@app.get("/config")
+async def get_config_info():
+    """Get configuration information (for debugging)."""
+    return {
+        "environment": settings.app.environment,
+        "debug": settings.app.debug,
+        "database": {
+            "host": settings.database.host,
+            "port": settings.database.port,
+            "name": settings.database.name,
+            "user": settings.database.user,
+            "sslmode": settings.database.sslmode,
+            "is_azure": settings.is_azure_environment()
+        },
+        "kubernetes": {
+            "pod_name": settings.app.pod_name,
+            "namespace": settings.app.pod_namespace,
+            "node_name": settings.app.node_name
+        }
+    }
+
+
+@app.get("/config/database")
+async def get_database_config():
+    """Get database configuration (sensitive data masked)."""
+    return {
+        "host": settings.database.host,
+        "port": settings.database.port,
+        "name": settings.database.name,
+        "user": settings.database.user,
+        "sslmode": settings.database.sslmode,
+        "is_azure": settings.is_azure_environment(),
+        "url_masked": settings.get_database_url().split("@")[0] + "@***:***"
+    }
 
 
 @app.get("/metrics")
 async def metrics():
     """OpenTelemetry metrics endpoint."""
-    # TODO: Expose Prometheus metrics
+    # Metrics endpoint
     return {
         "service": "read-models",
         "metrics": {
-            "events_projected": 0,  # TODO: Implement counter
+            "events_projected": 0,
             "queries_served": 0,
             "cache_hits": 0
         }

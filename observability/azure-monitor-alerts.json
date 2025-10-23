@@ -1,0 +1,117 @@
+{
+  "alerts": [
+    {
+      "name": "High API Response Time",
+      "description": "Alert when API response time exceeds 2 seconds",
+      "severity": "Warning",
+      "enabled": true,
+      "query": "requests | where timestamp > ago(5m) | summarize avg(duration) by bin(timestamp, 1m) | where avg_duration > 2000",
+      "threshold": 2000,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "High Error Rate",
+      "description": "Alert when error rate exceeds 5%",
+      "severity": "Critical",
+      "enabled": true,
+      "query": "requests | where timestamp > ago(5m) | summarize error_rate = countif(success == false) * 100.0 / count() by bin(timestamp, 1m) | where error_rate > 5",
+      "threshold": 5,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "Low Availability",
+      "description": "Alert when availability drops below 99%",
+      "severity": "Critical",
+      "enabled": true,
+      "query": "requests | where timestamp > ago(5m) | summarize availability = countif(success == true) * 100.0 / count() by bin(timestamp, 1m) | where availability < 99",
+      "threshold": 99,
+      "operator": "LessThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "High Exception Rate",
+      "description": "Alert when exception rate exceeds 10 per minute",
+      "severity": "Warning",
+      "enabled": true,
+      "query": "exceptions | where timestamp > ago(5m) | summarize count() by bin(timestamp, 1m) | where count_ > 10",
+      "threshold": 10,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "Database Connection Issues",
+      "description": "Alert when database connection failures occur",
+      "severity": "Critical",
+      "enabled": true,
+      "query": "dependencies | where timestamp > ago(5m) and name contains 'database' and success == false | summarize count() by bin(timestamp, 1m)",
+      "threshold": 1,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "High Memory Usage",
+      "description": "Alert when memory usage exceeds 80%",
+      "severity": "Warning",
+      "enabled": true,
+      "query": "performanceCounters | where timestamp > ago(5m) and counter == 'Memory' | summarize avg(value) by bin(timestamp, 1m) | where avg_value > 80",
+      "threshold": 80,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "High CPU Usage",
+      "description": "Alert when CPU usage exceeds 80%",
+      "severity": "Warning",
+      "enabled": true,
+      "query": "performanceCounters | where timestamp > ago(5m) and counter == 'CPU' | summarize avg(value) by bin(timestamp, 1m) | where avg_value > 80",
+      "threshold": 80,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    },
+    {
+      "name": "Service Bus Queue Depth",
+      "description": "Alert when Service Bus queue depth exceeds 1000 messages",
+      "severity": "Warning",
+      "enabled": true,
+      "query": "customMetrics | where timestamp > ago(5m) and name == 'ServiceBus.QueueDepth' | summarize avg(value) by bin(timestamp, 1m) | where avg_value > 1000",
+      "threshold": 1000,
+      "operator": "GreaterThan",
+      "evaluationFrequency": "1m",
+      "windowSize": "5m",
+      "actionGroup": "carpeta-ciudadana-alerts"
+    }
+  ],
+  "actionGroups": [
+    {
+      "name": "carpeta-ciudadana-alerts",
+      "emailReceivers": [
+        {
+          "name": "admin",
+          "emailAddress": "admin@carpeta-ciudadana.com"
+        }
+      ],
+      "webhookReceivers": [
+        {
+          "name": "slack-webhook",
+          "serviceUri": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+        }
+      ]
+    }
+  ]
+}

@@ -421,7 +421,7 @@ def get_m2m_generator() -> M2MAuthGenerator:
     if _m2m_generator is None:
         import os
         service_id = os.getenv("SERVICE_ID", "unknown-service")
-        secret_key = os.getenv("M2M_SECRET_KEY", "default-secret-key-change-me")
+        secret_key = os.getenv("M2M_SECRET_KEY", "mock_m2m_secret_key_123")
         _m2m_generator = M2MAuthGenerator(service_id, secret_key)
     
     return _m2m_generator
@@ -433,7 +433,7 @@ def get_m2m_validator() -> M2MAuthValidator:
     
     if _m2m_validator is None:
         import os
-        secret_key = os.getenv("M2M_SECRET_KEY", "default-secret-key-change-me")
+        secret_key = os.getenv("M2M_SECRET_KEY", "mock_m2m_secret_key_123")
         
         # Try to get Redis client
         try:

@@ -1,0 +1,96 @@
+# Azure Application Insights Configuration for Carpeta Ciudadana
+# This file contains the configuration for Application Insights integration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-insights-config
+  namespace: carpeta-ciudadana
+data:
+  # Application Insights Settings
+  APPINSIGHTS_INSTRUMENTATIONKEY: "${APPINSIGHTS_INSTRUMENTATIONKEY}"
+  APPINSIGHTS_CONNECTIONSTRING: "${APPINSIGHTS_CONNECTIONSTRING}"
+  
+  # Sampling Configuration
+  APPINSIGHTS_SAMPLING_PERCENTAGE: "10"
+  APPINSIGHTS_SAMPLING_EVALUATION: "true"
+  
+  # Performance Monitoring
+  APPINSIGHTS_PERFORMANCE_COUNTERS: "true"
+  APPINSIGHTS_DEPENDENCY_TRACKING: "true"
+  APPINSIGHTS_REQUEST_TRACKING: "true"
+  
+  # Custom Events and Metrics
+  APPINSIGHTS_CUSTOM_EVENTS: "true"
+  APPINSIGHTS_CUSTOM_METRICS: "true"
+  
+  # Logging Integration
+  APPINSIGHTS_LOGGING_ENABLED: "true"
+  APPINSIGHTS_LOGGING_LEVEL: "INFO"
+  
+  # Exception Tracking
+  APPINSIGHTS_EXCEPTION_TRACKING: "true"
+  APPINSIGHTS_EXCEPTION_SAMPLING: "true"
+  
+  # User and Session Tracking
+  APPINSIGHTS_USER_TRACKING: "true"
+  APPINSIGHTS_SESSION_TRACKING: "true"
+  
+  # Telemetry Configuration
+  APPINSIGHTS_TELEMETRY_CHANNEL: "ServerTelemetryChannel"
+  APPINSIGHTS_TELEMETRY_BUFFER_SIZE: "500"
+  APPINSIGHTS_TELEMETRY_FLUSH_INTERVAL: "30"
+  
+  # Debug Configuration
+  APPINSIGHTS_DEBUG_ENABLED: "false"
+  APPINSIGHTS_VERBOSE_LOGGING: "false"
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: application-insights-agent
+  namespace: carpeta-ciudadana
+spec:
+  selector:
+    matchLabels:
+      app: application-insights-agent
+  template:
+    metadata:
+      labels:
+        app: application-insights-agent
+    spec:
+      containers:
+      - name: application-insights-agent
+        image: mcr.microsoft.com/azuremonitor/applicationinsights:latest
+        env:
+        - name: APPINSIGHTS_INSTRUMENTATIONKEY
+          valueFrom:
+            configMapKeyRef:
+              name: application-insights-config
+              key: APPINSIGHTS_INSTRUMENTATIONKEY
+        - name: APPINSIGHTS_CONNECTIONSTRING
+          valueFrom:
+            configMapKeyRef:
+              name: application-insights-config
+              key: APPINSIGHTS_CONNECTIONSTRING
+        volumeMounts:
+        - name: app-insights-config
+          mountPath: /etc/application-insights
+        - name: var-log
+          mountPath: /var/log
+        - name: var-lib
+          mountPath: /var/lib
+      volumes:
+      - name: app-insights-config
+        configMap:
+          name: application-insights-config
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: var-lib
+        hostPath:
+          path: /var/lib
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule

@@ -1,0 +1,114 @@
+<policies>
+    <inbound>
+        <!-- CORS Policy -->
+        <cors allow-credentials="true">
+            <allowed-origins>
+                <origin>*</origin>
+            </allowed-origins>
+            <allowed-methods>
+                <method>GET</method>
+                <method>POST</method>
+                <method>PUT</method>
+                <method>DELETE</method>
+                <method>PATCH</method>
+                <method>OPTIONS</method>
+            </allowed-methods>
+            <allowed-headers>
+                <header>*</header>
+            </allowed-headers>
+        </cors>
+        
+        <!-- Security Headers -->
+        <set-header name="X-Content-Type-Options" exists-action="override">
+            <value>nosniff</value>
+        </set-header>
+        <set-header name="X-Frame-Options" exists-action="override">
+            <value>DENY</value>
+        </set-header>
+        <set-header name="X-XSS-Protection" exists-action="override">
+            <value>1; mode=block</value>
+        </set-header>
+        <set-header name="Strict-Transport-Security" exists-action="override">
+            <value>max-age=31536000; includeSubDomains</value>
+        </set-header>
+        
+        <!-- Authentication Check -->
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid." require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
+            <openid-config url="https://login.microsoftonline.com/{tenant-id}/v2.0/.well-known/openid_configuration" />
+            <audiences>
+                <audience>api://{client-id}</audience>
+            </audiences>
+            <issuers>
+                <issuer>https://login.microsoftonline.com/{tenant-id}/v2.0</issuer>
+            </issuers>
+        </validate-jwt>
+        
+        <!-- Rate Limiting by Subscription -->
+        <rate-limit-by-key calls="1000" renewal-period="3600" counter-key="@(context.Subscription.Id)" />
+        
+        <!-- Rate Limiting by IP -->
+        <rate-limit-by-key calls="100" renewal-period="60" counter-key="@(context.Request.IpAddress)" />
+        
+        <!-- Logging -->
+        <log-to-eventhub logger-id="carpeta-ciudadana-logs">
+            <message>Request: @(context.Request.OriginalUrl)</message>
+        </log-to-eventhub>
+        
+        <!-- Route to appropriate backend based on path -->
+        <choose>
+            <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/citizens"))">
+                <set-backend-service base-url="http://citizen:8000" />
+            </when>
+            <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/documents"))">
+                <set-backend-service base-url="http://ingestion:8000" />
+            </when>
+            <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/metadata"))">
+                <set-backend-service base-url="http://metadata:8000" />
+            </when>
+            <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/signature"))">
+                <set-backend-service base-url="http://signature:8000" />
+            </when>
+            <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/transfer"))">
+                <set-backend-service base-url="http://transfer:8000" />
+            </when>
+            <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/mintic"))">
+                <set-backend-service base-url="http://mintic-client:8000" />
+            </when>
+            <otherwise>
+                <return-response>
+                    <set-status code="404" reason="Not Found" />
+                    <set-body>{"error": "Endpoint not found"}</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+        
+        <!-- Forward to selected backend -->
+        <forward-request />
+    </inbound>
+    <backend>
+        <forward-request />
+    </backend>
+    <outbound>
+        <!-- Response Headers -->
+        <set-header name="X-Powered-By" exists-action="delete" />
+        <set-header name="Server" exists-action="delete" />
+        
+        <!-- Logging -->
+        <log-to-eventhub logger-id="carpeta-ciudadana-logs">
+            <message>Response: @(context.Response.StatusCode)</message>
+        </log-to-eventhub>
+    </outbound>
+    <on-error>
+        <!-- Error Handling -->
+        <set-status code="500" reason="Internal Server Error" />
+        <set-body>{"error": "Internal Server Error", "message": "@(context.LastError.Message)"}</set-body>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        
+        <!-- Log Error -->
+        <log-to-eventhub logger-id="carpeta-ciudadana-logs">
+            <message>Error: @(context.LastError.Message)</message>
+        </log-to-eventhub>
+    </on-error>
+</policies>

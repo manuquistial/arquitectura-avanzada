@@ -2038,4 +2038,4 @@ servicebus = ["azure-servicebus"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "4fed11a377bef60af5742e4fa5161412a2f32e0b478a4299cdd5b38050398777"
+content-hash = "b29e86dd52eb26020e53d9f614b958a5bd12dda12016147cefb6d38128a6fbee"

@@ -1,63 +1,4 @@
-{{- if .Values.notification.enabled -}}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-notification
-  labels:
-    app: notification
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-spec:
-  replicas: {{ .Values.notification.replicaCount }}
-  selector:
-    matchLabels:
-      app: notification
-  template:
-    metadata:
-      labels:
-        app: notification
-        azure.workload.identity/use: "true"
-    spec:
-      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
-      containers:
-      - name: notification
-        image: "{{ .Values.global.imageRegistry }}/{{ .Values.notification.image.repository }}:{{ .Values.notification.image.tag }}"
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-        ports:
-        - containerPort: 8010
-          name: http
-          protocol: TCP
-        envFrom:
-        - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
-        - secretRef:
-            name: db-secrets
-        - secretRef:
-            name: sb-secrets
-        - secretRef:
-            name: smtp-credentials
-            optional: true
-        resources:
-          {{- toYaml .Values.notification.resources | nindent 10 }}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8010
-            scheme: HTTP
-          initialDelaySeconds: 20
-          periodSeconds: 10
-          timeoutSeconds: 3
-          successThreshold: 1
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8010
-            scheme: HTTP
-          initialDelaySeconds: 15
-          periodSeconds: 5
-          timeoutSeconds: 2
-          successThreshold: 1
-          failureThreshold: 2
+{{- include "carpeta-ciudadana.deployment" (dict "service" "notification" "context" .) }}
 ---
 apiVersion: v1
 kind: Service
@@ -99,5 +40,3 @@ spec:
         type: Utilization
         averageUtilization: {{ .Values.notification.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
-{{- end }}
-

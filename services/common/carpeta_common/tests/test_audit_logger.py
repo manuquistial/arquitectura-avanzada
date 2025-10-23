@@ -117,21 +117,6 @@ def test_log_transfer(mock_db):
     mock_db.add.assert_called_once()
 
 
-def test_log_share(mock_db):
-    """Test logging sharing event."""
-    audit = AuditLogger(mock_db, service_name="sharing")
-    
-    event = audit.log_share(
-        user_id="user-123",
-        document_id="doc-456",
-        shortlink_code="abc123",
-        max_views=10,
-        expires_hours=24,
-        status=AuditStatus.SUCCESS,
-        ip_address="192.168.1.100"
-    )
-    
-    mock_db.add.assert_called_once()
 
 
 def test_log_login(mock_db):

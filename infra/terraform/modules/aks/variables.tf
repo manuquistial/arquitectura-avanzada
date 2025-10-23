@@ -46,13 +46,13 @@ variable "private_cluster_enabled" {
 variable "sku_tier" {
   description = "AKS SKU tier (Free, Standard)"
   type        = string
-  default     = "Free"  # Standard for production (99.95% SLA)
+  default     = "Free" # Standard for production (99.95% SLA)
 }
 
 variable "authorized_ip_ranges" {
   description = "Authorized IP ranges for API server access"
   type        = list(string)
-  default     = []  # Empty = allow all
+  default     = [] # Empty = allow all
 }
 
 variable "admin_group_object_ids" {
@@ -72,7 +72,7 @@ variable "availability_zones" {
 variable "system_vm_size" {
   description = "VM size for system node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_D4s_v3"
 }
 
 variable "system_node_count" {
@@ -97,7 +97,7 @@ variable "system_node_max" {
 variable "user_vm_size" {
   description = "VM size for user node pool"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "Standard_D4s_v3"
 }
 
 variable "user_node_min" {
@@ -122,13 +122,13 @@ variable "enable_spot_nodepool" {
 variable "spot_vm_size" {
   description = "VM size for spot node pool"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "Standard_D4s_v3"
 }
 
 variable "spot_node_min" {
   description = "Minimum spot nodes"
   type        = number
-  default     = 0  # Can scale to zero
+  default     = 0 # Can scale to zero
 }
 
 variable "spot_node_max" {
@@ -179,7 +179,7 @@ variable "maintenance_window_day" {
 variable "maintenance_window_hours" {
   description = "Maintenance window hours (0-23)"
   type        = list(number)
-  default     = [2, 3, 4]  # 2am-5am
+  default     = [2, 3, 4] # 2am-5am
 }
 
 # Legacy variables (for backward compatibility)
@@ -192,5 +192,11 @@ variable "node_count" {
 variable "vm_size" {
   description = "DEPRECATED: Use system_vm_size instead"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_D4s_v3"
+}
+
+# Azure AD
+variable "tenant_id" {
+  description = "Azure AD tenant ID"
+  type        = string
 }
