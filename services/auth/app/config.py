@@ -57,10 +57,7 @@ class Settings(BaseSettings):
     # OIDC configuration
     oidc_issuer_url: str = Field(default="http://localhost:8011", alias="OIDC_ISSUER_URL", description="OIDC issuer URL")
     
-    # Azure AD B2C configuration
-    azure_ad_b2c_tenant_name: str = Field(default="", alias="AZURE_AD_B2C_TENANT_NAME", description="Azure AD B2C tenant name")
-    azure_ad_b2c_tenant_id: str = Field(default="", alias="AZURE_AD_B2C_TENANT_ID", description="Azure AD B2C tenant ID")
-    azure_ad_b2c_client_id: str = Field(default="", alias="AZURE_AD_B2C_CLIENT_ID", description="Azure AD B2C client ID")
+    # Azure AD B2C configuration - REMOVED
     
     # Health check settings
     health_check_timeout: int = Field(default=5, alias="HEALTH_CHECK_TIMEOUT", description="Health check timeout in seconds")

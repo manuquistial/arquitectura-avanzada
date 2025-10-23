@@ -17,35 +17,39 @@ global:
   
   security:
     hstsEnabled: true
-  
-        redis:
-          host: "production-redis.redis.cache.windows.net"  # Azure Redis hostname
-          port: 6380  # SSL port
-          ssl: true
-          passwordSecretName: redis-secrets
 
-# Database configuration
+# Redis Configuration
+redis:
+  host: "production-redis.redis.cache.windows.net"  # Azure Redis hostname
+  port: 6380  # SSL port
+  ssl: true
+  passwordSecretName: redis-secrets
+
+# Azure Key Vault Configuration - Values will be set via Terraform outputs
+keyvault:
+  enabled: true
+  vaultUrl: ""  # Will be set via Terraform outputs
+  clientId: ""  # Will be set via Terraform outputs (External Secrets Managed Identity)
+
+# Database configuration - Values will be set via Azure Key Vault
 database:
-  host: "production-psql-k85bv.postgres.database.azure.com"
+  host: "production-psql-k85bv.postgres.database.azure.com"  # Azure PostgreSQL host
   port: 5432
   name: "carpeta_ciudadana"
   username: "psqladmin"
-  password: "CarpetaCiudadana2024!Secure"
+  password: ""  # Will be set via Azure Key Vault
   
-# PostgreSQL connection strings (from Terraform outputs)
+# PostgreSQL connection strings - Values will be set via Azure Key Vault
 postgresql:
-  connectionString: "postgresql://psqladmin:CarpetaCiudadana2024%21Secure@production-psql-k85bv.postgres.database.azure.com:5432/carpeta_ciudadana?sslmode=require"
-  connectionStringUri: "postgresql://psqladmin:CarpetaCiudadana2024%21Secure@production-psql-k85bv.postgres.database.azure.com:5432/carpeta_ciudadana?sslmode=require"
+  connectionString: ""  # Will be set via Azure Key Vault
+  connectionStringUri: ""  # Will be set via Azure Key Vault
 
-# Service Bus configuration
-servicebus:
-  namespace: production-carpeta-servicebus
-  connectionString: ""  # Will be set from Key Vault
+# Service Bus configuration - REMOVED
 
 # Azure Storage configuration
 azureStorage:
   accountName: productioncarpetastorage
-  connectionString: ""  # Will be set from Key Vault
+  connectionString: ""  # Will be set from Azure Key Vault
 
 # MinTIC Hub configuration
 mintic:
@@ -208,9 +212,13 @@ monitoring:
 # observability:
 #   prometheus: REMOVED - not required by reference document
 
-# Disable migration hooks for initial deployment
+# Enable migration hooks for production deployment
 migrations:
-  enabled: false
+  enabled: true
+  # azureB2C - REMOVED
+  workloadIdentity:
+    clientId: ""  # Will be set via Azure Key Vault
+    tenantId: ""   # Will be set via Azure Key Vault
 
 # Service Account configuration
 serviceAccount:

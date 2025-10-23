@@ -23,89 +23,8 @@ resource "kubernetes_namespace" "app" {
   }
 }
 
-# Create Kubernetes secrets for database connection
-# TEMPORARILY COMMENTED - Let Helm manage secrets
-# resource "kubernetes_secret" "database" {
-#   metadata {
-#     name      = "db-secrets"
-#     namespace = var.namespace
-#   }
-
-#   data = {
-#     DATABASE_URL = var.database_url
-#     POSTGRES_URI = var.postgres_uri
-#   }
-
-#   depends_on = [kubernetes_namespace.app]
-# }
-
-# Create Kubernetes secret for Azure Storage
-# TEMPORARILY COMMENTED - Let Helm manage secrets
-# resource "kubernetes_secret" "azure_storage" {
-#   metadata {
-#     name      = "azure-storage"
-#     namespace = var.namespace
-#   }
-
-#   data = {
-#     account-name = var.azure_storage_account_name
-#     account-key  = var.azure_storage_account_key
-#   }
-
-#   depends_on = [kubernetes_namespace.app]
-# }
-
-# Create Kubernetes secret for Azure B2C (if enabled)
-# TEMPORARILY COMMENTED - Let Helm manage secrets
-# resource "kubernetes_secret" "azure_b2c" {
-#   count = var.azure_b2c_enabled ? 1 : 0
-
-#   metadata {
-#     name      = "azure-b2c-secrets"
-#     namespace = var.namespace
-#   }
-
-#   data = {
-#     tenant_name   = var.azure_b2c_tenant_name
-#     tenant_id     = var.azure_b2c_tenant_id
-#     client_id     = var.azure_b2c_client_id
-#     client_secret = var.azure_b2c_client_secret
-#   }
-
-#   depends_on = [kubernetes_namespace.app]
-# }
-
-# Create Kubernetes secret for M2M authentication
-# TEMPORARILY COMMENTED - Let Helm manage secrets
-# resource "kubernetes_secret" "m2m_auth" {
-#   metadata {
-#     name      = "m2m-auth"
-#     namespace = var.namespace
-#   }
-
-#   data = {
-#     secret = var.m2m_secret_key
-#   }
-
-#   depends_on = [kubernetes_namespace.app]
-# }
-
-# Create Kubernetes secret for Service Bus
-# TEMPORARILY COMMENTED - Let Helm manage secrets
-# resource "kubernetes_secret" "servicebus" {
-#   count = var.servicebus_enabled ? 1 : 0
-
-#   metadata {
-#     name      = "sb-secrets"
-#     namespace = var.namespace
-#   }
-
-#   data = {
-#     SERVICEBUS_CONNECTION_STRING = var.servicebus_connection_string
-#   }
-
-#   depends_on = [kubernetes_namespace.app]
-# }
+# Secrets are now managed by Azure Key Vault + External Secrets Operator
+# No need for manual Kubernetes secrets creation
 
 # Deploy the main application Helm chart
 resource "helm_release" "carpeta_ciudadana" {
@@ -129,7 +48,7 @@ resource "helm_release" "carpeta_ciudadana" {
           tenantId = var.workload_identity_tenant_id
         }
 
-        # keyVault removed - using traditional Kubernetes secrets
+        # Using Azure Key Vault + External Secrets Operator
 
         azureB2C = {
           enabled = var.azure_b2c_enabled
@@ -165,10 +84,7 @@ resource "helm_release" "carpeta_ciudadana" {
         enabled = var.migrations_enabled
       }
 
-      servicebus = {
-        enabled   = var.servicebus_enabled
-        namespace = var.servicebus_namespace
-      }
+      # servicebus - REMOVED
 
       corsOrigins = var.cors_origins
 
@@ -215,11 +131,5 @@ resource "helm_release" "carpeta_ciudadana" {
 
   depends_on = [
     kubernetes_namespace.app
-    # TEMPORARILY COMMENTED - Let Helm manage secrets
-    # kubernetes_secret.database,
-    # kubernetes_secret.azure_storage,
-    # kubernetes_secret.azure_b2c,
-    # kubernetes_secret.m2m_auth,
-    # kubernetes_secret.servicebus
   ]
 }

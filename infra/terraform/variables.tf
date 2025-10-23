@@ -1,7 +1,7 @@
 variable "azure_region" {
   description = "Azure region"
   type        = string
-  default     = "eastus"
+  default     = "westus2"
 }
 
 variable "azure_subscription_id" {
@@ -32,6 +32,83 @@ variable "project_name" {
   description = "Project name"
   type        = string
   default     = "carpeta-ciudadana"
+}
+
+# Azure Key Vault Configuration
+variable "keyvault_enabled" {
+  description = "Enable Azure Key Vault for secrets management"
+  type        = bool
+  default     = true
+}
+
+variable "keyvault_name" {
+  description = "Name of the Azure Key Vault"
+  type        = string
+  default     = "carpeta-ciudadana-kv"
+}
+
+variable "keyvault_sku_name" {
+  description = "SKU name for the Key Vault"
+  type        = string
+  default     = "standard"
+  validation {
+    condition     = contains(["standard", "premium"], var.keyvault_sku_name)
+    error_message = "Key Vault SKU name must be either 'standard' or 'premium'."
+  }
+}
+
+variable "keyvault_purge_protection_enabled" {
+  description = "Enable purge protection for the Key Vault"
+  type        = bool
+  default     = true
+}
+
+variable "keyvault_soft_delete_retention_days" {
+  description = "Number of days to retain soft deleted items"
+  type        = number
+  default     = 90
+  validation {
+    condition     = var.keyvault_soft_delete_retention_days >= 7 && var.keyvault_soft_delete_retention_days <= 90
+    error_message = "Key Vault soft delete retention days must be between 7 and 90."
+  }
+}
+
+variable "keyvault_network_acls_default_action" {
+  description = "Default action for network ACLs"
+  type        = string
+  default     = "Deny"
+  validation {
+    condition     = contains(["Allow", "Deny"], var.keyvault_network_acls_default_action)
+    error_message = "Key Vault network ACLs default action must be either 'Allow' or 'Deny'."
+  }
+}
+
+variable "keyvault_network_acls_bypass" {
+  description = "Bypass for network ACLs"
+  type        = string
+  default     = "AzureServices"
+  validation {
+    condition     = contains(["None", "AzureServices"], var.keyvault_network_acls_bypass)
+    error_message = "Key Vault network ACLs bypass must be either 'None' or 'AzureServices'."
+  }
+}
+
+variable "keyvault_allowed_ip_rules" {
+  description = "List of IP addresses/ranges allowed to access the Key Vault"
+  type        = list(string)
+  default     = []
+}
+
+variable "keyvault_initial_secrets" {
+  description = "Initial secrets to create in the Key Vault"
+  type        = map(string)
+  default     = {}
+}
+
+variable "external_secrets_namespace" {
+  description = "Namespace where External Secrets Operator is deployed"
+  type        = string
+  default     = "external-secrets-system"
 }
 
 # VNet
@@ -287,19 +364,9 @@ variable "search_sku" {
   default     = "basic"
 }
 
-# Service Bus
-variable "servicebus_sku" {
-  description = "Service Bus SKU"
-  type        = string
-  default     = "Basic"
-}
+# Service Bus - REMOVED
 
-# Azure AD B2C
-variable "adb2c_domain_name" {
-  description = "Azure AD B2C domain name"
-  type        = string
-  default     = "carpetaciudadana"
-}
+# Azure AD B2C - REMOVED
 
 # Container Registry
 variable "acr_sku" {
@@ -428,35 +495,9 @@ variable "m2m_secret_key" {
   default     = ""
 }
 
-# Redis
-variable "redis_password" {
-  description = "Redis password (optional)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
 
 # Azure AD B2C
-variable "azure_b2c_tenant_id" {
-  description = "Azure AD B2C tenant ID"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "azure_b2c_client_id" {
-  description = "Azure AD B2C client ID"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "azure_b2c_client_secret" {
-  description = "Azure AD B2C client secret"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# Azure B2C variables - REMOVED
 
 # CSI Secrets Store Driver - REMOVED (using traditional Kubernetes secrets instead)
 
@@ -487,57 +528,7 @@ variable "app_subdomain" {
   default     = "app"
 }
 
-# Azure AD B2C Configuration
-variable "azure_b2c_tenant_name" {
-  description = "Azure AD B2C tenant name (e.g., carpetaciudadana)"
-  type        = string
-  default     = "carpetaciudadana"
-}
-
-variable "azure_b2c_enabled" {
-  description = "Enable Azure AD B2C authentication"
-  type        = bool
-  default     = true
-}
-
-variable "azure_b2c_redirect_uris" {
-  description = "Azure AD B2C redirect URIs"
-  type        = list(string)
-  default = [
-    "http://localhost:3000/api/auth/callback/azure-ad-b2c",
-    "https://carpeta-ciudadana.com/api/auth/callback/azure-ad-b2c"
-  ]
-}
-
-variable "azure_b2c_logout_redirect_uri" {
-  description = "Azure AD B2C logout redirect URI"
-  type        = string
-  default     = "http://localhost:3000"
-}
-
-variable "azure_b2c_user_flow_name" {
-  description = "Azure AD B2C user flow name"
-  type        = string
-  default     = "B2C_1_signupsignin"
-}
-
-variable "azure_b2c_enable_implicit_flow" {
-  description = "Enable implicit flow for Azure AD B2C"
-  type        = bool
-  default     = true
-}
-
-variable "azure_b2c_enable_authorization_code_flow" {
-  description = "Enable authorization code flow for Azure AD B2C"
-  type        = bool
-  default     = true
-}
-
-variable "azure_b2c_enable_client_credentials_flow" {
-  description = "Enable client credentials flow for Azure AD B2C"
-  type        = bool
-  default     = true
-}
+# Azure AD B2C Configuration - REMOVED
 
 # Azure Cognitive Search
 variable "azure_search_enabled" {
@@ -633,12 +624,6 @@ variable "redis_allow_azure_services" {
   default     = false
 }
 
-# Azure Key Vault
-variable "keyvault_enabled" {
-  description = "Enable Azure Key Vault"
-  type        = bool
-  default     = true
-}
 
 variable "keyvault_sku" {
   description = "Key Vault SKU (standard, premium)"
@@ -743,4 +728,26 @@ variable "frontdoor_enable_waf" {
   default     = true
 }
 
+# =============================================================================
+# SECRETS VARIABLES FOR AZURE KEY VAULT
+# =============================================================================
+
+# Azure Storage
+
+variable "storage_container_name" {
+  description = "Nombre del contenedor de Azure Storage"
+  type        = string
+  default     = "documents"
+}
+
+# Redis - Variables eliminadas porque se usan outputs automáticos de Terraform
+
+# Azure AD B2C - REMOVED
+
+# NextAuth
+variable "nextauth_url" {
+  description = "URL de NextAuth"
+  type        = string
+  default     = "https://app.carpeta-ciudadana.com"
+}
 

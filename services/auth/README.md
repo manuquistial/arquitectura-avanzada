@@ -15,7 +15,7 @@ El **Auth Service** es un microservicio especializado en autenticación y autori
 - ✅ **Gestión de sesiones** con Redis y PostgreSQL
 - ✅ **Autorización granular** con roles y permisos
 - ✅ **Auditoría completa** de eventos de autenticación
-- ✅ **Integración con Azure AD B2C** (preparado)
+- ❌ **Integración con Azure AD B2C** (removido)
 - ✅ **Seguridad robusta** con JWT, HMAC y mTLS
 
 ---
@@ -38,7 +38,7 @@ graph TB
         DB[(PostgreSQL<br/>User Data)]
         REDIS[(Redis<br/>Session Cache)]
         KS[Kubernetes Secrets<br/>Key Management]
-        B2C[Azure AD B2C<br/>Identity Provider]
+        # B2C[Azure AD B2C<br/>Identity Provider] - REMOVED
     end
     
     AUTH --> AUTH_SVC
@@ -48,7 +48,7 @@ graph TB
     MODELS --> DB
     AUTH_SVC --> REDIS
     AUTH_SVC --> KS
-    AUTH_SVC --> B2C
+    # AUTH_SVC --> B2C - REMOVED
 ```
 
 ### Estructura del Código
@@ -81,9 +81,9 @@ services/auth/
 
 **Flujo**:
 1. Usuario accede al portal
-2. Redirige a Azure AD B2C (OIDC)
+2. Redirige a proveedor OIDC (Azure AD B2C removido)
 3. Usuario se autentica con credenciales
-4. B2C retorna código de autorización
+4. Proveedor OIDC retorna código de autorización
 5. Auth Service intercambia código por tokens
 6. Se crea sesión segura con JWT
 
@@ -221,10 +221,7 @@ JWT_PUBLIC_KEY_PATH=/etc/auth/public_key.pem
 # OIDC Configuration
 OIDC_ISSUER_URL=https://auth.operador.com
 
-# Azure AD B2C Configuration
-AZURE_AD_B2C_TENANT_NAME=carpetaciudadana
-AZURE_AD_B2C_TENANT_ID=tenant-id
-AZURE_AD_B2C_CLIENT_ID=client-id
+# Azure AD B2C Configuration - REMOVED
 
 # Application Configuration
 ENVIRONMENT=production
@@ -304,7 +301,7 @@ autoscaling:
 
 1. **Autenticación Multi-Factor (MFA)**
    - Soporte para MFA opcional
-   - Integración con Azure AD B2C
+   - ❌ Integración con Azure AD B2C (removido)
    - TOTP y SMS como métodos secundarios
 
 2. **Gestión de Sesiones Seguras**
@@ -420,7 +417,7 @@ graph LR
     AUTH --> TRANSFER[Transfer Service]
     
     AUTH --> HUB[MinTIC Hub]
-    AUTH --> B2C[Azure AD B2C]
+    # AUTH --> B2C[Azure AD B2C] - REMOVED
 ```
 
 ### Flujos de Integración
@@ -443,7 +440,7 @@ graph LR
 
 ### Próximas Implementaciones
 
-- [ ] **Azure AD B2C** - Integración completa
+- ❌ **Azure AD B2C** - Removido del proyecto
 - [ ] **mTLS** - Autenticación mutua entre servicios
 - [ ] **HMAC** - Firma de requests entre operadores
 - [ ] **WORM Storage** - Inmutabilidad de certificados

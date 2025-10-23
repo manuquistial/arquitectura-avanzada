@@ -1,4 +1,39 @@
-{{- include "carpeta-ciudadana.deployment" (dict "service" "read-models" "context" .) }}
+{{- if .Values.readModels.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-read-models
+  labels:
+    app: read-models
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.readModels.replicaCount }}
+  selector:
+    matchLabels:
+      app: read-models
+      {{- include "carpeta-ciudadana.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: read-models
+        {{- include "carpeta-ciudadana.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: read-models
+        image: {{ printf "%s/%s:%s" .Values.global.imageRegistry "carpeta-read-models" .Values.global.imageTag | default "latest" }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8007
+          name: http
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ .Values.global.environment | quote }}
+        - name: ASPNETCORE_URLS
+          value: "http://+:8007"
+        resources:
+          {{- toYaml .Values.readModels.resources | nindent 10 }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

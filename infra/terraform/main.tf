@@ -37,7 +37,10 @@ provider "azurerm" {
   # Usar OIDC (Federated Identity) para autenticación en GitHub Actions
   use_oidc = true
   
-  # Subscription ID - se puede obtener automáticamente o especificar explícitamente
+  # Deshabilitar registro automático de Resource Providers
+  resource_provider_registrations = "none"
+
+  # Configurar subscription ID
   subscription_id = var.azure_subscription_id
 }
 
@@ -189,45 +192,7 @@ module "postgresql" {
   aks_egress_ip               = ""       # Not needed with private endpoint
 }
 
-# Kubernetes Secrets para conexión privada - DISABLED
-# module "kubernetes_secrets" {
-#   source = "./modules/kubernetes-secrets"
-
-#   # Namespace
-#   namespace = "${var.project_name}-${var.environment}"
-
-#   # PostgreSQL configuration
-#   postgresql_fqdn        = module.postgresql.fqdn
-#   postgresql_username    = var.db_admin_username
-#   postgresql_password    = var.db_admin_password
-#   postgresql_database    = "carpeta_ciudadana"
-
-#   # Azure Storage
-#   azure_storage_enabled        = true
-#   azure_storage_account_name   = module.storage.storage_account_name
-#   azure_storage_account_key    = module.storage.primary_access_key
-#   azure_storage_container_name = "documents"
-
-#   # Service Bus
-#   servicebus_enabled           = true
-#   servicebus_connection_string = module.servicebus.primary_connection_string
-
-#   # Redis
-#   redis_enabled   = var.redis_enabled
-#   redis_host      = var.redis_enabled ? module.redis[0].redis_hostname : ""
-#   redis_port      = var.redis_enabled ? module.redis[0].redis_port : "6380"
-#   redis_password  = var.redis_enabled ? module.redis[0].redis_primary_key : ""
-#   redis_ssl       = "true"
-
-#   # Azure AD B2C
-#   azure_b2c_enabled        = var.azure_b2c_enabled
-#   azure_b2c_tenant_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_id : ""
-#   azure_b2c_client_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_id : ""
-#   azure_b2c_client_secret  = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_secret : ""
-
-#   # M2M Authentication
-#   m2m_secret_key = var.m2m_secret_key
-# }
+# Secrets are now managed by Azure Key Vault + External Secrets Operator
 
 # Blob Storage
 module "storage" {
@@ -247,19 +212,7 @@ module "storage" {
 
 # Azure Cognitive Search removed - using OpenSearch instead
 
-# Service Bus (Azure messaging)
-module "servicebus" {
-  source = "./modules/servicebus"
-
-  namespace_name      = "${var.environment}-carpeta-servicebus"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  
-  tags = {
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
-}
+# Service Bus - REMOVED
 
 # Redis for caching and rate limiting
 # Habilitado para suscripción estándar
@@ -317,40 +270,40 @@ module "keda" {
   keda_namespace                = var.keda_namespace
   app_namespace                 = "${var.project_name}-${var.environment}"
   replica_count                 = var.keda_replica_count
-  enable_servicebus_trigger     = true
+  # enable_servicebus_trigger - REMOVED
   enable_prometheus_monitoring  = false  # Disabled for cost optimization
 
-  depends_on = [module.aks, module.servicebus]
+  depends_on = [module.aks]
 }
 
-# Azure Key Vault removed - using environment variables instead
+# Azure Key Vault para gestión centralizada de secrets
+module "keyvault" {
+  count  = var.keyvault_enabled ? 1 : 0
+  source = "./modules/keyvault"
 
-# CSI Secrets Store Driver removed - using environment variables instead
+  keyvault_name                        = var.keyvault_name
+  location                            = var.azure_region
+  resource_group_name                 = azurerm_resource_group.main.name
+  environment                         = var.environment
+  sku_name                           = var.keyvault_sku_name
+  purge_protection_enabled           = var.keyvault_purge_protection_enabled
+  soft_delete_retention_days         = var.keyvault_soft_delete_retention_days
+  network_acls_default_action        = var.keyvault_network_acls_default_action
+  network_acls_bypass                = var.keyvault_network_acls_bypass
+  allowed_subnet_ids                 = [module.vnet.aks_subnet_id]
+  allowed_ip_rules                   = var.keyvault_allowed_ip_rules
+  aks_managed_identity_principal_id  = module.aks.managed_identity_principal_id
+  aks_oidc_issuer_url               = module.aks.oidc_issuer_url
+  external_secrets_namespace        = var.external_secrets_namespace
+  initial_secrets                   = var.keyvault_initial_secrets
+
+  depends_on = [module.vnet, module.aks]
+}
 
 # Azure API Management (API Gateway) - REMOVED
 # APIM is overkill for this application, using Front Door instead
 
-# Azure AD B2C (authentication)
-# Habilitado con configuración optimizada para Azure for Students
-module "azure_ad_b2c" {
-  count  = var.azure_b2c_enabled ? 1 : 0
-  source = "./modules/azure-ad-b2c"
-
-  environment           = var.environment
-  b2c_tenant_name       = var.azure_b2c_tenant_name
-  redirect_uris         = var.azure_b2c_redirect_uris
-  logout_redirect_uri   = var.azure_b2c_logout_redirect_uri
-  user_flow_name        = var.azure_b2c_user_flow_name
-  enable_implicit_flow  = var.azure_b2c_enable_implicit_flow
-  enable_authorization_code_flow = var.azure_b2c_enable_authorization_code_flow
-  enable_client_credentials_flow = var.azure_b2c_enable_client_credentials_flow
-
-  tags = {
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
-}
+# Azure AD B2C - REMOVED
 
 # Azure Front Door (HTTPS Gateway)
 module "frontdoor" {
@@ -476,9 +429,7 @@ module "carpeta_ciudadana" {
   # Feature flags
   m2m_auth_enabled     = true
   migrations_enabled   = true  # Enabled for production
-  servicebus_enabled   = true  # Enabled for production
-  servicebus_namespace = "${var.environment}-carpeta-servicebus"
-  servicebus_connection_string = module.servicebus.primary_connection_string
+  # servicebus - REMOVED
   
   # Resource optimization
   resource_optimization_enabled = true
@@ -504,12 +455,7 @@ module "carpeta_ciudadana" {
   azure_storage_account_key     = module.storage.primary_access_key
   azure_storage_container_name  = "documents"
   
-  # Azure B2C configuration (enabled for production)
-  azure_b2c_enabled        = var.azure_b2c_enabled
-  azure_b2c_tenant_name    = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_name : ""
-  azure_b2c_tenant_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_id : ""
-  azure_b2c_client_id      = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_id : ""
-  azure_b2c_client_secret  = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_secret : ""
+  # Azure B2C configuration - REMOVED
   
   # MinTIC configuration
   mintic_hub_url      = "https://govcarpeta-apis-4905ff3c005b.herokuapp.com"
@@ -520,9 +466,7 @@ module "carpeta_ciudadana" {
     module.aks,
     module.postgresql,
     module.storage,
-    module.servicebus,
     module.keda,
-    module.azure_ad_b2c,
     module.redis,
     module.cert_manager
   ]

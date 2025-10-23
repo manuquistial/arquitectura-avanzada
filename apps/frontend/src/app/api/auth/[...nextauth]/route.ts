@@ -1,52 +1,18 @@
 /**
  * NextAuth API Route Handler
- * Azure AD B2C Provider Configuration
+ * Authentication Configuration (Azure AD B2C removed)
  * 
- * @see https://next-auth.js.org/configuration/providers/azure-ad-b2c
+ * @see https://next-auth.js.org/configuration/providers
  */
 
 import NextAuth, { NextAuthOptions } from "next-auth";
-import AzureADB2CProvider from "next-auth/providers/azure-ad-b2c";
 import CredentialsProvider from "next-auth/providers/credentials";
-
-// Azure AD B2C Configuration
-const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME || "carpetaciudadana";
-const tenantId = process.env.AZURE_AD_B2C_TENANT_ID || "";
-const clientId = process.env.AZURE_AD_B2C_CLIENT_ID || "";
-const clientSecret = process.env.AZURE_AD_B2C_CLIENT_SECRET || "";
-const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW || "B2C_1_signupsignin1";
 
 const authOptions: NextAuthOptions = {
   providers: [
-    // Azure AD B2C Provider
-    ...(clientId && clientSecret ? [
-      AzureADB2CProvider({
-        tenantId: tenantId,
-        clientId: clientId,
-        clientSecret: clientSecret,
-        primaryUserFlow: userFlow,
-        authorization: {
-          params: {
-            scope: "openid profile email",
-            response_type: "code",
-            response_mode: "query"
-          }
-        },
-        profile(profile) {
-          return {
-            id: profile.sub,
-            name: profile.name || `${profile.given_name} ${profile.family_name}`,
-            email: profile.email,
-            given_name: profile.given_name,
-            family_name: profile.family_name,
-            roles: profile.extension_Role || ["user"],
-            permissions: profile.extension_Permissions || ["read"]
-          };
-        }
-      })
-    ] : []),
+    // Azure AD B2C Provider - REMOVED
     
-    // Traditional Login Provider (fallback)
+    // Traditional Login Provider
     CredentialsProvider({
       id: "credentials",
       name: "Credenciales",
@@ -121,7 +87,7 @@ const authOptions: NextAuthOptions = {
   callbacks: {
     /**
      * JWT Callback - Called when JWT is created or updated
-     * Store user info from Azure AD B2C in the token
+     * Store user info in the token
      */
     async jwt({ token, account, profile, user }) {
       // Initial sign in
@@ -130,14 +96,14 @@ const authOptions: NextAuthOptions = {
         token.idToken = account.id_token;
         token.refreshToken = account.refresh_token;
         
-        // Azure AD B2C specific claims
-        token.sub = profile.sub; // User ID from B2C
+        // Profile specific claims
+        token.sub = profile.sub;
         token.email = profile.email;
         token.name = profile.name;
         token.given_name = (profile as Record<string, unknown>).given_name as string;
         token.family_name = (profile as Record<string, unknown>).family_name as string;
         
-        // Custom claims (if configured in B2C)
+        // Custom claims
         token.roles = (profile as Record<string, unknown>).extension_Role as string[] || [];
         token.permissions = (profile as Record<string, unknown>).extension_Permissions as string[] || [];
       }

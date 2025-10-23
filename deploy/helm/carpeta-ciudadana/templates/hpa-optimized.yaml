@@ -1,2 +1,0 @@
-{{- if .Values.migrations.resourceOptimization.enabled -}}
-{{- end }}

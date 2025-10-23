@@ -11,16 +11,11 @@ global:
 # Migrations configuration for development
 migrations:
   enabled: false  # Disabled for local development
-  azureB2C:
-    enabled: false  # Disabled for local development
+  # azureB2C - REMOVED
 
-# Azure B2C configuration for development
-azureB2C:
-  enabled: false  # Disabled for local development
+# Azure B2C configuration - REMOVED
 
-# Service Bus configuration for development
-servicebus:
-  enabled: false  # Disabled for local development
+# Service Bus configuration - REMOVED
 
 # M2M Authentication for development
 m2mAuth:

@@ -47,6 +47,11 @@ output "identity_principal_id" {
   value       = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
 
+output "managed_identity_principal_id" {
+  description = "AKS managed identity principal ID (alias for identity_principal_id)"
+  value       = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
 output "oidc_issuer_url" {
   description = "OIDC issuer URL (for Workload Identity)"
   value       = azurerm_kubernetes_cluster.main.oidc_issuer_url

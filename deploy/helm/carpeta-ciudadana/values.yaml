@@ -8,20 +8,25 @@ global:
   useWorkloadIdentity: true
   highAvailability: true  # Habilitar alta disponibilidad
   workloadIdentity:
-    clientId: ""  # Will be set via Kubernetes secret
-    tenantId: ""   # Will be set via Kubernetes secret
+    clientId: ""  # Will be set via Azure Key Vault
+    tenantId: ""   # Will be set via Azure Key Vault
   m2mAuth:
     enabled: true
+
+# Azure Key Vault Configuration
+keyvault:
+  enabled: true
+  vaultUrl: ""  # Will be set via Terraform outputs
+  clientId: ""  # Will be set via Terraform outputs (External Secrets Managed Identity)
 
 # Migrations configuration
 migrations:
   enabled: true  # Enabled for production
-  azureB2C:
-    enabled: true  # Enabled for production
+  # azureB2C - REMOVED  # Enabled for production
   workloadIdentity:
     clientId: ""  # Will be set via Kubernetes secret
     tenantId: ""   # Will be set via Kubernetes secret
-  # keyVault removed - using traditional Kubernetes secrets
+  # Using Azure Key Vault via External Secrets Operator
   m2mAuth:
     enabled: true  # Enabled for inter-service authentication
   resourceOptimization:
@@ -34,10 +39,7 @@ migrations:
       cpu: "500m"
       memory: "512Mi"
 
-# Service Bus configuration
-servicebus:
-  enabled: true  # Enabled for inter-service communication
-  namespace: "prod-servicebus"
+# Service Bus configuration - REMOVED
 
 
 # CORS Configuration - Permitir dominios generados por Azure
@@ -49,19 +51,7 @@ security:
   cspEnabled: false  # Disabled for HTTP-only setup
   cspReportUri: ""  # Optional CSP violation reporting endpoint
 
-# Azure AD B2C configuration - Values will be set via Kubernetes secrets
-azureB2C:
-  enabled: true  # Enabled for production
-  tenantName: ""  # Will be set via Kubernetes secret
-  tenantId: ""    # Will be set via Kubernetes secret
-  clientId: ""    # Will be set via Kubernetes secret
-  clientSecret: "" # Will be set via Kubernetes secret
-  authorityUrl: "" # Will be set via Kubernetes secret
-  issuerUrl: ""     # Will be set via Kubernetes secret
-  jwksUri: ""       # Will be set via Kubernetes secret
-  userFlowName: "B2C_1_signupsignin"
-  redirectUri: "http://localhost:3000/api/auth/callback/azure-ad-b2c"
-  logoutRedirectUri: "http://localhost:3000"
+# Azure AD B2C configuration - REMOVED
 
 # M2M Authentication (inter-service communication) - Values will be set via Kubernetes secrets
 m2mAuth:
@@ -305,11 +295,11 @@ auth:
     port: 8000
   resources:
     requests:
-      memory: "64Mi"  # Token validation + session management
-      cpu: "25m"
+      memory: "256Mi"  # Aumentado para evitar problemas de memoria
+      cpu: "100m"     # Aumentado para permitir inicio correcto
     limits:
-      memory: "128Mi"  # Límite conservador
-      cpu: "25m"
+      memory: "512Mi"  # Aumentado significativamente
+      cpu: "500m"      # Aumentado para permitir procesamiento
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -392,8 +382,6 @@ transferWorker:
               - transfer-worker
           topologyKey: kubernetes.io/hostname
 
-    useMaxUnavailable: true
-    maxUnavailable: 50%  # During operation, allow disrupting 50% at a time
   
   # Autoscaling configuration
   autoscaling:
@@ -441,11 +429,7 @@ circuitBreaker:
   threshold: 5
   cooldown: "120s"
 
-# Service Bus Configuration
-serviceBus:
-  enabled: true
-  connectionString: "" # Will be set via Kubernetes secret
-  namespace: "" # Service Bus namespace (e.g., carpeta-sb) - for KEDA
+# Service Bus Configuration - REMOVED
 
 # Observability Configuration
 observability:

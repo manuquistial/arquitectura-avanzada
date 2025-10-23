@@ -1,78 +1,78 @@
 {{/*
-Generic migration job template for microservices
-Usage: {{ include "carpeta-ciudadana.migration" (dict "service" "ingestion" "context" $) }}
+Migration Job Template
+This template creates migration jobs for each service that needs database migrations
 */}}
 {{- define "carpeta-ciudadana.migration" -}}
 {{- $service := .service -}}
 {{- $context := .context -}}
-{{- $serviceValues := index $context.Values $service -}}
-{{- if and $serviceValues.enabled $context.Values.migrations.enabled }}
+{{- if $context.Values.migrations.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "carpeta-ciudadana.fullname" $context }}-migrate-{{ $service }}-{{ $context.Release.Revision }}
+  name: {{ include "carpeta-ciudadana.fullname" $context }}-migrate-{{ $service }}
   labels:
-    app: migrate-{{ $service }}
     {{- include "carpeta-ciudadana.labels" $context | nindent 4 }}
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/service: {{ $service }}
   annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
-  ttlSecondsAfterFinished: 300
-  backoffLimit: 3
   template:
     metadata:
-      name: migrate-{{ $service }}
       labels:
-        app: migrate-{{ $service }}
+        {{- include "carpeta-ciudadana.selectorLabels" $context | nindent 8 }}
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/service: {{ $service }}
     spec:
-      restartPolicy: OnFailure
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" $context }}
+      restartPolicy: Never
       containers:
-      - name: migrate
-        image: "{{ $context.Values.global.imageRegistry }}/{{ $serviceValues.image.repository }}:{{ $serviceValues.image.tag }}"
+      - name: migration
+        image: {{ printf "%s/%s:%s" $context.Values.global.imageRegistry (printf "carpeta-ciudadana-%s" $service) $context.Values.global.imageTag | default "latest" }}
         imagePullPolicy: {{ $context.Values.global.imagePullPolicy }}
-        command:
-        - /bin/sh
-        - -c
-        - |
-          set -e
-          echo "🔄 Running {{ $service }} database migrations..."
-          
-          # Check if alembic is available
-          if command -v alembic >/dev/null 2>&1; then
-            echo "Using Alembic for migrations"
-            cd /app
-            alembic upgrade head
-          elif [ -f "/app/migrations/init.sql" ]; then
-            echo "Using SQL scripts for migrations"
-            psql $POSTGRES_URI -f /app/migrations/init.sql
-          else
-            echo "⚠️  No migration tool found, skipping..."
-          fi
-          
-          echo "✅ {{ $service }} migrations completed successfully"
+        command: ["dotnet", "run", "--project", "/app/src/CarpetaCiudadana.{{ $service | title }}.Infrastructure/CarpetaCiudadana.{{ $service | title }}.Infrastructure.csproj", "--", "migrate"]
         env:
-        - name: DATABASE_URL
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ $context.Values.global.environment | quote }}
+        - name: ConnectionStrings__DefaultConnection
           valueFrom:
             secretKeyRef:
               name: database-secrets
               key: DATABASE_URL
-        - name: POSTGRES_URI
+        - name: AzureStorage__ConnectionString
           valueFrom:
             secretKeyRef:
-              name: database-secrets
-              key: POSTGRES_URI
-        envFrom:
-        - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" $context }}-app-config
+              name: azure-secrets
+              key: STORAGE_CONNECTION_STRING
+        # ServiceBus - REMOVED
+        - name: Redis__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_CONNECTION_STRING
+        {{- if eq $service "citizen" }}
+        # Azure AD B2C - REMOVED
+        {{- end }}
         resources:
           requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "200m"
             memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      {{- with $context.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $context.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $context.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 {{- end }}
 {{- end }}

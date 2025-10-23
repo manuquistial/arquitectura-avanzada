@@ -136,13 +136,8 @@ metadata:
   labels:
     app: transfer-worker
 spec:
-  # For KEDA scaled workloads, use maxUnavailable instead
-  # Allows scaling to zero while protecting during normal operation
-  {{- if .Values.transferWorker.podDisruptionBudget.useMaxUnavailable }}
-  maxUnavailable: {{ .Values.transferWorker.podDisruptionBudget.maxUnavailable }}
-  {{- else }}
-  minAvailable: {{ .Values.podDisruptionBudget.defaultMinAvailable | default 1 }}
-  {{- end }}
+  # For KEDA scaled workloads, allow scaling to zero
+  minAvailable: 0
   selector:
     matchLabels:
       app: transfer-worker

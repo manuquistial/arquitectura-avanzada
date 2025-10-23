@@ -1,0 +1,24 @@
+# Archivos sensibles que NO deben ser accesibles por el chat
+.envrc
+.env
+*.tfvars
+!*.tfvars.example
+terraform.tfvars
+*.secret
+*-credentials.txt
+*-credentials.json
+*-secrets-*.txt
+production-secrets.yaml
+*-production-secrets.yaml
+
+# Archivos de configuración local
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.log

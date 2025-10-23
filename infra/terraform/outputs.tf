@@ -3,6 +3,32 @@ output "resource_group_name" {
   value       = azurerm_resource_group.main.name
 }
 
+# Azure Key Vault Outputs
+output "key_vault_id" {
+  description = "ID of the Azure Key Vault"
+  value       = var.keyvault_enabled ? module.keyvault[0].key_vault_id : null
+}
+
+output "key_vault_name" {
+  description = "Name of the Azure Key Vault"
+  value       = var.keyvault_enabled ? module.keyvault[0].key_vault_name : null
+}
+
+output "key_vault_uri" {
+  description = "URI of the Azure Key Vault"
+  value       = var.keyvault_enabled ? module.keyvault[0].key_vault_uri : null
+}
+
+output "external_secrets_identity_client_id" {
+  description = "Client ID of the Managed Identity for External Secrets Operator"
+  value       = var.keyvault_enabled ? module.keyvault[0].external_secrets_identity_client_id : null
+}
+
+output "external_secrets_identity_principal_id" {
+  description = "Principal ID of the Managed Identity for External Secrets Operator"
+  value       = var.keyvault_enabled ? module.keyvault[0].external_secrets_identity_principal_id : null
+}
+
 output "aks_cluster_name" {
   description = "AKS cluster name"
   value       = module.aks.cluster_name
@@ -86,23 +112,7 @@ output "storage_container_name" {
 #   sensitive   = true
 # }
 
-output "servicebus_connection_string" {
-  description = "Service Bus connection string - SENSITIVE"
-  value       = module.servicebus.primary_connection_string
-  sensitive   = true
-}
-
-output "servicebus_namespace_name" {
-  description = "Service Bus namespace name"
-  value       = module.servicebus.namespace_name
-  sensitive   = false
-}
-
-output "servicebus_queue_names" {
-  description = "Service Bus queue names"
-  value       = module.servicebus.queue_names
-  sensitive   = false
-}
+# Service Bus outputs - REMOVED
 
 # Redis outputs
 output "redis_hostname" {
@@ -252,52 +262,7 @@ output "carpeta_ciudadana_helm_release_status" {
 }
 
 # Azure AD B2C outputs
-output "azure_b2c_enabled" {
-  description = "Azure AD B2C enabled status"
-  value       = var.azure_b2c_enabled
-}
-
-output "azure_b2c_tenant_name" {
-  description = "Azure AD B2C tenant name"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_name : null
-}
-
-output "azure_b2c_tenant_id" {
-  description = "Azure AD B2C tenant ID"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].b2c_tenant_id : null
-}
-
-output "azure_b2c_client_id" {
-  description = "Azure AD B2C application client ID"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_id : null
-  sensitive   = true
-}
-
-output "azure_b2c_client_secret" {
-  description = "Azure AD B2C application client secret"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].client_secret : null
-  sensitive   = true
-}
-
-output "azure_b2c_authority_url" {
-  description = "Azure AD B2C authority URL"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].authority_url : null
-}
-
-output "azure_b2c_issuer_url" {
-  description = "Azure AD B2C issuer URL"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].issuer_url : null
-}
-
-output "azure_b2c_jwks_uri" {
-  description = "Azure AD B2C JWKS URI"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].jwks_uri : null
-}
-
-output "azure_b2c_well_known_config_url" {
-  description = "Azure AD B2C well-known configuration URL"
-  value       = var.azure_b2c_enabled ? module.azure_ad_b2c[0].well_known_config_url : null
-}
+# Azure AD B2C outputs - REMOVED
 
 # Azure API Management outputs
 # Azure API Management outputs - REMOVED (using Front Door instead)

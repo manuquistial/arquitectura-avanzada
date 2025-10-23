@@ -1,68 +1,320 @@
-# Azure Configuration
-azure_region = "eastus"
-environment  = "dev"
+# =============================================================================
+# CARPETA CIUDADANA - TERRAFORM CONFIGURATION
+# =============================================================================
+# Este archivo contiene todas las variables necesarias para desplegar
+# el proyecto Carpeta Ciudadana en Azure con Terraform
+# 
+# INSTRUCCIONES:
+# 1. Copia este archivo como terraform.tfvars
+# 2. Reemplaza todos los valores marcados con "CHANGE_ME" o "your-*"
+# 3. Genera passwords seguros para las variables marcadas como sensitive
+# =============================================================================
 
-# VNet Configuration
+# =============================================================================
+# CONFIGURACIÓN BÁSICA DE AZURE
+# =============================================================================
+
+# Región de Azure (recomendado: westus2 para PostgreSQL Flexible Server)
+azure_region = "westus2"
+
+# ID de tu suscripción de Azure
+azure_subscription_id = "your-subscription-id"
+
+# Entorno (dev, staging, production)
+environment = "production"
+
+# Nombre del proyecto
+project_name = "carpeta-ciudadana"
+
+# =============================================================================
+# CONFIGURACIÓN DE SEGURIDAD
+# =============================================================================
+
+# Contacto de seguridad para Azure Security Center
+security_contact_email = "security@carpeta-ciudadana.com"
+security_contact_phone = "+1-555-0123"
+
+# =============================================================================
+# CONFIGURACIÓN DE RED (VNet)
+# =============================================================================
+
+# CIDR de la red virtual
 vnet_cidr = "10.0.0.0/16"
-subnet_cidrs = {
-  aks = "10.0.1.0/24"
-  db  = "10.0.2.0/24"
-}
 
-# AKS Configuration (Free tier optimized)
-aks_node_count = 1
-aks_vm_size    = "Standard_B1s"  # $3.80/mes - Free tier optimizado
+# CIDR de las subredes
+subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 
-# PostgreSQL Configuration
+# =============================================================================
+# CONFIGURACIÓN DE AKS (Azure Kubernetes Service)
+# =============================================================================
+
+# Versión de Kubernetes
+aks_kubernetes_version = "1.31.11"
+
+# Canal de actualización automática
+aks_automatic_upgrade = "patch"
+
+# Configuración del cluster
+aks_private_cluster = false  # true para producción con acceso privado
+aks_sku_tier = "Free"        # "Standard" para producción (99.95% SLA)
+
+# IPs autorizadas para acceso al API server (opcional)
+aks_authorized_ip_ranges = []
+
+# Grupos de Azure AD para administradores del cluster (opcional)
+# Obtener tu Object ID con: az ad signed-in-user show --query id -o tsv
+aks_admin_groups = []
+
+# Zonas de disponibilidad
+aks_availability_zones = ["1", "2", "3"]
+
+# System Node Pool (controladores de Kubernetes)
+aks_system_vm_size = "Standard_D4s_v3"  # 4 vCPU, 16GB RAM
+aks_system_node_count = 1               # Nodos fijos si autoscaling deshabilitado
+aks_system_node_min = 1                 # Mínimo para autoscaling
+aks_system_node_max = 5                 # Máximo para autoscaling
+
+# User Node Pool (aplicaciones)
+aks_user_vm_size = "Standard_D4s_v3"    # 4 vCPU, 16GB RAM
+aks_user_node_min = 3                   # Mínimo para alta disponibilidad
+aks_user_node_max = 20                  # Máximo para escalabilidad
+
+# Spot Node Pool (workers con KEDA)
+aks_enable_spot = true                  # Habilitar nodos spot para ahorro
+aks_spot_vm_size = "Standard_D4s_v3"    # 4 vCPU, 16GB RAM
+aks_spot_node_min = 0                   # Puede escalar a cero
+aks_spot_node_max = 25                  # Máximo para escalabilidad
+aks_spot_max_price = -1                 # -1 = precio regular
+
+# Autoscaling
+aks_enable_autoscaling = true
+
+# Configuración de red de Kubernetes
+aks_service_cidr = "10.1.0.0/16"
+aks_dns_service_ip = "10.1.0.10"
+aks_outbound_type = "loadBalancer"
+
+# Ventana de mantenimiento
+aks_maintenance_day = "Sunday"
+aks_maintenance_hours = 2
+
+# =============================================================================
+# CONFIGURACIÓN DE BASE DE DATOS (PostgreSQL)
+# =============================================================================
+
+# Credenciales de administrador (CAMBIAR EN PRODUCCIÓN)
 db_admin_username = "psqladmin"
-db_admin_password = "CHANGE_ME_STRONG_PASSWORD_123!"
-db_sku_name       = "GP_Standard_D2s_v5"  # $40/mes - General Purpose for better performance
-db_storage_mb     = 32768              # 32GB
+db_admin_password = "CHANGE_ME_STRONG_PASSWORD_2024!"
 
-# PostgreSQL Firewall (Security)
-db_enable_public_access  = false  # Set to false for VNet integration only
-db_aks_egress_ip         = ""     # Leave empty to allow all AKS, or specify egress IP
-db_allow_azure_services  = false  # Set to true to allow Azure backup/monitoring
+# Configuración de PostgreSQL
+db_sku_name = "GP_Standard_D2s_v3"  # SKU para producción
+db_storage_mb = 32768                # 32GB de almacenamiento
 
-# Cognitive Search
-search_sku = "basic"  # $75/mes - O usa "free" si está disponible
+# Configuración de alta disponibilidad
+db_high_availability = false         # true para producción crítica
+db_backup_retention_days = 7         # Días de retención de backups
 
-# Service Bus
-servicebus_sku = "Basic"  # $0.05/mes
+# Configuración de red
+db_enable_public_access = false      # false para private endpoint
+db_allow_azure_services = false      # false para máxima seguridad
 
-# Azure AD B2C
-adb2c_domain_name = "carpetaciudadana"
+# =============================================================================
+# CONFIGURACIÓN DE REDIS CACHE
+# =============================================================================
 
-# Container Registry
-acr_sku = "Basic"  # $5/mes - O no crear si usas Docker Hub
+# Habilitar Redis
+redis_enabled = true
 
-# Observability Configuration (OpenTelemetry + Prometheus)
-observability_namespace    = "observability"
-otel_chart_version        = "0.78.0"
-otel_replicas             = 2
-prometheus_chart_version  = "25.8.0"
-prometheus_retention      = "15d"
-prometheus_storage_size   = "10Gi"
+# Configuración de Redis
+redis_sku = "Basic"                  # Basic, Standard, Premium
+redis_capacity = 0                   # 250MB para Basic tier
+redis_family = "C"                   # C para Basic/Standard, P para Premium
 
-# cert-manager Configuration (deployed via Helm in AKS)
-cert_manager_namespace      = "cert-manager"
-cert_manager_chart_version  = "v1.13.3"
-letsencrypt_email          = "manuelquistial@outlook.com"  # CHANGE THIS - Email for Let's Encrypt notifications
+# Configuración de seguridad
+redis_enable_non_ssl_port = false    # Solo TLS
+redis_minimum_tls_version = "1.2"
+redis_enable_authentication = true
+redis_maxmemory_policy = "allkeys-lru"
+
+# Configuración de red
+redis_enable_vnet_integration = false # true para integración con VNet
+redis_enable_firewall_rules = false   # true para reglas de firewall
+redis_allow_azure_services = false    # false para máxima seguridad
+
+# =============================================================================
+# CONFIGURACIÓN DE AZURE KEY VAULT
+# =============================================================================
+
+# Habilitar Key Vault
+keyvault_enabled = true
+
+# Configuración de Key Vault
+keyvault_name = "carpeta-ciudadana-kv"
+keyvault_sku_name = "standard"                    # standard o premium
+keyvault_purge_protection_enabled = true          # Protección contra eliminación
+keyvault_soft_delete_retention_days = 90          # Días de retención
+
+# Configuración de red
+keyvault_network_acls_default_action = "Deny"     # Denegar por defecto
+keyvault_network_acls_bypass = "AzureServices"    # Permitir servicios Azure
+keyvault_allowed_ip_rules = []                    # IPs permitidas (agregar las tuyas)
+
+# Secrets iniciales
+keyvault_initial_secrets = {}
+
+# Namespace para External Secrets Operator
+external_secrets_namespace = "external-secrets-system"
+
+# =============================================================================
+# CONFIGURACIÓN DE OPENSEARCH
+# =============================================================================
+
+# Credenciales de OpenSearch
+opensearch_username = "admin"
+opensearch_password = "CHANGE_ME_OPENSEARCH_PASSWORD_2024!"
+
+# Namespace para OpenSearch
+opensearch_namespace = "search"
+
+# =============================================================================
+# CONFIGURACIÓN DE CERT-MANAGER
+# =============================================================================
+
+# Namespace para cert-manager
+cert_manager_namespace = "cert-manager"
+
+# Versión del chart de cert-manager
+cert_manager_chart_version = "v1.13.3"
+
+# Email para Let's Encrypt (CAMBIAR)
+letsencrypt_email = "your-email@domain.com"
+
+# Clase de ingress para cert-manager
 cert_manager_ingress_class = "nginx"
-enable_tls                 = false  # Set to true when you have a domain configured
-domain_name                = ""     # Set your domain when available (e.g., "carpeta-ciudadana.example.com")
 
-# OpenSearch Configuration (deployed via Helm in AKS)
-opensearch_namespace         = "search"
-opensearch_chart_version     = "2.17.0"
-opensearch_storage_size      = "8Gi"
-opensearch_storage_class     = "managed-premium"  # Azure Premium SSD
-opensearch_memory_request    = "1Gi"
-opensearch_memory_limit      = "2Gi"
-opensearch_cpu_request       = "500m"
-opensearch_cpu_limit         = "1000m"
-opensearch_heap_size         = "1g"
-opensearch_username          = "admin"
-opensearch_password          = "CHANGE_ME_STRONG_OPENSEARCH_PASSWORD!"  # Change in production
-opensearch_enable_dashboards = true
+# Recursos para cert-manager
+cert_manager_cpu_request = "100m"
+cert_manager_cpu_limit = "200m"
+cert_manager_memory_request = "128Mi"
+cert_manager_memory_limit = "256Mi"
 
+# =============================================================================
+# CONFIGURACIÓN DE KEDA
+# =============================================================================
+
+# Versión de KEDA
+keda_version = "2.13.0"
+
+# Namespace para KEDA
+keda_namespace = "keda-system"
+
+# Número de réplicas para alta disponibilidad
+keda_replica_count = 2
+
+# =============================================================================
+# CONFIGURACIÓN DE DNS (OPCIONAL)
+# =============================================================================
+
+# Habilitar TLS
+enable_tls = false  # true cuando tengas un dominio configurado
+
+# Configuración de dominio
+domain_name = ""           # tu-dominio.com
+dns_zone_name = ""         # tu-dominio.com
+app_subdomain = "app"      # subdominio de la aplicación
+
+# =============================================================================
+# CONFIGURACIÓN DE AZURE FRONT DOOR
+# =============================================================================
+
+# Habilitar Front Door
+frontdoor_enabled = true
+
+# Hostnames para Front Door
+frontdoor_frontend_hostname = "your-frontend-ip-or-domain"
+frontdoor_api_hostname = "your-api-ip-or-domain"
+
+# Habilitar WAF
+frontdoor_enable_waf = true
+
+# =============================================================================
+# CONFIGURACIÓN DE AZURE COGNITIVE SEARCH
+# =============================================================================
+
+# Habilitar Azure Cognitive Search
+azure_search_enabled = true
+
+# SKU de Cognitive Search
+search_sku = "basic"  # basic, standard, standard2, standard3, storage_optimized_l1, storage_optimized_l2
+
+# =============================================================================
+# CONFIGURACIÓN DE AZURE CONTAINER REGISTRY
+# =============================================================================
+
+# Habilitar ACR
+acr_enabled = true
+
+# SKU de ACR
+acr_sku = "Basic"  # Basic, Standard, Premium
+
+# =============================================================================
+# CONFIGURACIÓN DE OBSERVABILIDAD
+# =============================================================================
+
+# Habilitar stack de observabilidad
+observability_enabled = true
+
+# Namespace para observabilidad
+observability_namespace = "observability"
+
+# Configuración de OpenTelemetry
+otel_chart_version = "0.78.0"
+otel_replicas = 2
+
+# Configuración de Prometheus
+prometheus_chart_version = "25.8.0"
+prometheus_retention = "15d"
+prometheus_storage_size = "10Gi"
+
+# =============================================================================
+# CONFIGURACIÓN DE AUTENTICACIÓN M2M
+# =============================================================================
+
+# Secret key para autenticación entre servicios
+# Generar con: openssl rand -hex 32
+m2m_secret_key = "CHANGE_ME_M2M_SECRET_KEY_32_CHARS_HEX"
+
+# =============================================================================
+# CONFIGURACIÓN DE SECRETS PARA AZURE KEY VAULT
+# =============================================================================
+# NOTA: Estas variables se generan automáticamente por Terraform
+# NO necesitas configurarlas manualmente - se almacenan en Azure Key Vault
+
+# NextAuth URL (configurar después del despliegue inicial)
+nextauth_url = "http://PLACEHOLDER_LOADBALANCER_IP"
+
+# =============================================================================
+# CONFIGURACIÓN DE CSI SECRETS STORE DRIVER
+# =============================================================================
+
+# Habilitar CSI Secrets Store Driver
+csi_secrets_enabled = true
+
+# Namespace para CSI Secrets Store Driver
+csi_secrets_namespace = "csi-secrets-store"
+
+# Habilitar rotación de secrets
+csi_enable_rotation = true
+
+# Intervalo de rotación
+csi_rotation_interval = "2m"
+
+# =============================================================================
+# CONFIGURACIÓN ADICIONAL
+# =============================================================================
+
+# Configuración de Key Vault adicional
+keyvault_sku = "standard"
+keyvault_enable_public_access = false
+keyvault_purge_protection = true
+keyvault_soft_delete_days = 90

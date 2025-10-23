@@ -97,23 +97,7 @@ variable "migrations_enabled" {
   default     = false
 }
 
-variable "servicebus_enabled" {
-  description = "Enable Service Bus integration"
-  type        = bool
-  default     = false
-}
-
-variable "servicebus_namespace" {
-  description = "Service Bus namespace"
-  type        = string
-  default     = "dev-servicebus"
-}
-
-variable "servicebus_connection_string" {
-  description = "Service Bus connection string"
-  type        = string
-  default     = ""
-}
+# Service Bus variables - REMOVED
 
 # Resource optimization
 variable "resource_optimization_enabled" {

@@ -1,4 +1,39 @@
-{{- include "carpeta-ciudadana.deployment" (dict "service" "citizen" "context" .) }}
+{{- if .Values.citizen.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-citizen
+  labels:
+    app: citizen
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.citizen.replicaCount }}
+  selector:
+    matchLabels:
+      app: citizen
+      {{- include "carpeta-ciudadana.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: citizen
+        {{- include "carpeta-ciudadana.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: citizen
+        image: {{ printf "%s/%s:%s" .Values.global.imageRegistry "carpeta-citizen" .Values.global.imageTag | default "latest" }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ .Values.global.environment | quote }}
+        - name: ASPNETCORE_URLS
+          value: "http://+:8000"
+        resources:
+          {{- toYaml .Values.citizen.resources | nindent 10 }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

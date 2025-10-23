@@ -1,47 +1,6 @@
-# =============================================================================
-# CONFIGURACIÓN DE PRODUCCIÓN - CARPETA CIUDADANA
-# =============================================================================
-# Este archivo contiene variables de entorno para PRODUCCIÓN
-# Uso: direnv allow (requiere direnv instalado)
-# DO NOT COMMIT your real .envrc (see .gitignore)
-export TF_VAR_aks_kubernetes_version="1.32.7"
-
-# Core context
-export TF_VAR_environment="production"
-export TF_VAR_azure_region="eastus"
-export TF_VAR_project_name="carpeta-ciudadana"
-
-# PostgreSQL (required)
-export TF_VAR_db_admin_username="psqladmin"
-export TF_VAR_db_admin_password="CarpetaCiudadana2024!Secure"
-
-# cert-manager (required for issuance if enable_tls true)
-export TF_VAR_letsencrypt_email="<EMAIL>"
-
-# OpenSearch (required)
-export TF_VAR_opensearch_username="admin"
-export TF_VAR_opensearch_password="CarpetaCiudadana2024!Secure"
-
-# Optional overrides
-# export TF_VAR_domain_name=""
-# export TF_VAR_enable_tls=false
-# export TF_VAR_db_enable_public_access=true
-# export TF_VAR_db_allow_azure_services=false
-# export TF_VAR_db_aks_egress_ip=""
-# export TF_VAR_m2m_secret_key=""
-# export TF_VAR_redis_password=""
-# export TF_VAR_aks_kubernetes_version="1.28"
-
-# Azure authentication (preferred: Azure CLI login)
-# az login
-# az account set --subscription "<SUBSCRIPTION_ID>"
-# Or set explicit env vars:
-# export ARM_SUBSCRIPTION_ID=""
-# export ARM_TENANT_ID=""
-# export ARM_CLIENT_ID=""
-# export ARM_CLIENT_SECRET=""
-# export ARM_USE_OIDC=false
-
-# Kubernetes config path for helm/kubernetes providers (after AKS is created)
-export KUBECONFIG="$HOME/.kube/config"
-
+# Azure Service Principal Credentials
+# Obtener desde: Azure Portal > App registrations > Your App > Certificates & secrets
+export ARM_CLIENT_ID="your-client-id-here"
+export ARM_CLIENT_SECRET="your-client-secret-here"
+export ARM_TENANT_ID="your-tenant-id-here"
+export ARM_SUBSCRIPTION_ID="your-subscription-id-here"

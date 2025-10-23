@@ -34,33 +34,27 @@ spec:
         # - name: JWT_ACCESS_TOKEN_EXPIRE (defined in ConfigMap)
         # - name: JWT_REFRESH_TOKEN_EXPIRE_DAYS (defined in ConfigMap)
         
-        # Azure AD B2C
-        - name: AZURE_AD_B2C_TENANT_NAME
-          valueFrom:
-            secretKeyRef:
-              name: azure-b2c-secrets
-              key: tenant_name
-              optional: true
-        - name: AZURE_AD_B2C_TENANT_ID
-          valueFrom:
-            secretKeyRef:
-              name: azure-b2c-secrets
-              key: tenant_id
-              optional: true
-        - name: AZURE_AD_B2C_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: azure-b2c-secrets
-              key: client_id
-              optional: true
+        # Azure AD B2C - REMOVED
         
-        # Redis (session storage)
+        # Redis (session storage from Azure Key Vault)
         - name: REDIS_HOST
-          value: "redis-master"
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_HOST
+              optional: true
         - name: REDIS_PORT
-          value: "6379"
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_PORT
+              optional: true
         - name: REDIS_SESSION_DB
-          value: "1"
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_SESSION_DB
+              optional: true
         
         # CORS
         - name: CORS_ALLOWED_ORIGINS
@@ -75,9 +69,15 @@ spec:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
-            name: db-secrets
+            name: database-secrets
         - secretRef:
-            name: redis-auth
+            name: azure-secrets
+            optional: true
+        - secretRef:
+            name: app-secrets
+            optional: true
+        - secretRef:
+            name: jwt-secret
             optional: true
         resources:
           {{- toYaml .Values.auth.resources | nindent 10 }}

@@ -1,4 +1,39 @@
-{{- include "carpeta-ciudadana.deployment" (dict "service" "mintic-client" "context" .) }}
+{{- if .Values.minticClient.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-mintic-client
+  labels:
+    app: mintic-client
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.minticClient.replicaCount }}
+  selector:
+    matchLabels:
+      app: mintic-client
+      {{- include "carpeta-ciudadana.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: mintic-client
+        {{- include "carpeta-ciudadana.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: mintic-client
+        image: {{ printf "%s/%s:%s" .Values.global.imageRegistry "carpeta-mintic-client" .Values.global.imageTag | default "latest" }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8008
+          name: http
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ .Values.global.environment | quote }}
+        - name: ASPNETCORE_URLS
+          value: "http://+:8008"
+        resources:
+          {{- toYaml .Values.minticClient.resources | nindent 10 }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

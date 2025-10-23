@@ -66,11 +66,20 @@ htmlcov/
 .pytest_cache/
 .jest/
 
-# Secrets
+# Secrets (Azure Key Vault)
 secrets/
 *.secret
 *-credentials.txt
 *-credentials.json
+*-secrets-*.txt
+production-secrets.yaml
+*-production-secrets.yaml
+# Legacy Kubernetes secrets (now using Azure Key Vault)
+*-k8s-secrets.yaml
+# Terraform secrets
+infra/terraform/secrets.tfvars
+infra/terraform/*.tfvars
+!infra/terraform/*.tfvars.example
 
 # Setup scripts (después de ejecutar)
 setup-*.sh
@@ -104,4 +113,5 @@ services/gateway/.env
 
 # Root local env
 .env
+.envrc
 

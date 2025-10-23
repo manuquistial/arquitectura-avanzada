@@ -1,4 +1,39 @@
-{{- include "carpeta-ciudadana.deployment" (dict "service" "ingestion" "context" .) }}
+{{- if .Values.ingestion.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-ingestion
+  labels:
+    app: ingestion
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ingestion.replicaCount }}
+  selector:
+    matchLabels:
+      app: ingestion
+      {{- include "carpeta-ciudadana.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: ingestion
+        {{- include "carpeta-ciudadana.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      containers:
+      - name: ingestion
+        image: {{ printf "%s/%s:%s" .Values.global.imageRegistry "carpeta-ingestion" .Values.global.imageTag | default "latest" }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ .Values.global.environment | quote }}
+        - name: ASPNETCORE_URLS
+          value: "http://+:8001"
+        resources:
+          {{- toYaml .Values.ingestion.resources | nindent 10 }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

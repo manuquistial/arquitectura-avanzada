@@ -24,12 +24,7 @@ class AzureConfig(BaseSettings):
     # Key Vault (equivalente a ACM PCA)
     keyvault_url: str = Field(default="https://mock-keyvault.vault.azure.net/")
 
-    # Azure AD B2C (authentication)
-    tenant_id: str = Field(default="mock_tenant_id_123")
-    client_id: str = Field(default="mock_client_id_123")
-    client_secret: str = Field(default="mock_client_secret_123")
-    b2c_tenant_name: str = Field(default="mock_tenant")
-    b2c_policy_name: str = Field(default="B2C_1_signupsignin")
+    # Azure AD B2C - REMOVED
 
 
 # AWS configuration removed - using Azure only
