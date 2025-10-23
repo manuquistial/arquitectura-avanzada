@@ -88,7 +88,7 @@ spec:
           value: "{{ .Values.azureB2C.userFlowName | default "B2C_1_signupsignin1" }}"
         envFrom:
         - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
             optional: true
         - configMapRef:
             name: frontend-auth-config

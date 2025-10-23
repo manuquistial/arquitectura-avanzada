@@ -174,13 +174,11 @@ resource "helm_release" "carpeta_ciudadana" {
 
       # Service configurations
       frontend       = var.frontend_config
-      gateway        = var.gateway_config
       citizen        = var.citizen_config
       ingestion      = var.ingestion_config
       signature      = var.signature_config
       metadata       = var.metadata_config
       transfer       = var.transfer_config
-      notification   = var.notification_config
       readModels     = var.read_models_config
       minticClient   = var.mintic_client_config
       transferWorker = var.transfer_worker_config

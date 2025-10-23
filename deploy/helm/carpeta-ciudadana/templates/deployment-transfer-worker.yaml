@@ -67,7 +67,7 @@ spec:
         
         envFrom:
         - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
             name: sb-conn
         - secretRef:

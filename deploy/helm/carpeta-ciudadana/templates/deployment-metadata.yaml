@@ -37,7 +37,7 @@ spec:
         {{- end }}
         envFrom:
         - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         # OpenSearch auth removed - using external OpenSearch without auth
         resources:
           {{- toYaml .Values.metadata.resources | nindent 10 }}

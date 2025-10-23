@@ -53,7 +53,6 @@ mintic:
   allowInsecureUrls: false
 
 # Enable all services
-# notification: disabled - not required by reference document
 signature:
   enabled: true
 ingestion:
@@ -90,9 +89,6 @@ frontend:
   autoscaling:
     enabled: false  # Disabled to save resources
 
-# gateway: REMOVED - Using Azure API Management instead
-# gateway:
-#   enabled: false  # Replaced by Azure API Management
 
 # Backend services - OPTIMIZED FOR QUOTA LIMITS
 citizen:
@@ -170,7 +166,6 @@ transfer:
       memory: "64Mi"
       cpu: "50m"
 
-       # notification: disabled - not required by reference document
 
 minticClient:
   enabled: true

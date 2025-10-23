@@ -28,7 +28,7 @@ migrations:
     enabled: true  # Enable optimized resource settings
     maxReplicas: 3  # Maximum replicas per service in limited environments
     defaultRequests:
-      cpu: "100m"
+      cpu: "25m"
       memory: "128Mi"
     defaultLimits:
       cpu: "500m"
@@ -84,11 +84,11 @@ frontend:
     targetPort: 3000
   resources:
     requests:
-      memory: "256Mi"   # Optimizado para recursos limitados
-      cpu: "200m"       # Reducido pero funcional
+      memory: "128Mi"   # Optimizado para recursos limitados
+      cpu: "25m"        # Reducido significativamente
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "200m"      # Límite conservador
+      cpu: "25m"      # Límite conservador
   autoscaling:
     enabled: true      # Habilitado para optimización
     minReplicas: 1
@@ -125,11 +125,11 @@ citizen:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"   # Optimizado para recursos limitados
-      cpu: "200m"       # Reducido
+      memory: "128Mi"   # Optimizado para recursos limitados
+      cpu: "25m"        # Reducido significativamente
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "200m"
+      cpu: "25m"
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -150,11 +150,11 @@ ingestion:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"   # Optimizado para recursos limitados
-      cpu: "200m"       # Reducido
+      memory: "128Mi"   # Optimizado para recursos limitados
+      cpu: "25m"        # Reducido significativamente
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "200m"
+      cpu: "25m"
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -176,10 +176,10 @@ signature:
     resources:
       requests:
         memory: "256Mi"  # Aumentado para evitar OOM
-        cpu: "200m"      # Aumentado para operaciones criptográficas
+        cpu: "25m"        # Reducido significativamente
       limits:
         memory: "256Mi"  # Límite para prevenir OOM
-        cpu: "200m"      # Reducido pero suficiente
+        cpu: "25m"       # Reducido pero suficiente
     autoscaling:
       enabled: true
       minReplicas: 1
@@ -200,11 +200,11 @@ metadata:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"   # Optimizado para recursos limitados
-      cpu: "200m"       # Reducido
+      memory: "128Mi"   # Optimizado para recursos limitados
+      cpu: "25m"        # Reducido significativamente
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "200m"
+      cpu: "25m"
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -226,10 +226,10 @@ transfer:
   resources:
     requests:
       memory: "256Mi"  # Optimizado para recursos limitados
-      cpu: "200m"      # Reducido
+      cpu: "25m"       # Reducido
     limits:
       memory: "256Mi"  # Límite para evitar OOM durante sagas complejas
-      cpu: "200m"     # Puede necesitar CPU para procesamiento concurrente
+      cpu: "25m"     # Puede necesitar CPU para procesamiento concurrente
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -256,10 +256,10 @@ minticClient:
   resources:
     requests:
       memory: "256Mi"  # HTTP client + rate limiter
-      cpu: "200m"
+      cpu: "25m"
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "200m"
+      cpu: "25m"
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -281,10 +281,10 @@ readModels:
   resources:
     requests:
       memory: "128Mi"  # Event consumer + queries simples
-      cpu: "50m"
+      cpu: "25m"
     limits:
       memory: "256Mi"  # Límite conservador
-      cpu: "100m"
+      cpu: "25m"
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -309,7 +309,7 @@ auth:
       cpu: "25m"
     limits:
       memory: "128Mi"  # Límite conservador
-      cpu: "50m"
+      cpu: "25m"
   autoscaling:
     enabled: true
     minReplicas: 1
@@ -337,10 +337,10 @@ transferWorker:
   resources:
     requests:
       memory: "256Mi"  # Message processing + DB connections
-      cpu: "200m"
+      cpu: "25m"
     limits:
       memory: "256Mi"  # Limit to prevent OOM
-      cpu: "200m"     # Can spike during high load
+      cpu: "25m"     # Can spike during high load
   
   # KEDA auto-scaling configuration
   keda:
@@ -392,56 +392,6 @@ transferWorker:
               - transfer-worker
           topologyKey: kubernetes.io/hostname
 
-# Notification service
-notification:
-  enabled: true
-  replicaCount: 1
-  image:
-    repository: carpeta-notification
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - acceso vía Azure API Management
-    port: 8010
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
-      memory: "256Mi"
-      cpu: "200m"
-  
-  # Graceful shutdown
-  terminationGracePeriodSeconds: 60
-  
-  # Probes
-  livenessProbe:
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    successThreshold: 1
-    failureThreshold: 3
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 5
-    timeoutSeconds: 3
-    successThreshold: 1
-    failureThreshold: 2
-  
-  # Azure Monitor monitoring
-  serviceMonitor:
-    enabled: false  # Using Azure Monitor instead
-  
-  # Pod annotations for Azure Monitor
-  podAnnotations:
-    azure-monitor.io/scrape: "true"
-    azure-monitor.io/port: "8012"
-    azure-monitor.io/path: "/metrics"
-    appinsights.microsoft.com/ApplicationInsightsAgent: "true"
-    appinsights.microsoft.com/InstrumentationKey: "${APPINSIGHTS_INSTRUMENTATIONKEY}"
-  
-  # Pod Disruption Budget (KEDA-aware)
-  podDisruptionBudget:
-    minAvailable: 0  # Allow scaling to zero
     useMaxUnavailable: true
     maxUnavailable: 50%  # During operation, allow disrupting 50% at a time
   
@@ -550,27 +500,6 @@ podDisruptionBudget:
   # Global defaults (can be overridden per service)
   defaultMinAvailable: 1  # At least 1 pod must be available during disruptions
 
-# Gateway - Internal API Gateway (DISABLED - Using Azure API Management instead)
-gateway:
-  enabled: false  # Disabled - Using Azure API Management for API routing
-  replicaCount: 0
-  service:
-    type: ClusterIP  # Internal only
-    port: 8000
-  resources:
-    requests:
-      memory: "64Mi"
-      cpu: "50m"
-    limits:
-      memory: "128Mi"
-      cpu: "100m"
-  autoscaling:
-    enabled: false
-    minReplicas: 0
-    maxReplicas: 0
-    targetCPUUtilizationPercentage: 70
-  podDisruptionBudget:
-    minAvailable: 0
 
 # Ingress - Configurado para usar dominios generados por Azure
 ingress:
@@ -632,8 +561,8 @@ otel:
   resources:
     requests:
       memory: "256Mi"
-      cpu: "200m"
+      cpu: "25m"
     limits:
       memory: "256Mi"
-      cpu: "200m"
+      cpu: "25m"
 

@@ -32,7 +32,7 @@ spec:
             command: ["python", "-m", "app.scripts.purge_unsigned"]
             envFrom:
             - configMapRef:
-                name: {{ include "carpeta-ciudadana.fullname" . }}-app-flags
+                name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
             - secretRef:
                 name: db-secrets
             resources:

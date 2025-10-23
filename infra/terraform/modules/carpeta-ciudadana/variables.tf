@@ -306,43 +306,6 @@ variable "frontend_config" {
   }
 }
 
-variable "gateway_config" {
-  description = "Gateway service configuration"
-  type = object({
-    enabled      = bool
-    replicaCount = number
-    resources = object({
-      requests = object({
-        cpu    = string
-        memory = string
-      })
-      limits = object({
-        cpu    = string
-        memory = string
-      })
-    })
-    autoscaling = object({
-      enabled = bool
-    })
-  })
-  default = {
-    enabled      = true
-    replicaCount = 1
-    resources = {
-      requests = {
-        cpu    = "100m"
-        memory = "128Mi"
-      }
-      limits = {
-        cpu    = "300m"
-        memory = "256Mi"
-      }
-    }
-    autoscaling = {
-      enabled = false
-    }
-  }
-}
 
 variable "citizen_config" {
   description = "Citizen service configuration"
@@ -554,47 +517,6 @@ variable "transfer_config" {
   }
 }
 
-variable "notification_config" {
-  description = "Notification service configuration"
-  type = object({
-    enabled      = bool
-    replicaCount = number
-    resources = object({
-      requests = object({
-        cpu    = string
-        memory = string
-      })
-      limits = object({
-        cpu    = string
-        memory = string
-      })
-    })
-    autoscaling = object({
-      enabled     = bool
-      minReplicas = number
-      maxReplicas = number
-    })
-  })
-  default = {
-    enabled      = true
-    replicaCount = 1
-    resources = {
-      requests = {
-        cpu    = "50m"
-        memory = "64Mi"
-      }
-      limits = {
-        cpu    = "300m"
-        memory = "256Mi"
-      }
-    }
-    autoscaling = {
-      enabled     = true
-      minReplicas = 2
-      maxReplicas = 10
-    }
-  }
-}
 
 variable "read_models_config" {
   description = "Read Models service configuration"

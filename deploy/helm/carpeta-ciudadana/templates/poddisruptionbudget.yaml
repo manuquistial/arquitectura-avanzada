@@ -1,22 +1,5 @@
 {{- if .Values.podDisruptionBudget.enabled -}}
 
-# PodDisruptionBudget for Gateway (CRITICAL) - Only if gateway is enabled
-{{- if .Values.gateway.enabled }}
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-gateway
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: gateway
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-spec:
-  minAvailable: {{ .Values.podDisruptionBudget.defaultMinAvailable | default 1 }}
-  selector:
-    matchLabels:
-      app: gateway
-{{- end }}
 
 # PodDisruptionBudget for Citizen
 ---

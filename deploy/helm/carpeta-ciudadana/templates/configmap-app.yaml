@@ -24,14 +24,12 @@ data:
   CB_COOLDOWN: "{{ .Values.circuitBreaker.cooldown | default "120s" }}"
   
   # Service URLs (internal)
-  GATEWAY_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-gateway:8000"
   AUTH_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
   CITIZEN_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
   INGESTION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
   METADATA_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000"
   TRANSFER_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000"
   SIGNATURE_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000"
-  NOTIFICATION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-notification:8010"
   READ_MODELS_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-read-models:8007"
   MINTIC_CLIENT_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
   
@@ -88,137 +86,3 @@ data:
   CSP_ENABLED: {{ .Values.security.cspEnabled | quote }}
   CSP_REPORT_URI: {{ .Values.security.cspReportUri | quote }}
 
-{{- if .Values.gateway.enabled }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-gateway-config
-  labels:
-    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
-    component: gateway
-data:
-  nginx.conf: |
-    events {
-        worker_connections 1024;
-    }
-    
-    http {
-        include       /etc/nginx/mime.types;
-        default_type  application/octet-stream;
-        
-        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                        '$status $body_bytes_sent "$http_referer" '
-                        '"$http_user_agent" "$http_x_forwarded_for"';
-        
-        access_log /var/log/nginx/access.log main;
-        error_log /var/log/nginx/error.log;
-        
-        sendfile on;
-        tcp_nopush on;
-        tcp_nodelay on;
-        keepalive_timeout 65;
-        types_hash_max_size 2048;
-        
-        include /etc/nginx/conf.d/*.conf;
-    }
-  
-  default.conf: |
-    server {
-        listen 80;
-        server_name _;
-        
-        # Health check endpoint
-        location /health {
-            access_log off;
-            return 200 "healthy\n";
-            add_header Content-Type text/plain;
-        }
-        
-        # API routing to backend services
-        
-        # Authentication service
-        location /api/auth/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # Citizen service
-        location /api/users/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # Document services
-        location /api/documents/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        location /api/metadata/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        location /api/signature/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # Transfer service
-        location /api/transfers/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # MinTIC service
-        location /api/mintic/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # Read Models service (Dashboard)
-        location /api/dashboard/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-read-models:8007/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # Notification service
-        location /api/notifications/ {
-            proxy_pass http://{{ include "carpeta-ciudadana.fullname" . }}-notification:8010/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        # Default route - return 404 for unmatched API routes
-        location /api {
-            return 404 "API endpoint not found";
-        }
-    }
-{{- end }}

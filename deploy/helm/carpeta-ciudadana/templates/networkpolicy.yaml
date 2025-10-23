@@ -25,19 +25,6 @@ spec:
   - Egress
   
   ingress:
-  # Allow traffic from gateway to all services
-  - from:
-    - podSelector:
-        matchLabels:
-          app: gateway
-    ports:
-    - protocol: TCP
-      port: 8000
-    - protocol: TCP
-      port: 8007  # read-models
-    - protocol: TCP
-      port: 8010  # notification
-  
   # Allow frontend to auth and citizen services
   - from:
     - podSelector:
@@ -111,8 +98,6 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
-    - protocol: TCP
-      port: 8010  # notification
   
   # Allow observability namespace to scrape metrics
   - from:
@@ -170,10 +155,6 @@ spec:
     - protocol: TCP
       port: 443
   
-  # SMTP traffic (notification service)
-  - ports:
-    - protocol: TCP
-      port: 587
     - protocol: TCP
       port: 25
   

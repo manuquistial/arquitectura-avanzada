@@ -133,20 +133,12 @@ spec:
             name: {{ include "carpeta-ciudadana.fullname" $ }}-read-models
             port:
               number: 8007
-      # API routes - Notification Service
-      - path: /api/notifications
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ include "carpeta-ciudadana.fullname" $ }}-notification
-            port:
-              number: 8010
       # Health check routes
       - path: /health
         pathType: Prefix
         backend:
           service:
-            name: {{ include "carpeta-ciudadana.fullname" $ }}-gateway
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-auth
             port:
               number: 8000
   {{- end }}
