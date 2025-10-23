@@ -1,16 +1,11 @@
 # =============================================================================
-# CARPETA CIUDADANA - TERRAFORM CONFIGURATION (GLOBAL EXAMPLE)
+# PLATFORM LAYER - TERRAFORM VARIABLES EXAMPLE
 # =============================================================================
-# Este archivo contiene TODAS las variables para TODAS las capas
-# 
-# INSTRUCCIONES:
-# 1. Copia este archivo como terraform.tfvars en cada capa
-# 2. Elimina las variables que no corresponden a cada capa
-# 3. O usa este archivo como referencia para crear los específicos
+# Copia este archivo como terraform.tfvars y configura los valores
 # =============================================================================
 
 # =============================================================================
-# VARIABLES COMPARTIDAS (para todas las capas)
+# VARIABLES COMPARTIDAS
 # =============================================================================
 
 # Azure Configuration
@@ -39,12 +34,7 @@ domain_name = "carpeta-ciudadana.dev"
 enable_tls = false
 
 # =============================================================================
-# BASE LAYER VARIABLES
-# =============================================================================
-# (Solo las variables compartidas arriba)
-
-# =============================================================================
-# PLATFORM LAYER VARIABLES
+# VARIABLES ESPECÍFICAS DE PLATFORM LAYER
 # =============================================================================
 
 # AKS Configuration
@@ -111,36 +101,3 @@ frontdoor_enabled = true
 frontdoor_frontend_hostname = "your-frontend-ip-or-domain"
 frontdoor_api_hostname = "your-api-ip-or-domain"
 frontdoor_enable_waf = true
-
-# =============================================================================
-# APPLICATION LAYER VARIABLES
-# =============================================================================
-
-# KEDA Configuration
-keda_version = "2.13.0"
-keda_namespace = "keda-system"
-keda_replica_count = 2
-
-# cert-manager Configuration
-cert_manager_namespace = "cert-manager"
-cert_manager_chart_version = "v1.13.3"
-letsencrypt_email = "your-email@domain.com"
-cert_manager_ingress_class = "nginx"
-cert_manager_cpu_request = "100m"
-cert_manager_cpu_limit = "200m"
-cert_manager_memory_request = "128Mi"
-cert_manager_memory_limit = "256Mi"
-
-# OpenSearch Configuration
-opensearch_username = "admin"
-opensearch_password = "CHANGE_ME_OPENSEARCH_PASSWORD_2024!"
-
-# External Secrets Configuration
-external_secrets_namespace = "external-secrets-system"
-external_secrets_version = "0.9.11"
-
-# OpenSearch Namespace
-opensearch_namespace = "opensearch"
-
-# M2M Authentication
-m2m_secret_key = "CHANGE_ME_M2M_SECRET_KEY_32_CHARS_HEX"

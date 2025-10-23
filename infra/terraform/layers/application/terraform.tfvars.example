@@ -1,0 +1,67 @@
+# =============================================================================
+# APPLICATION LAYER - TERRAFORM VARIABLES EXAMPLE
+# =============================================================================
+# Copia este archivo como terraform.tfvars y configura los valores
+# =============================================================================
+
+# =============================================================================
+# VARIABLES COMPARTIDAS
+# =============================================================================
+
+# Azure Configuration
+azure_region = "westus2"
+azure_subscription_id = "your-subscription-id"
+environment = "production"
+project_name = "carpeta-ciudadana"
+
+# Security Configuration
+security_contact_email = "security@carpeta-ciudadana.com"
+security_contact_phone = "+1-555-0123"
+
+# Network Configuration
+vnet_cidr = "10.0.0.0/16"
+subnet_cidrs = {
+  aks = "10.0.1.0/24"
+  db  = "10.0.2.0/24"
+}
+
+# DNS Configuration
+dns_zone_name = "carpeta-ciudadana.dev"
+app_subdomain = "app"
+
+# Domain Configuration
+domain_name = "carpeta-ciudadana.dev"
+enable_tls = false
+
+# =============================================================================
+# VARIABLES ESPECÍFICAS DE APPLICATION LAYER
+# =============================================================================
+
+# KEDA Configuration
+keda_version = "2.13.0"
+keda_namespace = "keda-system"
+keda_replica_count = 2
+
+# cert-manager Configuration
+cert_manager_namespace = "cert-manager"
+cert_manager_chart_version = "v1.13.3"
+letsencrypt_email = "your-email@domain.com"
+cert_manager_ingress_class = "nginx"
+cert_manager_cpu_request = "100m"
+cert_manager_cpu_limit = "200m"
+cert_manager_memory_request = "128Mi"
+cert_manager_memory_limit = "256Mi"
+
+# OpenSearch Configuration
+opensearch_username = "admin"
+opensearch_password = "CHANGE_ME_OPENSEARCH_PASSWORD_2024!"
+
+# External Secrets Configuration
+external_secrets_namespace = "external-secrets-system"
+external_secrets_version = "0.9.11"
+
+# OpenSearch Namespace
+opensearch_namespace = "opensearch"
+
+# M2M Authentication
+m2m_secret_key = "CHANGE_ME_M2M_SECRET_KEY_32_CHARS_HEX"
