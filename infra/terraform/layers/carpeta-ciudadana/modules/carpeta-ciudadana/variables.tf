@@ -328,6 +328,20 @@ variable "frontdoor_enable_waf" {
   default     = true
 }
 
+# Frontend configuration
+variable "frontend_url" {
+  description = "Frontend URL for NextAuth configuration"
+  type        = string
+  default     = ""
+}
+
+variable "nextauth_secret" {
+  description = "NextAuth secret for authentication"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Tags
 variable "tags" {
   description = "Tags to apply to resources"

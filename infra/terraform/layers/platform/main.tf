@@ -185,7 +185,7 @@ module "security" {
   network_acls_bypass                = var.keyvault_network_acls_bypass
   allowed_subnet_ids                 = [data.terraform_remote_state.base.outputs.aks_subnet_id]
   allowed_ip_rules                   = var.keyvault_allowed_ip_rules
-  aks_managed_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
+  aks_managed_identity_principal_id  = module.aks.kubelet_identity_object_id
   aks_kubelet_identity_principal_id  = module.aks.kubelet_identity_object_id
   aks_oidc_issuer_url               = module.aks.oidc_issuer_url
   # external_secrets_namespace moved to EXTERNAL-SECRETS LAYER

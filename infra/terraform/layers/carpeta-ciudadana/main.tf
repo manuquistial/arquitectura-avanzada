@@ -80,11 +80,18 @@ module "carpeta_ciudadana" {
   domain_name = var.domain_name
   enable_tls  = var.enable_tls
 
+  # Frontend configuration
+  frontend_url = var.frontend_url
+  # nextauth_secret is automatically generated and stored in Azure Key Vault
+
   # Configuración de Front Door
   frontdoor_enabled           = var.frontdoor_enabled
   frontdoor_frontend_hostname = var.frontdoor_frontend_hostname
   frontdoor_api_hostname       = var.frontdoor_api_hostname
   frontdoor_enable_waf         = var.frontdoor_enable_waf
+
+  # Configuración de CORS
+  cors_origins = var.cors_origins
 
   # Tags
   tags = {

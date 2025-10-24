@@ -33,17 +33,17 @@ def create_database_engine():
         "pool_timeout": 10,  # Shorter timeout for faster failure  # Timeout for getting connection from pool
     }
     
-    # Azure PostgreSQL configuration (proven to work in tests)
+    # Azure PostgreSQL configuration (compatible with asyncpg)
     if config.is_azure_environment():
         engine_config["connect_args"] = {
-            "sslmode": "require",  # Use sslmode instead of ssl for psycopg
+            "ssl": "require",  # Use ssl parameter for asyncpg
             "connect_timeout": 10,
             "application_name": "auth-service"
         }
-        logger.info("Using Azure PostgreSQL configuration with psycopg")
+        logger.info("Using Azure PostgreSQL configuration with asyncpg")
     else:
         engine_config["connect_args"] = {
-            "sslmode": config.database_sslmode,
+            "ssl": config.database_sslmode if config.database_sslmode != "disable" else False,
             "application_name": "auth-service"
         }
         logger.info("Using local PostgreSQL configuration")

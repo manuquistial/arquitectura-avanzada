@@ -17,7 +17,17 @@ output "helm_release_status" {
 
 output "application_url" {
   description = "URL of the application"
-  value       = var.domain_name != "" ? "https://${var.domain_name}" : "http://localhost"
+  value       = var.frontend_url != "" ? var.frontend_url : "http://${data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip}"
+}
+
+output "frontend_lb_ip" {
+  description = "LoadBalancer IP of the frontend service"
+  value       = data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip
+}
+
+output "frontend_lb_hostname" {
+  description = "LoadBalancer hostname of the frontend service"
+  value       = try(data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.hostname, null)
 }
 
 output "frontdoor_endpoint" {

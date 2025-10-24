@@ -152,7 +152,8 @@ resource "azuread_service_principal" "external_secrets" {
   client_id = azuread_application.external_secrets.client_id
 }
 
-# Federated Identity Credential - Commented out due to provider version issue
+# Federated Identity Credential para Workload Identity
+# Comentado temporalmente - requiere provider azuread más reciente
 # resource "azuread_service_principal_federated_identity_credential" "external_secrets" {
 #   service_principal_id = azuread_service_principal.external_secrets.object_id
 #   display_name         = "external-secrets-federated-credential"

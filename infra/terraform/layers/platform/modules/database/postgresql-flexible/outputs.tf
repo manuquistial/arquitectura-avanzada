@@ -18,10 +18,10 @@ output "database_name" {
   value       = azurerm_postgresql_flexible_server_database.main.name
 }
 
-# URI (pgsql://) — con credenciales URL-encoded
+# URI (postgresql+asyncpg://) — compatible con SQLAlchemy async
 output "connection_string_uri" {
-  description = "PostgreSQL connection string (URI)"
-  value       = "postgresql://${urlencode(var.admin_username)}:${urlencode(var.admin_password)}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${var.database_name}?sslmode=require"
+  description = "PostgreSQL connection string (URI) compatible with SQLAlchemy async"
+  value       = "postgresql+asyncpg://${urlencode(var.admin_username)}:${urlencode(var.admin_password)}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${var.database_name}?sslmode=require"
   sensitive   = true
 }
 

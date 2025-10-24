@@ -108,7 +108,7 @@ class Settings(BaseSettings):
             return self.database_url
         
         # Build URL from individual components
-        return f"postgresql+psycopg://{self.database_user}:{self.database_password}@{self.database_host}:{self.database_port}/{self.database_name}?sslmode={self.database_sslmode}"
+        return f"postgresql+asyncpg://{self.database_user}:{self.database_password}@{self.database_host}:{self.database_port}/{self.database_name}?sslmode={self.database_sslmode}"
     
     def is_production(self) -> bool:
         """Check if running in production environment."""

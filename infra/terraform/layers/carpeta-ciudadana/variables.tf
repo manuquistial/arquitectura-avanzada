@@ -58,3 +58,23 @@ variable "azure_subscription_id" {
   description = "Azure subscription ID"
   type        = string
 }
+
+variable "cors_origins" {
+  description = "CORS allowed origins"
+  type        = string
+  default     = "[\"http://localhost:3000\",\"http://carpeta-ciudadana-frontend:80\",\"*\"]"
+}
+
+# Frontend configuration
+variable "frontend_url" {
+  description = "Frontend URL for NextAuth configuration"
+  type        = string
+  default     = ""
+}
+
+variable "nextauth_secret" {
+  description = "NextAuth secret for authentication"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

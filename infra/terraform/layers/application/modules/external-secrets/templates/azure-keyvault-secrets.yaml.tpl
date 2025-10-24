@@ -1,6 +1,7 @@
 # Azure Key Vault Secrets Configuration
 # Este archivo configura la sincronización de secrets desde Azure Key Vault
 # Usa Workload Identity para autenticación segura
+# Generado automáticamente por Terraform
 
 ---
 # ClusterSecretStore para Azure Key Vault (acceso global)
@@ -15,7 +16,7 @@ metadata:
 spec:
   provider:
     azurekv:
-      vaultUrl: "https://carpeta-ciudadana-kv-v2.vault.azure.net"  # Será reemplazado por Terraform
+      vaultUrl: "${keyvault_uri}"
       authType: "WorkloadIdentity"
       serviceAccountRef:
         name: "external-secrets"

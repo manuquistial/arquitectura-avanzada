@@ -26,7 +26,10 @@ spec:
           name: http
         env:
         - name: DATABASE_URL
-          value: "postgresql+asyncpg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.auth.database }}"
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DATABASE_URL
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:

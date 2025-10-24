@@ -84,5 +84,17 @@ resource "kubernetes_manifest" "cluster_secret_store" {
   }
 }
 
+# Aplicar configuración de External Secrets usando template
+resource "kubernetes_manifest" "azure_keyvault_secrets" {
+  depends_on = [
+    time_sleep.wait_for_crds,
+    kubernetes_manifest.cluster_secret_store
+  ]
+  
+  manifest = yamldecode(templatefile("${path.module}/templates/azure-keyvault-secrets.yaml.tpl", {
+    keyvault_uri = "https://${var.keyvault_name}.vault.azure.net/"
+  }))
+}
+
 # Data source para obtener información del tenant
 data "azurerm_client_config" "current" {}

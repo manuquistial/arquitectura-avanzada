@@ -209,3 +209,41 @@ variable "nextauth_url" {
   type        = string
   default     = "https://app.carpeta-ciudadana.dev"
 }
+
+# OpenSearch Configuration - Variables faltantes
+variable "opensearch_enabled" {
+  description = "Enable OpenSearch deployment"
+  type        = bool
+  default     = true
+}
+
+variable "opensearch_version" {
+  description = "OpenSearch Helm chart version"
+  type        = string
+  default     = "2.11.0"
+}
+
+variable "opensearch_replica_count" {
+  description = "Number of OpenSearch replicas"
+  type        = number
+  default     = 1
+}
+
+variable "opensearch_storage_size" {
+  description = "OpenSearch storage size"
+  type        = string
+  default     = "10Gi"
+}
+
+# cert-manager Configuration - Variables faltantes
+variable "cert_manager_version" {
+  description = "cert-manager version"
+  type        = string
+  default     = "v1.13.0"
+}
+
+variable "cert_manager_replica_count" {
+  description = "Number of cert-manager replicas"
+  type        = number
+  default     = 1
+}
