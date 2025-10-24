@@ -19,14 +19,18 @@ try:
     COMMON_AVAILABLE = True
 except ImportError:
     COMMON_AVAILABLE = False
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.WARNING,  # Only warnings and errors
+        format='%(levelname)s: %(message)s'  # Minimal format
+    )
 
 if COMMON_AVAILABLE:
     setup_logging()
 else:
+    # Optimized logging for production
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=logging.WARNING,  # Only warnings and errors
+        format='%(levelname)s: %(message)s'  # Minimal format
     )
 
 logger = logging.getLogger(__name__)
@@ -50,7 +54,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.warning("⚠️ Database connection failed")
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
+        logger.warning(f"Database initialization failed: {e}")
+        logger.info("Continuing without database for testing purposes")
     
     yield
     
@@ -64,6 +69,10 @@ def create_app() -> FastAPI:
         description="Authentication and authorization service with OIDC support",
         version="1.0.0",
         lifespan=lifespan,
+        # Optimizations for production
+        docs_url=None,  # Disable docs in production
+        redoc_url=None,  # Disable redoc in production
+        openapi_url=None,  # Disable OpenAPI schema
     )
     
     # CORS

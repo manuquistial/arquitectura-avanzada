@@ -46,7 +46,7 @@ serviceBus:
 
 
 # CORS Configuration - Permitir dominios generados por Azure
-corsOrigins: "*"  # Permitir todos los orígenes para dominios generados por Azure
+corsOrigins: "http://localhost:3000,http://localhost:8000"  # URLs válidas para desarrollo y producción
 
 # Security Headers - Configurado para HTTP
 security:
@@ -77,15 +77,15 @@ frontend:
     targetPort: 3000
   resources:
     requests:
-      memory: "64Mi"    # Further reduced for limited environments
-      cpu: "10m"        # Further reduced for limited environments
+      memory: "64Mi"    # Optimized for Next.js production build
+      cpu: "10m"        # Optimized for Next.js production build
     limits:
-      memory: "128Mi"  # Reduced from 256Mi for limited environments
-      cpu: "25m"        # Keep same for stability
+      memory: "128Mi"   # Optimized for Next.js production build
+      cpu: "20m"        # Optimized for Next.js production build
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: true       # Habilitado para servicios ligeros
     minReplicas: 1
-    maxReplicas: 3
+    maxReplicas: 2      # Máximo 2 réplicas para limitaciones de recursos
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 85
   podDisruptionBudget:
@@ -118,16 +118,16 @@ citizen:
     port: 8000
   resources:
     requests:
-      memory: "64Mi"    # Ultra-optimized for limited environments
-      cpu: "10m"        # Ultra-optimized for limited environments
+      memory: "32Mi"    # Further reduced for limited environments
+      cpu: "5m"         # Further reduced for limited environments
     limits:
-      memory: "128Mi"   # Ultra-optimized for limited environments
-      cpu: "25m"        # Keep CPU for stability
+      memory: "64Mi"    # Further reduced for limited environments
+      cpu: "10m"        # Further reduced for limited environments
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: true       # Habilitado para servicios ligeros
     minReplicas: 1
-    maxReplicas: 3     # Ultra-optimized for limited environments
-    targetCPUUtilizationPercentage: 70
+    maxReplicas: 2      # Máximo 2 réplicas para limitaciones de recursos
+    targetCPUUtilizationPercentage: 80
   podDisruptionBudget:
     minAvailable: 1
 
@@ -143,16 +143,16 @@ ingestion:
     port: 8000
   resources:
     requests:
-      memory: "64Mi"    # Ultra-optimized for limited environments
-      cpu: "10m"        # Ultra-optimized for limited environments
+      memory: "32Mi"    # Further reduced for limited environments
+      cpu: "5m"         # Further reduced for limited environments
     limits:
-      memory: "128Mi"   # Ultra-optimized for limited environments
-      cpu: "25m"        # Keep CPU for stability
+      memory: "64Mi"    # Further reduced for limited environments
+      cpu: "10m"        # Further reduced for limited environments
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: true       # Habilitado para servicios ligeros
     minReplicas: 1
-    maxReplicas: 3     # Ultra-optimized for limited environments
-    targetCPUUtilizationPercentage: 70
+    maxReplicas: 2      # Máximo 2 réplicas para limitaciones de recursos
+    targetCPUUtilizationPercentage: 80
   podDisruptionBudget:
     minAvailable: 1
 
@@ -168,11 +168,11 @@ signature:
       port: 8000
     resources:
       requests:
-        memory: "256Mi"  # Increased to prevent OOMKilled
-        cpu: "100m"       # Increased for crypto operations
+        memory: "128Mi"   # Optimized for limited environments
+        cpu: "50m"        # Optimized for limited environments
       limits:
-        memory: "512Mi"  # Increased to prevent OOMKilled
-        cpu: "200m"       # Increased for crypto operations
+        memory: "256Mi"   # Optimized for limited environments
+        cpu: "100m"       # Optimized for limited environments
     livenessProbe:
       httpGet:
         path: /health
@@ -190,9 +190,9 @@ signature:
       periodSeconds: 15         # Increased from 5s
       failureThreshold: 3       # Reduced from 2
     autoscaling:
-      enabled: false     # Deshabilitado temporalmente por problemas de métricas
+      enabled: false     # Deshabilitado para servicios críticos
       minReplicas: 1
-      maxReplicas: 3     # Ultra-optimized for limited environments
+      maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
       targetCPUUtilizationPercentage: 70
     podDisruptionBudget:
       minAvailable: 1
@@ -209,11 +209,11 @@ metadata:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"   # Increased to prevent OOMKilled
-      cpu: "100m"        # Increased for better performance
+      memory: "128Mi"   # Optimized for limited environments
+      cpu: "50m"         # Optimized for limited environments
     limits:
-      memory: "512Mi"    # Increased to prevent OOMKilled
-      cpu: "200m"        # Increased for better performance
+      memory: "256Mi"   # Optimized for limited environments
+      cpu: "100m"        # Optimized for limited environments
   livenessProbe:
     httpGet:
       path: /health
@@ -231,9 +231,9 @@ metadata:
     periodSeconds: 15         # Increased from 5s
     failureThreshold: 3       # Reduced from 2
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: false     # Deshabilitado para servicios críticos
     minReplicas: 1
-    maxReplicas: 3     # Ultra-optimized for limited environments
+    maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1
@@ -250,11 +250,11 @@ transfer:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # Increased to prevent OOMKilled
-      cpu: "100m"       # Increased for saga processing
+      memory: "128Mi"   # Optimized for limited environments
+      cpu: "50m"        # Optimized for limited environments
     limits:
-      memory: "512Mi"  # Increased to prevent OOMKilled
-      cpu: "200m"       # Increased for saga processing
+      memory: "256Mi"   # Optimized for limited environments
+      cpu: "100m"       # Optimized for limited environments
   livenessProbe:
     httpGet:
       path: /health
@@ -272,9 +272,9 @@ transfer:
     periodSeconds: 15         # Increased from 5s
     failureThreshold: 3       # Reduced from 2
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: false     # Deshabilitado para servicios críticos
     minReplicas: 1
-    maxReplicas: 3     # Reduced for limited environments
+    maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1  # Critical for saga orchestration
@@ -296,16 +296,16 @@ minticClient:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"  # Ultra-optimized for limited environments
-      cpu: "10m"       # Ultra-optimized for limited environments
+      memory: "64Mi"   # Further reduced for limited environments
+      cpu: "5m"        # Further reduced for limited environments
     limits:
-      memory: "256Mi"  # Keep limit for HTTP client operations
-      cpu: "25m"       # Keep CPU for HTTP operations
+      memory: "128Mi"  # Further reduced for limited environments
+      cpu: "10m"       # Further reduced for limited environments
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: true      # Habilitado para servicios ligeros
     minReplicas: 1
-    maxReplicas: 3     # Ultra-optimized for limited environments
-    targetCPUUtilizationPercentage: 70
+    maxReplicas: 2     # Máximo 2 réplicas para limitaciones de recursos
+    targetCPUUtilizationPercentage: 80
   podDisruptionBudget:
     minAvailable: 1
 
@@ -321,16 +321,16 @@ readModels:
     port: 8007
   resources:
     requests:
-      memory: "64Mi"   # Ultra-optimized for limited environments
-      cpu: "10m"       # Ultra-optimized for limited environments
+      memory: "32Mi"   # Further reduced for limited environments
+      cpu: "5m"        # Further reduced for limited environments
     limits:
-      memory: "128Mi"  # Ultra-optimized for limited environments
-      cpu: "25m"       # Keep CPU for stability
+      memory: "64Mi"   # Further reduced for limited environments
+      cpu: "10m"       # Further reduced for limited environments
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: true      # Habilitado para servicios ligeros
     minReplicas: 1
-    maxReplicas: 3     # Ultra-optimized for limited environments
-    targetCPUUtilizationPercentage: 70
+    maxReplicas: 2     # Máximo 2 réplicas para limitaciones de recursos
+    targetCPUUtilizationPercentage: 80
   podDisruptionBudget:
     minAvailable: 1
 
@@ -346,11 +346,11 @@ auth:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # Increased to prevent OOMKilled
-      cpu: "100m"       # Increased for better performance
+      memory: "128Mi"   # Optimized for limited environments
+      cpu: "50m"        # Optimized for limited environments
     limits:
-      memory: "512Mi"  # Increased to prevent OOMKilled
-      cpu: "200m"       # Increased for better performance
+      memory: "256Mi"   # Optimized for limited environments
+      cpu: "100m"       # Optimized for limited environments
   livenessProbe:
     httpGet:
       path: /health
@@ -368,9 +368,9 @@ auth:
     periodSeconds: 15         # Increased from 5s
     failureThreshold: 3       # Reduced from 5
   autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
+    enabled: false     # Deshabilitado para servicios críticos
     minReplicas: 1
-    maxReplicas: 3     # Reduced for limited environments
+    maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
     targetCPUUtilizationPercentage: 70
 
 # Transfer Worker - Dedicated consumer for transfers (KEDA auto-scaling)

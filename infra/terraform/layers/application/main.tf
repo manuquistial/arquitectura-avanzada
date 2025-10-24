@@ -111,3 +111,23 @@ module "frontdoor" {
   
   depends_on = [module.keda, module.cert_manager, module.opensearch]
 }
+
+# =============================================================================
+# APPLICATION SECRETS
+# =============================================================================
+# Maneja los secrets específicos de la aplicación:
+# - M2M Authentication
+# - JWT
+# - NextAuth
+# - API Keys
+# =============================================================================
+
+module "application_secrets" {
+  source = "./modules/application-secrets"
+
+  key_vault_id = data.terraform_remote_state.platform.outputs.key_vault_id
+  environment  = var.environment
+  nextauth_url = "https://app.carpeta-ciudadana.dev"
+
+  depends_on = [data.terraform_remote_state.platform]
+}

@@ -21,7 +21,11 @@ except ImportError:
 if COMMON_AVAILABLE:
     setup_logging()
 else:
-    logging.basicConfig(level=logging.INFO)
+    # Optimized logging for production
+    logging.basicConfig(
+        level=logging.WARNING,  # Only warnings and errors
+        format='%(levelname)s: %(message)s'  # Minimal format
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +57,10 @@ def create_app() -> FastAPI:
         description="Citizen management service",
         version="0.1.0",
         lifespan=lifespan,
+        # Optimizations for production
+        docs_url=None,  # Disable docs in production
+        redoc_url=None,  # Disable redoc in production
+        openapi_url=None,  # Disable OpenAPI schema
     )
 
     # CORS (using common utilities)

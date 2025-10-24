@@ -15,59 +15,38 @@ environment = "production"
 project_name = "carpeta-ciudadana"
 
 # Security Configuration
-security_contact_email = "security@carpeta-ciudadana.com"
 security_contact_phone = "+1-555-0123"
-
-# Network Configuration
-vnet_cidr = "10.0.0.0/16"
-subnet_cidrs = {
-  aks = "10.0.1.0/24"
-  db  = "10.0.2.0/24"
-}
 
 # DNS Configuration
 dns_zone_name = "carpeta-ciudadana.dev"
 app_subdomain = "app"
-
-# Domain Configuration
-domain_name = "carpeta-ciudadana.dev"
-enable_tls = false
 
 # =============================================================================
 # VARIABLES ESPECÍFICAS DE APPLICATION LAYER
 # =============================================================================
 
 # KEDA Configuration
-keda_version = "2.13.0"
-keda_namespace = "keda-system"
-keda_replica_count = 2
+keda_version = "2.12.0"
+keda_namespace = "keda"
+keda_replica_count = 1
 
 # cert-manager Configuration
+cert_manager_version = "v1.13.0"
 cert_manager_namespace = "cert-manager"
-cert_manager_chart_version = "v1.13.3"
-letsencrypt_email = "your-email@domain.com"
-cert_manager_ingress_class = "nginx"
-cert_manager_cpu_request = "100m"
-cert_manager_cpu_limit = "200m"
-cert_manager_memory_request = "128Mi"
-cert_manager_memory_limit = "256Mi"
+cert_manager_replica_count = 1
 
 # OpenSearch Configuration
-opensearch_username = "admin"
-opensearch_password = "CHANGE_ME_OPENSEARCH_PASSWORD_2024!"
-
-# External Secrets Configuration
-external_secrets_namespace = "external-secrets-system"
-external_secrets_version = "0.9.11"
-
-# OpenSearch Namespace
+opensearch_enabled = true
+opensearch_version = "2.11.0"
 opensearch_namespace = "opensearch"
+opensearch_replica_count = 1
+opensearch_storage_size = "10Gi"
 
-# M2M Authentication
-m2m_secret_key = "CHANGE_ME_M2M_SECRET_KEY_32_CHARS_HEX"
-
-# Front Door Configuration (moved from PLATFORM LAYER)
+# Front Door Configuration
 frontdoor_enabled = true
-frontdoor_frontend_hostname = "135.222.244.88"
-frontdoor_api_hostname = "135.234.144.31"
+frontdoor_frontend_hostname = "app.carpeta-ciudadana.dev"
+frontdoor_api_hostname = "api.carpeta-ciudadana.dev"
 frontdoor_enable_waf = true
+
+# Application Secrets Configuration
+nextauth_url = "https://app.carpeta-ciudadana.dev"

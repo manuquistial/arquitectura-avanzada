@@ -203,3 +203,9 @@ variable "opensearch_namespace" {
   type        = string
   default     = "opensearch"
 }
+
+variable "nextauth_url" {
+  description = "NextAuth URL for application secrets"
+  type        = string
+  default     = "https://app.carpeta-ciudadana.dev"
+}

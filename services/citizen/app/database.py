@@ -27,15 +27,15 @@ DATABASE_URL = settings.get_database_url()
 # Create async engine with optimized configuration
 def create_database_engine():
     """Create database engine with configuration-based settings."""
-    # Base configuration optimized for Azure PostgreSQL
+    # Base configuration optimized for limited resources
     engine_config = {
-        "echo": settings.debug,  # Enable echo in debug mode
+        "echo": False,  # Disable SQL echo for production
         "future": True,
-        "pool_size": 5,  # Reduced for better resource management
-        "max_overflow": 10,  # Reduced for better resource management
+        "pool_size": 2,  # Minimal pool for limited resources  # Minimal pool for limited resources
+        "max_overflow": 3,  # Minimal overflow for limited resources  # Minimal overflow for limited resources
         "pool_pre_ping": True,
-        "pool_recycle": 3600,  # Recycle connections every hour
-        "pool_timeout": 30,  # Timeout for getting connection from pool
+        "pool_recycle": 1800,  # Recycle connections every 30 minutes  # Recycle connections every 30 minutes
+        "pool_timeout": 10,  # Shorter timeout for faster failure  # Shorter timeout for faster failure
     }
     
     # Azure PostgreSQL configuration (proven to work in tests)

@@ -49,3 +49,18 @@ output "frontdoor_endpoint" {
   description = "Front Door endpoint"
   value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_endpoint_hostname : null
 }
+
+output "frontdoor_frontend_hostname" {
+  description = "Front Door frontend hostname"
+  value       = var.frontdoor_enabled ? var.frontdoor_frontend_hostname : null
+}
+
+output "frontdoor_api_hostname" {
+  description = "Front Door API hostname"
+  value       = var.frontdoor_enabled ? var.frontdoor_api_hostname : null
+}
+
+output "nextauth_url" {
+  description = "NextAuth URL for application secrets"
+  value       = var.nextauth_url
+}

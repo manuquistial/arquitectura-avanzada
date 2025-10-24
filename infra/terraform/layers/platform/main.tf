@@ -185,13 +185,51 @@ module "security" {
   network_acls_bypass                = var.keyvault_network_acls_bypass
   allowed_subnet_ids                 = [data.terraform_remote_state.base.outputs.aks_subnet_id]
   allowed_ip_rules                   = var.keyvault_allowed_ip_rules
-  aks_managed_identity_principal_id  = module.aks.managed_identity_principal_id
+  aks_managed_identity_principal_id  = azurerm_user_assigned_identity.aks_identity.principal_id
+  aks_kubelet_identity_principal_id  = module.aks.kubelet_identity_object_id
   aks_oidc_issuer_url               = module.aks.oidc_issuer_url
   # external_secrets_namespace moved to EXTERNAL-SECRETS LAYER
-  initial_secrets                   = var.keyvault_initial_secrets
+  initial_secrets = merge(var.keyvault_initial_secrets, {
+    # Database credentials (para external-secret-database.yaml)
+    "database-credentials" = jsonencode({
+      "database-url" = module.database.connection_string_uri
+      "postgres-uri" = module.database.connection_string_uri
+      "db-host"      = module.database.fqdn
+      "db-port"      = "5432"
+      "db-name"      = module.database.database_name
+      "db-user"      = "psqladmin"
+      "db-password"  = var.db_admin_password
+      "db-sslmode"   = "require"
+    }),
+    
+    # Azure Storage (para external-secret-azure.yaml)
+    "azure-storage" = jsonencode({
+      "account-name"    = module.storage.storage_account_name
+      "account-key"     = module.storage.primary_access_key
+      "container-name"  = module.storage.container_name
+      "connection-string" = module.storage.primary_connection_string
+    }),
+    
+    # Redis (para external-secret-azure.yaml)
+    "redis" = jsonencode({
+      "host"     = module.cache[0].redis_hostname
+      "port"     = "6380"
+      "password" = module.cache[0].redis_primary_key
+      "ssl"      = "true"
+      "connection-string" = module.cache[0].redis_connection_string
+      "session-db" = "1"
+    }),
+    
+    # Service Bus (para external-secret-servicebus.yaml) - Placeholder
+    "servicebus-secrets" = jsonencode({
+      "connection-string" = "Endpoint=sb://placeholder.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=placeholder"
+    })
+  })
 
   depends_on = [data.terraform_remote_state.base, module.aks]
 }
+
+# Random IDs for secrets - MOVED TO APPLICATION LAYER
 
 # Azure Front Door (HTTPS Gateway) - MOVED TO APPLICATION LAYER
 # Front Door is now deployed in APPLICATION LAYER to avoid circular dependencies

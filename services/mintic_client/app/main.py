@@ -12,7 +12,10 @@ from app.config import Settings
 from app.database import init_database
 from app.routers import mintic, status
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+        level=logging.WARNING,  # Only warnings and errors
+        format='%(levelname)s: %(message)s'  # Minimal format
+    )
 logger = logging.getLogger(__name__)
 
 
@@ -60,10 +63,14 @@ def create_app() -> FastAPI:
     settings = Settings()
 
     app = FastAPI(
-        title="MinTIC Client Service",
-        description="Client service for MinTIC Hub integration",
+        title="Service",
+        description="Service description",
         version="0.1.0",
         lifespan=lifespan,
+        # Optimizations for production
+        docs_url=None,  # Disable docs in production
+        redoc_url=None,  # Disable redoc in production
+        openapi_url=None,  # Disable OpenAPI schema
     )
 
     # CORS configuration from environment or default to localhost

@@ -118,3 +118,8 @@ output "aks_managed_identity_client_id" {
   description = "Client ID of the AKS Managed Identity"
   value       = azurerm_user_assigned_identity.aks_identity.client_id
 }
+
+output "aks_kubelet_identity_principal_id" {
+  description = "Principal ID of the AKS Kubelet Identity"
+  value       = module.aks.kubelet_identity_object_id
+}

@@ -23,13 +23,13 @@ def create_database_engine():
     """Create database engine with configuration-based settings."""
     # Base configuration optimized for Azure PostgreSQL
     engine_config = {
-        "echo": settings.debug,  # Enable echo in debug mode
+        "echo": False,  # Disable SQL echo for production  # Enable echo in debug mode
         "future": True,
-        "pool_size": 5,  # Reduced for better resource management
-        "max_overflow": 10,  # Reduced for better resource management
+        "pool_size": 2,  # Minimal pool for limited resources  # Reduced for better resource management
+        "max_overflow": 3,  # Minimal overflow for limited resources  # Reduced for better resource management
         "pool_pre_ping": True,
-        "pool_recycle": 3600,  # Recycle connections every hour
-        "pool_timeout": 30,  # Timeout for getting connection from pool
+        "pool_recycle": 1800,  # Recycle connections every 30 minutes  # Recycle connections every hour
+        "pool_timeout": 10,  # Shorter timeout for faster failure  # Timeout for getting connection from pool
     }
     
     # Azure PostgreSQL configuration (proven to work in tests)

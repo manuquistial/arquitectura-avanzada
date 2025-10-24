@@ -85,6 +85,12 @@ variable "aks_managed_identity_principal_id" {
   default     = ""
 }
 
+variable "aks_kubelet_identity_principal_id" {
+  description = "Principal ID of the AKS Kubelet Identity"
+  type        = string
+  default     = ""
+}
+
 variable "aks_oidc_issuer_url" {
   description = "OIDC issuer URL of the AKS cluster"
   type        = string

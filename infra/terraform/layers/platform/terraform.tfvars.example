@@ -93,7 +93,7 @@ keyvault_purge_protection_enabled = true
 keyvault_soft_delete_retention_days = 90
 keyvault_network_acls_default_action = "Deny"
 keyvault_network_acls_bypass = "AzureServices"
-keyvault_allowed_ip_rules = []
+keyvault_allowed_ip_rules = ["181.137.38.147"]  # Agregar tu IP actual aquí
 keyvault_initial_secrets = {}
 
 # Front Door moved to APPLICATION LAYER
