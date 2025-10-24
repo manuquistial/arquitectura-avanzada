@@ -68,7 +68,6 @@ data "external" "crd_ready" {
   depends_on = [helm_release.external_secrets]
   
   program = ["bash", "-c", <<-EOT
-    echo "Checking if External Secrets CRDs are ready..."
     if kubectl get crd clustersecretstores.external-secrets.io >/dev/null 2>&1; then
       echo '{"ready": "true"}'
     else

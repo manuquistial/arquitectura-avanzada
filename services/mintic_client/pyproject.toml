@@ -16,6 +16,8 @@ cryptography = "^41.0.7"
 tenacity = "^8.2.3"
 redis = {extras = ["hiredis"], version = "^5.0.1"}
 psycopg = {extras = ["binary"], version = "^3.1.0"}
+sqlalchemy = "^2.0.25"
+alembic = "^1.13.1"
 carpeta-common = {path = "../common", develop = true}
 
 [tool.poetry.group.dev.dependencies]

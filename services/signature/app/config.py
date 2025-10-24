@@ -102,8 +102,8 @@ class Settings(BaseSettings):
     
     def get_database_url(self) -> str:
         """Get the database connection URL."""
-        if self.database_url:
-            return self.database_url
+        #if self.database_url:
+        #    return self.database_url
         
         # Build URL from individual components
         return f"postgresql+asyncpg://{self.database_user}:{self.database_password}@{self.database_host}:{self.database_port}/{self.database_name}?sslmode={self.database_sslmode}"

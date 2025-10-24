@@ -36,3 +36,4 @@ echo ""
 echo "🎯 Next steps:"
 echo "1. Run: ./deploy-application.sh"
 
+

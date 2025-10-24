@@ -24,25 +24,19 @@ def create_database_engine():
     # Base configuration optimized for Azure PostgreSQL
     engine_config = {
         "echo": config.debug,  # Enable echo in debug mode
-        "future": True,
-        "pool_size": 2,  # Minimal pool for limited resources  # Reduced for better resource management
-        "max_overflow": 3,  # Minimal overflow for limited resources  # Reduced for better resource management
-        "pool_pre_ping": True,
-        "pool_recycle": 1800,  # Recycle connections every 30 minutes  # Recycle connections every hour
-        "pool_timeout": 10,  # Shorter timeout for faster failure  # Timeout for getting connection from pool
     }
     
     # Azure PostgreSQL configuration (compatible with asyncpg)
     if config.is_azure_environment():
         engine_config["connect_args"] = {
-            "ssl": "require",  # Use ssl parameter for asyncpg
+            "sslmode": "require",  # Use sslmode parameter for asyncpg
             "connect_timeout": 10,
             "application_name": "signature-service"
         }
         logger.info("Using Azure PostgreSQL configuration with asyncpg")
     else:
         engine_config["connect_args"] = {
-            "ssl": config.database_sslmode if config.database_sslmode != "disable" else False,
+            "sslmode": config.database_sslmode,
             "application_name": "signature-service"
         }
         logger.info("Using local PostgreSQL configuration")

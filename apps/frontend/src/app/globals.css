@@ -18,11 +18,7 @@
   animation: slide-in 0.3s ease-out;
 }
 
-/* Optimized font loading */
-* {
-  font-family: 'Montserrat', sans-serif;
-  font-display: swap; /* Optimize font loading */
-}
+/* Font loading is now handled by Next.js font optimization */
 
 body {
   @apply bg-gray-50;

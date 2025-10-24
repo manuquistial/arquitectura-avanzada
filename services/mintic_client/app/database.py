@@ -1,66 +1,136 @@
 """Database configuration for MinTIC Client service."""
 
 import logging
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from typing import AsyncGenerator
 
-from app.config import Settings
-from app.database_models import Base
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
+
+from app.config import get_config
 
 logger = logging.getLogger(__name__)
 
-# Global variables for database connection
-engine = None
-SessionLocal = None
+# Get configuration
+config = get_config()
 
-# Create settings instance
-settings = Settings()
+# Get database URL from configuration
+DATABASE_URL = config.get_database_url()
 
-def init_database():
-    """Initialize database connection and create tables."""
-    global engine, SessionLocal
+# Database URL is already configured with psycopg in config.py
+
+# Create async engine with optimized configuration
+def create_database_engine():
+    """Create database engine with configuration-based settings."""
+    # Base configuration optimized for Azure PostgreSQL
+    engine_config = {
+        "echo": config.debug,  # Enable echo in debug mode
+    }
     
-    # Create database URL (using psycopg driver like ingestion service)
-    database_url = f"postgresql+psycopg://{settings.database_user}:{settings.database_password}@{settings.database_host}:{settings.database_port}/{settings.database_name}?sslmode=require"
+    # Azure PostgreSQL configuration (proven to work in tests)
+    if config.is_azure_environment():
+        engine_config["connect_args"] = {
+            "sslmode": "require",  # Use sslmode instead of ssl for psycopg
+            "connect_timeout": 10,
+            "application_name": "mintic-client-service"
+        }
+        logger.info("Using Azure PostgreSQL configuration with psycopg")
+    else:
+        engine_config["connect_args"] = {
+            "sslmode": config.database_sslmode,
+            "application_name": "mintic-client-service"
+        }
+        logger.info("Using local PostgreSQL configuration")
     
-    try:
-        # Create engine
-        engine = create_engine(
-            database_url,
-            pool_pre_ping=True,
-            pool_recycle=300,
-            echo=settings.database_echo
-        )
-        
-        # Create session factory
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        
-        # Create tables
-        Base.metadata.create_all(bind=engine)
-        
-        logger.info("✅ Database initialized successfully")
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize database: {e}")
-        raise
+    return create_async_engine(DATABASE_URL, **engine_config)
+
+# Create engine
+engine = create_database_engine()
+
+# Create session factory
+AsyncSessionLocal = sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 
-def get_db():
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session."""
-    if SessionLocal is None:
-        raise RuntimeError("Database not initialized. Call init_database() first.")
-    
-    db = SessionLocal()
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
+async def test_connection() -> bool:
+    """Test database connection."""
     try:
-        yield db
-    finally:
-        db.close()
+        logger.info("Testing database connection...")
+        logger.info(f"Database host: {config.database_host}")
+        logger.info(f"Database port: {config.database_port}")
+        logger.info(f"Database name: {config.database_name}")
+        logger.info(f"Database user: {config.database_user}")
+        logger.info(f"SSL mode: {config.database_sslmode}")
+        
+        async with engine.begin() as conn:
+            result = await conn.execute(text("SELECT 1"))
+            value = result.scalar()
+            logger.info(f"Database test query result: {value}")
+            return value == 1
+    except Exception as e:
+        logger.error(f"Database connection test failed: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        return False
 
+async def get_database_info() -> dict:
+    """Get database information."""
+    try:
+        async with engine.begin() as conn:
+            # Get database version and info
+            result = await conn.execute(text("SELECT version(), current_database(), current_user, now()"))
+            row = result.fetchone()
+            
+            return {
+                "status": "connected",
+                "version": row[0],
+                "database": row[1],
+                "user": row[2],
+                "timestamp": str(row[3])
+            }
+    except Exception as e:
+        logger.error(f"Failed to get database info: {e}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
-def close_database():
-    """Close database connection."""
-    global engine
-    if engine:
-        engine.dispose()
-        logger.info("Database connection closed")
+async def init_db() -> None:
+    """Initialize database."""
+    try:
+        logger.info("Starting database initialization...")
+        logger.info(f"Database URL: {config.get_database_url()[:50]}...")
+        logger.info(f"Azure environment: {config.is_azure_environment()}")
+        
+        # Test connection first
+        logger.info("Testing database connection...")
+        if not await test_connection():
+            logger.error("Database connection test failed")
+            # Don't raise exception immediately, try to continue
+            logger.warning("Continuing without database connection test")
+        else:
+            logger.info("Database connection successful")
+        
+        # Import models to create tables
+        from app.database_models import Base
+        
+        logger.info("Creating/verifying database tables...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables created/verified successfully")
+            
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # Don't raise exception, just log the error
+        logger.warning("Database initialization failed, but continuing...")

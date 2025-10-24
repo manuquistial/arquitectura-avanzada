@@ -31,6 +31,17 @@ spec:
           value: {{ .Values.global.environment | quote }}
         - name: ASPNETCORE_URLS
           value: "http://+:8001"
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+        - secretRef:
+            name: database-credentials
+        - secretRef:
+            name: azure-secrets
+            optional: true
+        - secretRef:
+            name: app-secrets
+            optional: true
         resources:
           {{- toYaml .Values.ingestion.resources | nindent 10 }}
 {{- end }}

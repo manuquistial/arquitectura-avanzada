@@ -507,5 +507,30 @@ export const apiService = {
       throw error;
     }
   },
+
+  async getDashboardStats() {
+    try {
+      // Mock data for now - replace with actual API call when backend is ready
+      return {
+        totalDocuments: 0,
+        pendingTransfers: 0,
+        signedDocuments: 0,
+        sharedDocuments: 0
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
+    }
+  },
+
+  async getRecentActivities() {
+    try {
+      // Mock data for now - replace with actual API call when backend is ready
+      return [];
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      throw error;
+    }
+  },
 };
 

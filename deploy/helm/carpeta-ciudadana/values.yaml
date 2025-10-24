@@ -22,7 +22,7 @@ keyvault:
 
 # Migrations configuration
 migrations:
-  enabled: false  # Enabled for production
+  enabled: false  # DISABLED - No migrations should run
   # azureB2C - REMOVED  # Enabled for production
   workloadIdentity:
     clientId: ""  # Will be set via Kubernetes secret
@@ -118,11 +118,11 @@ citizen:
     port: 8000
   resources:
     requests:
-      memory: "32Mi"    # Further reduced for limited environments
-      cpu: "5m"         # Further reduced for limited environments
+      memory: "128Mi"   # Increased to prevent OOMKilled
+      cpu: "10m"        # Increased for stability
     limits:
-      memory: "64Mi"    # Further reduced for limited environments
-      cpu: "10m"        # Further reduced for limited environments
+      memory: "256Mi"   # Increased to prevent OOMKilled
+      cpu: "50m"        # Increased for stability
   autoscaling:
     enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
@@ -143,11 +143,11 @@ ingestion:
     port: 8000
   resources:
     requests:
-      memory: "32Mi"    # Further reduced for limited environments
-      cpu: "5m"         # Further reduced for limited environments
+      memory: "128Mi"   # Increased to prevent OOMKilled
+      cpu: "10m"        # Increased for stability
     limits:
-      memory: "64Mi"    # Further reduced for limited environments
-      cpu: "10m"        # Further reduced for limited environments
+      memory: "256Mi"   # Increased to prevent OOMKilled
+      cpu: "50m"        # Increased for stability
   autoscaling:
     enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
@@ -210,11 +210,11 @@ transfer:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Optimized for limited environments
-      cpu: "50m"        # Optimized for limited environments
+      memory: "256Mi"   # Increased for Python + SQLAlchemy
+      cpu: "50m"        # Increased for stability
     limits:
-      memory: "256Mi"   # Optimized for limited environments
-      cpu: "100m"       # Optimized for limited environments
+      memory: "512Mi"   # Increased for Python + SQLAlchemy
+      cpu: "200m"       # Increased for stability
   livenessProbe:
     httpGet:
       path: /health
@@ -256,11 +256,11 @@ minticClient:
     port: 8000
   resources:
     requests:
-      memory: "64Mi"   # Further reduced for limited environments
-      cpu: "5m"        # Further reduced for limited environments
+      memory: "256Mi"  # Increased for Python + SQLAlchemy
+      cpu: "50m"        # Increased for stability
     limits:
-      memory: "128Mi"  # Further reduced for limited environments
-      cpu: "10m"       # Further reduced for limited environments
+      memory: "512Mi"   # Increased for Python + SQLAlchemy
+      cpu: "200m"        # Increased for stability
   autoscaling:
     enabled: false      # Habilitado para servicios ligeros
     minReplicas: 1

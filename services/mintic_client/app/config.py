@@ -57,9 +57,38 @@ class Settings(BaseSettings):
     operator_id: str = Field(default="operator-demo", alias="OPERATOR_ID")
     
     # Database configuration (using same Azure PostgreSQL as other services)
-    database_host: str = Field(default="mock-postgres-host.database.azure.com", alias="DB_HOST")
-    database_port: int = Field(default=5432, alias="DB_PORT")
-    database_name: str = Field(default="carpeta_ciudadana", alias="DB_NAME")
-    database_user: str = Field(default="mock_user", alias="DB_USER")
-    database_password: str = Field(default="mock_password_123", alias="DB_PASSWORD")
-    database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
+    database_host: str = Field(default="mock-postgres-host.database.azure.com", alias="DB_HOST", description="Database hostname")
+    database_port: int = Field(default=5432, alias="DB_PORT", description="Database port")
+    database_name: str = Field(default="carpeta_ciudadana", alias="DB_NAME", description="Database name")
+    database_user: str = Field(default="mock_user", alias="DB_USER", description="Database user")
+    database_password: str = Field(default="mock_password_123", alias="DB_PASSWORD", description="Database password")
+    database_sslmode: str = Field(default="require", alias="DB_SSLMODE", description="Database SSL mode")
+    database_echo: bool = Field(default=False, alias="DATABASE_ECHO", description="Enable SQLAlchemy echo")
+    
+    # Legacy support for DATABASE_URL
+    database_url: str = Field(default="", alias="DATABASE_URL", description="Full database URL")
+    
+    # Application settings
+    debug: bool = Field(default=False, alias="DEBUG")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    
+    def get_database_url(self) -> str:
+        """Get the database connection URL."""
+        if self.database_url:
+            return self.database_url
+        
+        # Build URL from individual components
+        return f"postgresql+psycopg://{self.database_user}:{self.database_password}@{self.database_host}:{self.database_port}/{self.database_name}?sslmode={self.database_sslmode}"
+    
+    def is_azure_environment(self) -> bool:
+        """Check if running in Azure environment."""
+        return "postgres.database.azure.com" in self.database_host
+
+
+# Global configuration instance
+config = Settings()
+
+
+def get_config() -> Settings:
+    """Get configuration instance."""
+    return config

@@ -6,7 +6,12 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import Navigation from '@/components/Navigation';
 import './globals.css';
 
-const montserrat = Montserrat({ subsets: ['latin'] });
+const montserrat = Montserrat({ 
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-montserrat',
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: 'Carpeta Ciudadana',
@@ -20,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es-CO">
-      <body className={montserrat.className}>
+      <body className={`${montserrat.variable} ${montserrat.className}`}>
         <ErrorBoundary>
           <Providers>
             <ToastProvider>

@@ -122,9 +122,8 @@ spec:
     - protocol: UDP
       port: 53
   
-  # Database access (PostgreSQL)
-  - to:
-    - namespaceSelector: {}
+  # Database access (PostgreSQL) - Allow external connections
+  - to: []  # Allow to any destination
     ports:
     - protocol: TCP
       port: 5432
@@ -147,15 +146,18 @@ spec:
       port: 9200
   
   # External HTTPS traffic (Azure services, MinTIC, etc.)
-  - ports:
+  - to: []  # Allow to any destination
+    ports:
     - protocol: TCP
       port: 443
-  
+    - protocol: TCP
+      port: 80
     - protocol: TCP
       port: 25
   
   # Service Bus traffic (Azure Service Bus)
-  - ports:
+  - to: []  # Allow to any destination
+    ports:
     - protocol: TCP
       port: 5671  # AMQPS
     - protocol: TCP
