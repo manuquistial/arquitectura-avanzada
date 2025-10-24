@@ -45,15 +45,15 @@ aks_sku_tier = "Free"
 aks_authorized_ip_ranges = []
 aks_admin_groups = []
 aks_availability_zones = ["1", "2", "3"]
-aks_system_vm_size = "Standard_B2s"
+aks_system_vm_size = "Standard_B2ms"
 aks_system_node_count = 1
 aks_system_node_min = 1
 aks_system_node_max = 2
-aks_user_vm_size = "Standard_B2s"
+aks_user_vm_size = "Standard_B2ms"
 aks_user_node_min = 1
 aks_user_node_max = 3
 aks_enable_spot = true
-aks_spot_vm_size = "Standard_B2s"
+aks_spot_vm_size = "Standard_B2ms"
 aks_spot_node_min = 0
 aks_spot_node_max = 2
 aks_spot_max_price = -1
@@ -64,7 +64,7 @@ aks_outbound_type = "loadBalancer"
 aks_maintenance_day = "Sunday"
 aks_maintenance_hours = [2, 3, 4]
 aks_node_count = 3
-aks_vm_size = "Standard_B2s"
+aks_vm_size = "Standard_B2ms"
 
 # Database Configuration
 db_admin_username = "psqladmin"

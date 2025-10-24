@@ -27,7 +27,7 @@ spec:
         env:
         - name: ENVIRONMENT
           value: {{ .Values.global.environment | default "dev" }}
-        # DATABASE_URL is provided by the secret database-secrets
+        # DATABASE_URL is provided by the secret database-credentials
         - name: AZURE_STORAGE_ACCOUNT_NAME
           value: {{ .Values.azure.storage.accountName | default "devstorage" | quote }}
         - name: AZURE_STORAGE_ACCOUNT_KEY
@@ -63,7 +63,7 @@ spec:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
-            name: database-secrets
+            name: database-credentials
         resources:
           {{- toYaml .Values.signature.resources | nindent 10 }}
         livenessProbe:

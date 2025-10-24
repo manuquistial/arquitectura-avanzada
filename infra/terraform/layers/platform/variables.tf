@@ -116,7 +116,7 @@ variable "aks_availability_zones" {
 variable "aks_system_vm_size" {
   description = "VM size for system node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 variable "aks_system_node_count" {
@@ -140,7 +140,7 @@ variable "aks_system_node_max" {
 variable "aks_user_vm_size" {
   description = "VM size for user node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 variable "aks_user_node_min" {
@@ -164,7 +164,7 @@ variable "aks_enable_spot" {
 variable "aks_spot_vm_size" {
   description = "VM size for spot node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 variable "aks_spot_node_min" {
@@ -230,7 +230,7 @@ variable "aks_node_count" {
 variable "aks_vm_size" {
   description = "DEPRECATED: AKS node VM size"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 # Database Configuration

@@ -71,7 +71,7 @@ spec:
         - secretRef:
             name: sb-conn
         - secretRef:
-            name: database-secrets
+            name: database-credentials
         - secretRef:
             name: redis-auth
             optional: true

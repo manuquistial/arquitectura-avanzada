@@ -25,7 +25,7 @@ spec:
         - containerPort: 8000
           name: http
         env:
-        # DATABASE_URL is provided by the secret database-secrets
+        # DATABASE_URL is provided by the secret database-credentials
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:
@@ -38,7 +38,7 @@ spec:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
-            name: database-secrets
+            name: database-credentials
         resources:
           {{- toYaml .Values.transfer.resources | nindent 10 }}
         livenessProbe:

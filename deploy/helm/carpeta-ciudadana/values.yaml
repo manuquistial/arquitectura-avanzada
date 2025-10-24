@@ -34,11 +34,11 @@ migrations:
     enabled: true  # Enable optimized resource settings
     maxReplicas: 3  # Maximum replicas per service in limited environments
     defaultRequests:
-      cpu: "25m"
-      memory: "128Mi"
+      cpu: "10m"      # Reduced from 25m for limited environments
+      memory: "64Mi"   # Reduced from 128Mi for limited environments
     defaultLimits:
-      cpu: "500m"
-      memory: "512Mi"
+      cpu: "100m"     # Reduced from 500m for limited environments
+      memory: "256Mi"  # Reduced from 512Mi for limited environments
 
 # Service Bus configuration - REMOVED
 serviceBus:
@@ -77,11 +77,11 @@ frontend:
     targetPort: 3000
   resources:
     requests:
-      memory: "128Mi"   # Optimizado para recursos limitados
-      cpu: "25m"        # Reducido significativamente
+      memory: "64Mi"    # Further reduced for limited environments
+      cpu: "10m"        # Further reduced for limited environments
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "25m"      # Límite conservador
+      memory: "128Mi"  # Reduced from 256Mi for limited environments
+      cpu: "25m"        # Keep same for stability
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
@@ -118,15 +118,15 @@ citizen:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Optimizado para recursos limitados
-      cpu: "25m"        # Reducido significativamente
+      memory: "64Mi"    # Ultra-optimized for limited environments
+      cpu: "10m"        # Ultra-optimized for limited environments
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "25m"
+      memory: "128Mi"   # Ultra-optimized for limited environments
+      cpu: "25m"        # Keep CPU for stability
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3     # Ultra-optimized for limited environments
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1
@@ -143,15 +143,15 @@ ingestion:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Optimizado para recursos limitados
-      cpu: "25m"        # Reducido significativamente
+      memory: "64Mi"    # Ultra-optimized for limited environments
+      cpu: "10m"        # Ultra-optimized for limited environments
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "25m"
+      memory: "128Mi"   # Ultra-optimized for limited environments
+      cpu: "25m"        # Keep CPU for stability
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 15
+    maxReplicas: 3     # Ultra-optimized for limited environments
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1
@@ -168,15 +168,31 @@ signature:
       port: 8000
     resources:
       requests:
-        memory: "256Mi"  # Aumentado para evitar OOM
-        cpu: "25m"        # Reducido significativamente
+        memory: "256Mi"  # Increased to prevent OOMKilled
+        cpu: "100m"       # Increased for crypto operations
       limits:
-        memory: "256Mi"  # Límite para prevenir OOM
-        cpu: "25m"       # Reducido pero suficiente
+        memory: "512Mi"  # Increased to prevent OOMKilled
+        cpu: "200m"       # Increased for crypto operations
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60  # Increased from 20s
+      timeoutSeconds: 10        # Increased from 3s
+      periodSeconds: 30         # Increased from 10s
+      failureThreshold: 3       # Reduced from 3
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 45   # Increased from 15s
+      timeoutSeconds: 10        # Increased from 2s
+      periodSeconds: 15         # Increased from 5s
+      failureThreshold: 3       # Reduced from 2
     autoscaling:
       enabled: false     # Deshabilitado temporalmente por problemas de métricas
       minReplicas: 1
-      maxReplicas: 10
+      maxReplicas: 3     # Ultra-optimized for limited environments
       targetCPUUtilizationPercentage: 70
     podDisruptionBudget:
       minAvailable: 1
@@ -193,15 +209,31 @@ metadata:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Optimizado para recursos limitados
-      cpu: "25m"        # Reducido significativamente
+      memory: "256Mi"   # Increased to prevent OOMKilled
+      cpu: "100m"        # Increased for better performance
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "25m"
+      memory: "512Mi"    # Increased to prevent OOMKilled
+      cpu: "200m"        # Increased for better performance
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 60  # Increased from 20s
+    timeoutSeconds: 10       # Increased from 3s
+    periodSeconds: 30        # Increased from 10s
+    failureThreshold: 3      # Reduced from 3
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8000
+    initialDelaySeconds: 45   # Increased from 15s
+    timeoutSeconds: 10        # Increased from 2s
+    periodSeconds: 15         # Increased from 5s
+    failureThreshold: 3       # Reduced from 2
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3     # Ultra-optimized for limited environments
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1
@@ -218,15 +250,31 @@ transfer:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # Optimizado para recursos limitados
-      cpu: "25m"       # Reducido
+      memory: "256Mi"  # Increased to prevent OOMKilled
+      cpu: "100m"       # Increased for saga processing
     limits:
-      memory: "256Mi"  # Límite para evitar OOM durante sagas complejas
-      cpu: "25m"     # Puede necesitar CPU para procesamiento concurrente
+      memory: "512Mi"  # Increased to prevent OOMKilled
+      cpu: "200m"       # Increased for saga processing
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 60  # Increased from 20s
+    timeoutSeconds: 10       # Increased from 3s
+    periodSeconds: 30        # Increased from 10s
+    failureThreshold: 3      # Reduced from 3
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 45   # Increased from 15s
+    timeoutSeconds: 10        # Increased from 2s
+    periodSeconds: 15         # Increased from 5s
+    failureThreshold: 3       # Reduced from 2
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3     # Reduced for limited environments
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1  # Critical for saga orchestration
@@ -248,15 +296,15 @@ minticClient:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # HTTP client + rate limiter
-      cpu: "25m"
+      memory: "128Mi"  # Ultra-optimized for limited environments
+      cpu: "10m"       # Ultra-optimized for limited environments
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "25m"
+      memory: "256Mi"  # Keep limit for HTTP client operations
+      cpu: "25m"       # Keep CPU for HTTP operations
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3     # Ultra-optimized for limited environments
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1
@@ -273,15 +321,15 @@ readModels:
     port: 8007
   resources:
     requests:
-      memory: "128Mi"  # Event consumer + queries simples
-      cpu: "25m"
+      memory: "64Mi"   # Ultra-optimized for limited environments
+      cpu: "10m"       # Ultra-optimized for limited environments
     limits:
-      memory: "256Mi"  # Límite conservador
-      cpu: "25m"
+      memory: "128Mi"  # Ultra-optimized for limited environments
+      cpu: "25m"       # Keep CPU for stability
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3     # Ultra-optimized for limited environments
     targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     minAvailable: 1
@@ -298,15 +346,31 @@ auth:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # Aumentado para evitar problemas de memoria
-      cpu: "100m"     # Aumentado para permitir inicio correcto
+      memory: "256Mi"  # Increased to prevent OOMKilled
+      cpu: "100m"       # Increased for better performance
     limits:
-      memory: "512Mi"  # Aumentado significativamente
-      cpu: "500m"      # Aumentado para permitir procesamiento
+      memory: "512Mi"  # Increased to prevent OOMKilled
+      cpu: "200m"       # Increased for better performance
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 60  # Increased from 15s
+    timeoutSeconds: 10        # Increased from 3s
+    periodSeconds: 30         # Increased from 10s
+    failureThreshold: 3       # Reduced from 5
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8000
+    initialDelaySeconds: 45   # Increased from 10s
+    timeoutSeconds: 10        # Increased from 2s
+    periodSeconds: 15         # Increased from 5s
+    failureThreshold: 3       # Reduced from 5
   autoscaling:
     enabled: false     # Deshabilitado temporalmente por problemas de métricas
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3     # Reduced for limited environments
     targetCPUUtilizationPercentage: 70
 
 # Transfer Worker - Dedicated consumer for transfers (KEDA auto-scaling)
@@ -326,14 +390,14 @@ transferWorker:
   prefetchCount: 20  # Prefetch messages for performance
   maxWaitTime: 60    # Max seconds to wait for messages
   
-  # Resources (optimized for spot instances)
+  # Resources (ultra-optimized for limited environments)
   resources:
     requests:
-      memory: "256Mi"  # Message processing + DB connections
-      cpu: "25m"
+      memory: "128Mi"  # Ultra-optimized for limited environments
+      cpu: "10m"       # Ultra-optimized for limited environments
     limits:
-      memory: "256Mi"  # Limit to prevent OOM
-      cpu: "25m"     # Can spike during high load
+      memory: "256Mi"  # Keep limit to prevent OOM
+      cpu: "25m"       # Keep CPU for message processing
   
   # KEDA auto-scaling configuration
   keda:
@@ -547,9 +611,9 @@ otel:
   replicaCount: 1
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "25m"
+      memory: "64Mi"    # Ultra-optimized for limited environments
+      cpu: "10m"        # Ultra-optimized for limited environments
     limits:
-      memory: "256Mi"
-      cpu: "25m"
+      memory: "128Mi"   # Ultra-optimized for limited environments
+      cpu: "25m"        # Keep CPU for stability
 

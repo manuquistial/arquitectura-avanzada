@@ -72,7 +72,7 @@ variable "availability_zones" {
 variable "system_vm_size" {
   description = "VM size for system node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 variable "system_node_count" {
@@ -97,7 +97,7 @@ variable "system_node_max" {
 variable "user_vm_size" {
   description = "VM size for user node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 variable "user_node_min" {
@@ -122,7 +122,7 @@ variable "enable_spot_nodepool" {
 variable "spot_vm_size" {
   description = "VM size for spot node pool"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 variable "spot_node_min" {
@@ -192,7 +192,7 @@ variable "node_count" {
 variable "vm_size" {
   description = "DEPRECATED: Use system_vm_size instead"
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2ms"
 }
 
 # Azure AD
