@@ -95,7 +95,7 @@ helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
 ## 🎯 Características Principales
 
 ### 💼 Funcionalidades de Negocio
-- ✅ **Gestión Documental**: Upload, download, búsqueda avanzada (OpenSearch)
+- ✅ **Gestión Documental**: Upload, download, almacenamiento seguro
 - ✅ **Firma Digital**: Integración con Hub MinTIC, WORM (Write Once Read Many)
 - ✅ **Transferencias P2P**: Saga pattern, estado distribuido
 - ✅ **Notificaciones**: Email, webhooks, eventos en tiempo real
@@ -220,14 +220,11 @@ helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
 | **gateway** | 8000 | API Gateway, Rate Limiting, CORS | FastAPI, Redis |
 | **citizen** | 8001 | Gestión ciudadanos, ABAC | FastAPI, PostgreSQL |
 | **ingestion** | 8002 | Upload/download docs, WORM | FastAPI, Azure Blob |
-| **metadata** | 8003 | Búsqueda, indexación | FastAPI, OpenSearch |
 | **transfer** | 8004 | Transferencias P2P, Saga | FastAPI, Service Bus |
 | **transfer_worker** | - | Worker dedicado para transfers | FastAPI, KEDA |
 | **mintic_client** | 8005 | Cliente Hub MinTIC, Circuit Breaker | FastAPI, Redis |
 | **signature** | 8006 | Firma digital, autenticación | FastAPI, PostgreSQL |
-| **read_models** | 8007 | CQRS read models, event projection | FastAPI, PostgreSQL |
 | **auth** | 8008 | OIDC provider, JWT | FastAPI, Redis |
-| **notification** | 8010 | Email, webhooks | FastAPI, SMTP |
 
 ### Stack Tecnológico
 
@@ -237,7 +234,6 @@ helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
 - Redis 7 (cache, rate limiting, locks, sessions)
 - Azure Blob Storage (documents, SAS URLs)
 - Azure Service Bus (event-driven, async processing)
-- OpenSearch (full-text search)
 
 **Frontend**:
 - Next.js 14 (App Router, SSR)
@@ -301,7 +297,7 @@ helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
 │         ┌─────────────────────────────────┴─────────────┐  │
 │         │                                                 │  │
 │  ┌──────▼──────┐  ┌──────────┐  ┌──────────┐  ┌───────▼───┐│
-│  │   Citizen   │  │ Ingestion│  │ Metadata │  │ Transfer  ││
+│  │   Citizen   │  │ Ingestion│  │ Transfer  ││
 │  │   Service   │  │  Service │  │  Service │  │  Service  ││
 │  └─────────────┘  └──────────┘  └──────────┘  └───────────┘│
 │                                                              │
@@ -311,7 +307,7 @@ helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
 │  └─────────────┘  └──────────┘  └──────────┘  └───────────┘│
 │                                                              │
 │  ┌─────────────┐  ┌──────────┐  ┌─────────────────────┐   │
-│  │Notification │  │  MinTIC  │  │  Transfer Worker    │   │
+│  │  MinTIC  │  │  Transfer Worker    │   │
 │  │   Service   │  │  Client  │  │  (KEDA 0-30 pods)   │   │
 │  └─────────────┘  └──────────┘  └─────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
@@ -326,7 +322,7 @@ helm upgrade --install carpeta-ciudadana ./carpeta-ciudadana
           │                  │                  │
           ▼                  ▼                  ▼
 ┌──────────────────┐ ┌──────────────┐ ┌─────────────────┐
-│  Azure Service   │ │ OpenSearch   │ │  Azure Key      │
+│  Azure Service   │ │ Azure Search │ │  Azure Key      │
 │     Bus          │ │  (managed)   │ │    Vault        │
 └──────────────────┘ └──────────────┘ └─────────────────┘
 ```

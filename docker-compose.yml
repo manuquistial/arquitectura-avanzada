@@ -29,17 +29,6 @@ services:
       timeout: 5s
       retries: 5
 
-  opensearch:
-    image: opensearchproject/opensearch:2.11.0
-    environment:
-      - discovery.type=single-node
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
-      - "DISABLE_SECURITY_PLUGIN=true"
-    ports:
-      - "9200:9200"
-      - "9600:9600"
-    volumes:
-      - opensearch_data:/usr/share/opensearch/data
 
   # Redis removed - using Azure Cache for Redis only
 
@@ -86,17 +75,6 @@ services:
     depends_on:
       - postgres
 
-  metadata:
-    profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-metadata:${TAG:-latest}
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - OPENSEARCH_HOST=opensearch
-      - OPENSEARCH_PORT=9200
-    depends_on:
-      - postgres
-      - opensearch
 
   transfer:
     profiles: ["app"]
@@ -149,28 +127,5 @@ services:
     depends_on:
       - postgres
 
-  notification:
-    profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-notification:${TAG:-latest}
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - SERVICE_BUS_ENABLED=false
-    depends_on:
-      - postgres
-
-  read-models:
-    profiles: ["app"]
-    image: ${DOCKER_USERNAME:-manuelquistial}/carpeta-read_models:${TAG:-latest}
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - REDIS_HOST=${REDIS_HOST:-}
-      - REDIS_PORT=6380
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    depends_on:
-      - postgres
-
 volumes:
   postgres_data:
-  opensearch_data:

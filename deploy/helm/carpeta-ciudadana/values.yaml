@@ -22,7 +22,7 @@ keyvault:
 
 # Migrations configuration
 migrations:
-  enabled: true  # Enabled for production
+  enabled: false  # Enabled for production
   # azureB2C - REMOVED  # Enabled for production
   workloadIdentity:
     clientId: ""  # Will be set via Kubernetes secret
@@ -31,7 +31,7 @@ migrations:
   m2mAuth:
     enabled: true  # Enabled for inter-service authentication
   resourceOptimization:
-    enabled: true  # Enable optimized resource settings
+    enabled: false  # Enable optimized resource settings
     maxReplicas: 3  # Maximum replicas per service in limited environments
     defaultRequests:
       cpu: "10m"      # Reduced from 25m for limited environments
@@ -83,13 +83,13 @@ frontend:
       memory: "128Mi"   # Optimized for Next.js production build
       cpu: "20m"        # Optimized for Next.js production build
   autoscaling:
-    enabled: true       # Habilitado para servicios ligeros
+    enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
     maxReplicas: 2      # Máximo 2 réplicas para limitaciones de recursos
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 85
   podDisruptionBudget:
-    enabled: true
+    enabled: false
     minAvailable: 1  # Mantener al menos 1 disponible
   # NextAuth configuration - Values will be set via Terraform
   nextAuth:
@@ -124,7 +124,7 @@ citizen:
       memory: "64Mi"    # Further reduced for limited environments
       cpu: "10m"        # Further reduced for limited environments
   autoscaling:
-    enabled: true       # Habilitado para servicios ligeros
+    enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
     maxReplicas: 2      # Máximo 2 réplicas para limitaciones de recursos
     targetCPUUtilizationPercentage: 80
@@ -149,7 +149,7 @@ ingestion:
       memory: "64Mi"    # Further reduced for limited environments
       cpu: "10m"        # Further reduced for limited environments
   autoscaling:
-    enabled: true       # Habilitado para servicios ligeros
+    enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
     maxReplicas: 2      # Máximo 2 réplicas para limitaciones de recursos
     targetCPUUtilizationPercentage: 80
@@ -197,46 +197,6 @@ signature:
     podDisruptionBudget:
       minAvailable: 1
 
-# Metadata Service - Búsquedas en OpenSearch
-metadata:
-  enabled: true
-  replicaCount: 1  # Reducido para ahorrar recursos
-  image:
-    repository: carpeta-metadata
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - acceso vía Azure API Management
-    port: 8000
-  resources:
-    requests:
-      memory: "128Mi"   # Optimized for limited environments
-      cpu: "50m"         # Optimized for limited environments
-    limits:
-      memory: "256Mi"   # Optimized for limited environments
-      cpu: "100m"        # Optimized for limited environments
-  livenessProbe:
-    httpGet:
-      path: /health
-      port: 8000
-    initialDelaySeconds: 60  # Increased from 20s
-    timeoutSeconds: 10       # Increased from 3s
-    periodSeconds: 30        # Increased from 10s
-    failureThreshold: 3      # Reduced from 3
-  readinessProbe:
-    httpGet:
-      path: /ready
-      port: 8000
-    initialDelaySeconds: 45   # Increased from 15s
-    timeoutSeconds: 10        # Increased from 2s
-    periodSeconds: 15         # Increased from 5s
-    failureThreshold: 3       # Reduced from 2
-  autoscaling:
-    enabled: false     # Deshabilitado para servicios críticos
-    minReplicas: 1
-    maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
-    targetCPUUtilizationPercentage: 70
-  podDisruptionBudget:
-    minAvailable: 1
 
 # Transfer Service - Saga pattern, transaccional
 transfer:
@@ -302,7 +262,7 @@ minticClient:
       memory: "128Mi"  # Further reduced for limited environments
       cpu: "10m"       # Further reduced for limited environments
   autoscaling:
-    enabled: true      # Habilitado para servicios ligeros
+    enabled: false      # Habilitado para servicios ligeros
     minReplicas: 1
     maxReplicas: 2     # Máximo 2 réplicas para limitaciones de recursos
     targetCPUUtilizationPercentage: 80
@@ -311,7 +271,7 @@ minticClient:
 
 # Read Models Service (CQRS) - Consumidor de eventos
 readModels:
-  enabled: true
+  enabled: false
   replicaCount: 1
   image:
     repository: carpeta-read_models
@@ -327,7 +287,7 @@ readModels:
       memory: "64Mi"   # Further reduced for limited environments
       cpu: "10m"       # Further reduced for limited environments
   autoscaling:
-    enabled: true      # Habilitado para servicios ligeros
+    enabled: false      # Habilitado para servicios ligeros
     minReplicas: 1
     maxReplicas: 2     # Máximo 2 réplicas para limitaciones de recursos
     targetCPUUtilizationPercentage: 80
@@ -512,13 +472,6 @@ cors:
   allowedOrigins: "*"  # Overridden in values-dev.yaml and values-prod.yaml
   allowCredentials: false
 
-# OpenSearch Configuration - Using external OpenSearch in 'search' namespace
-# External OpenSearch endpoint for metadata service
-opensearch:
-  external:
-    host: "opensearch-cluster-master.search.svc.cluster.local"
-    port: 9200
-    protocol: "http"
 
 # Configuration
 mintic:
@@ -528,9 +481,7 @@ mintic:
   operatorId: "" # Will be set via Kubernetes secret
   operatorName: "" # Will be set via Kubernetes secret
 
-otel:
-  enabled: true
-  endpoint: http://jaeger-collector:4317
+
 
 # Service Account (for Workload Identity)
 serviceAccount:
@@ -607,7 +558,7 @@ ingress:
 
 # OpenTelemetry Collector
 otel:
-  enabled: true
+  enabled: false
   replicaCount: 1
   resources:
     requests:

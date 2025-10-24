@@ -32,9 +32,7 @@ ALL_SERVICES=(
     "auth"
     "citizen"
     "ingestion"
-    "metadata"
     "mintic_client"
-    "read_models"
     "signature"
     "transfer"
 )

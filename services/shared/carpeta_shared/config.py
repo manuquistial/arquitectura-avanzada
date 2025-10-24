@@ -48,14 +48,10 @@ class DatabaseConfig(BaseSettings):
 
 
 class SearchConfig(BaseSettings):
-    """Search configuration (OpenSearch o Azure Cognitive Search)."""
+    """Search configuration (Azure Cognitive Search)."""
 
     model_config = SettingsConfigDict(env_prefix="SEARCH_")
 
-    host: str = Field(default="localhost")
-    port: int = Field(default=9200)
-    use_ssl: bool = Field(default=False)
-    verify_certs: bool = Field(default=False)
     api_key: str = Field(default="")  # Para Azure Cognitive Search
 
 

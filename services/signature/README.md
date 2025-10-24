@@ -334,7 +334,6 @@ SIGNING_PRIVATE_KEY_PATH=/secrets/private-key.pem
 
 # Hub MinTIC
 MINTIC_SERVICE_URL=https://mintic-client:8000
-METADATA_SERVICE_URL=https://metadata:8000
 
 # Service Bus
 SERVICEBUS_CONNECTION_STRING=Endpoint=sb://...

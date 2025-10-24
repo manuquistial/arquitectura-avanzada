@@ -45,19 +45,6 @@ services:
     depends_on:
       - postgres
 
-  metadata:
-    profiles: ["app"]
-    build:
-      context: .
-      dockerfile: ./services/metadata/Dockerfile
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - OPENSEARCH_HOST=opensearch
-      - OPENSEARCH_PORT=9200
-    depends_on:
-      - postgres
-      - opensearch
 
   transfer:
     profiles: ["app"]
@@ -119,16 +106,3 @@ services:
       - postgres
 
 
-  read-models:
-    profiles: ["app"]
-    build:
-      context: .
-      dockerfile: ./services/read_models/Dockerfile
-    environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/carpeta_ciudadana
-      - REDIS_HOST=${REDIS_HOST:-}
-      - REDIS_PORT=6380
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    depends_on:
-      - postgres

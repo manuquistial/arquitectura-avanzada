@@ -19,8 +19,6 @@ sqlalchemy = "^2.0.23"
 alembic = "^1.13.0"
 asyncpg = "^0.30.0"
 
-# Search (compatible con ambos)
-opensearch-py = "^2.4.0"
 
 # Other
 redis = "^5.0.1"

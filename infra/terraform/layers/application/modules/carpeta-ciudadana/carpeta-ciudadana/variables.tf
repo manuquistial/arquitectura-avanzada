@@ -417,47 +417,6 @@ variable "signature_config" {
   }
 }
 
-variable "metadata_config" {
-  description = "Metadata service configuration"
-  type = object({
-    enabled      = bool
-    replicaCount = number
-    resources = object({
-      requests = object({
-        cpu    = string
-        memory = string
-      })
-      limits = object({
-        cpu    = string
-        memory = string
-      })
-    })
-    autoscaling = object({
-      enabled     = bool
-      minReplicas = number
-      maxReplicas = number
-    })
-  })
-  default = {
-    enabled      = true
-    replicaCount = 1
-    resources = {
-      requests = {
-        cpu    = "50m"
-        memory = "64Mi"
-      }
-      limits = {
-        cpu    = "300m"
-        memory = "256Mi"
-      }
-    }
-    autoscaling = {
-      enabled     = true
-      minReplicas = 2
-      maxReplicas = 10
-    }
-  }
-}
 
 variable "transfer_config" {
   description = "Transfer service configuration"
@@ -502,47 +461,6 @@ variable "transfer_config" {
 }
 
 
-variable "read_models_config" {
-  description = "Read Models service configuration"
-  type = object({
-    enabled      = bool
-    replicaCount = number
-    resources = object({
-      requests = object({
-        cpu    = string
-        memory = string
-      })
-      limits = object({
-        cpu    = string
-        memory = string
-      })
-    })
-    autoscaling = object({
-      enabled     = bool
-      minReplicas = number
-      maxReplicas = number
-    })
-  })
-  default = {
-    enabled      = true
-    replicaCount = 1
-    resources = {
-      requests = {
-        cpu    = "50m"
-        memory = "64Mi"
-      }
-      limits = {
-        cpu    = "300m"
-        memory = "256Mi"
-      }
-    }
-    autoscaling = {
-      enabled     = true
-      minReplicas = 2
-      maxReplicas = 10
-    }
-  }
-}
 
 variable "mintic_client_config" {
   description = "MinTIC Client service configuration"

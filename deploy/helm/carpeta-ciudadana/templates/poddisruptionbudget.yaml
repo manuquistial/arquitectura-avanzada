@@ -31,20 +31,6 @@ spec:
     matchLabels:
       app: ingestion
 
-# PodDisruptionBudget for Metadata
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-metadata
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: metadata
-spec:
-  minAvailable: {{ .Values.podDisruptionBudget.defaultMinAvailable | default 1 }}
-  selector:
-    matchLabels:
-      app: metadata
 
 # PodDisruptionBudget for Transfer (CRITICAL - Saga orchestrator)
 ---
@@ -93,37 +79,7 @@ spec:
 
 # PodDisruptionBudget for Sharing
 
-# PodDisruptionBudget for Notification
-{{- if and .Values.notification .Values.notification.enabled }}
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-notification
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: notification
-spec:
-  minAvailable: {{ .Values.podDisruptionBudget.defaultMinAvailable | default 1 }}
-  selector:
-    matchLabels:
-      app: notification
-{{- end }}
 
-# PodDisruptionBudget for Read Models
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-read-models
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: read-models
-spec:
-  minAvailable: {{ .Values.podDisruptionBudget.defaultMinAvailable | default 1 }}
-  selector:
-    matchLabels:
-      app: read-models
 
 # PodDisruptionBudget for Transfer Worker (KEDA-aware)
 {{- if .Values.transferWorker.enabled }}

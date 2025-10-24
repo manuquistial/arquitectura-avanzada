@@ -62,7 +62,6 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: metadata
     ports:
     - protocol: TCP
       port: 8000
@@ -108,9 +107,7 @@ spec:
     - protocol: TCP
       port: 8000
     - protocol: TCP
-      port: 8007
     - protocol: TCP
-      port: 8010
   
   egress:
   # DNS resolution (always required)
@@ -141,7 +138,6 @@ spec:
     - protocol: TCP
       port: 6379
   
-  # OpenSearch access (metadata service)
   - to:
     - namespaceSelector:
         matchLabels:

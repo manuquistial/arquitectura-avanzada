@@ -65,9 +65,6 @@ La implementación actual del **Operador Carpeta Ciudadana** está **muy bien al
 | **Gateway Service** | ✅ Requerido | ✅ `services/gateway/` | **COMPLETO** | API Gateway |
 | **Auth Service** | ✅ Requerido | ✅ `services/auth/` | **COMPLETO** | Autenticación OIDC |
 | **MinTIC Client** | ✅ Requerido | ✅ `services/mintic_client/` | **COMPLETO** | Integración hub |
-| **Metadata Service** | ⚠️ Implícito | ✅ `services/metadata/` | **EXTRA** | Búsqueda OpenSearch |
-| **Read Models** | ⚠️ Implícito | ✅ `services/read_models/` | **EXTRA** | CQRS pattern |
-| **Notification Service** | ❌ No requerido | ✅ `services/notification/` | **EXTRA** | Notificaciones |
 | **Transfer Worker** | ❌ No requerido | ✅ `services/transfer_worker/` | **EXTRA** | Worker asíncrono |
 
 ---
@@ -122,12 +119,9 @@ La implementación actual del **Operador Carpeta Ciudadana** está **muy bien al
 
 | Servicio | Justificación | Acción Recomendada | Beneficio |
 |---|---|---|---|
-| **OpenSearch** | ✅ **MANTENER** - Búsqueda avanzada necesaria | ✅ Mantener | Búsqueda full-text documentos |
 | **KEDA** | ✅ **MANTENER** - Autoscaling event-driven | ✅ Mantener | Escalabilidad automática |
 | **cert-manager** | ✅ **MANTENER** - TLS automático | ✅ Mantener | Certificados TLS automáticos |
 | **transfer_worker** | ✅ **MANTENER** - Worker para transferencias | ✅ Mantener | Procesamiento asíncrono |
-| **read_models** | ✅ **MANTENER** - CQRS pattern | ✅ Mantener | Separación CQRS |
-| **notification** | ✅ **MANTENER** - Notificaciones importantes | ✅ Mantener | Comunicación usuarios |
 
 ### 2. Configuraciones que NO Siguen Exactamente el Documento
 
@@ -337,7 +331,6 @@ La implementación actual es **excelente** y supera al documento en varios aspec
 
 - **12 microservicios** vs 5 requeridos
 - **Event-driven** con Service Bus
-- **CQRS** con read models  
 - **Observabilidad** con Prometheus/Grafana
 - **Testing** 98% coverage
 - **Documentación** 2,100+ páginas

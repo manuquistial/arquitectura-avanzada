@@ -196,7 +196,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Notifications Card */}
             <div className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
@@ -219,9 +218,7 @@ export default function DashboardPage() {
               </div>
               <div className="bg-gray-50 px-5 py-3">
                 <div className="text-sm">
-                  <Link href="/notifications" className="font-medium text-yellow-600 hover:text-yellow-500">
-                    Ver notificaciones
-                  </Link>
+
                 </div>
               </div>
             </div>

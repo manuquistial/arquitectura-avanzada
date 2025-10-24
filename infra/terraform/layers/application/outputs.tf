@@ -16,11 +16,6 @@ output "cert_manager_namespace" {
   value       = module.cert_manager.namespace
 }
 
-# OpenSearch Outputs
-output "opensearch_namespace" {
-  description = "Namespace where OpenSearch is deployed"
-  value       = var.opensearch_namespace
-}
 
 # =============================================================================
 # CARPETA CIUDADANA OUTPUTS - MOVED TO SEPARATE LAYER

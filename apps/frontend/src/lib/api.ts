@@ -34,11 +34,9 @@ import type {
 const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || 'http://localhost:8000';
 const CITIZEN_SERVICE_URL = process.env.NEXT_PUBLIC_CITIZEN_SERVICE_URL || 'http://localhost:8001';
 const INGESTION_SERVICE_URL = process.env.NEXT_PUBLIC_INGESTION_SERVICE_URL || 'http://localhost:8002';
-const METADATA_SERVICE_URL = process.env.NEXT_PUBLIC_METADATA_SERVICE_URL || 'http://localhost:8006';
 const SIGNATURE_SERVICE_URL = process.env.NEXT_PUBLIC_SIGNATURE_SERVICE_URL || 'http://localhost:8005';
 const TRANSFER_SERVICE_URL = process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL || 'http://localhost:8004';
 const MINTIC_SERVICE_URL = process.env.NEXT_PUBLIC_MINTIC_SERVICE_URL || 'http://localhost:8003';
-const READ_MODELS_SERVICE_URL = process.env.NEXT_PUBLIC_READ_MODELS_SERVICE_URL || 'http://localhost:8007';
 
 export const api = axios.create({
   headers: {
@@ -80,34 +78,9 @@ api.interceptors.response.use(
 
 // API Service Functions
 export const apiService = {
-  // Dashboard API calls - using Read Models service
-  async getDashboardStats(): Promise<DashboardStats> {
-    try {
-      const response = await api.get(`${READ_MODELS_SERVICE_URL}/read/dashboard/stats`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      // Return mock data as fallback
-      return {
-        totalDocuments: 0,
-        signedDocuments: 0,
-        pendingTransfers: 0,
-        sharedDocuments: 0,
-      };
-    }
-  },
+  // Dashboard functionality removed - read models service eliminated
 
-  async getRecentActivities(): Promise<RecentActivity[]> {
-    try {
-      const response = await api.get(`${READ_MODELS_SERVICE_URL}/read/activities/recent`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching recent activities:', error);
-      return [];
-    }
-  },
-
-  // Documents API calls - using Ingestion and Metadata services
+  // Documents API calls - using Ingestion service
   async getDocuments(citizenId?: string, userRoles?: string[]) {
     try {
       // Si es admin, usar un ID por defecto si no se proporciona uno
@@ -205,18 +178,7 @@ export const apiService = {
     }
   },
 
-  // Document search using Metadata service
-  async searchDocuments(query: string, filters?: any) {
-    try {
-      const response = await api.get(`${METADATA_SERVICE_URL}/api/metadata/search`, {
-        params: { q: query, ...filters }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error searching documents:', error);
-      return { documents: [], total: 0 };
-    }
-  },
+  // Document search functionality removed - metadata service eliminated
 
   // Transfers API calls - using Transfer service
   async getTransfers(citizenId?: string, userRoles?: string[]) {
@@ -284,30 +246,7 @@ export const apiService = {
     }
   },
 
-  // Notifications API calls - Currently not implemented in backend
-  async getNotifications() {
-    try {
-      // TODO: Implement notifications service
-      // For now, return empty array to avoid 404 errors
-      console.warn('Notifications service not implemented yet');
-      return [];
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      return [];
-    }
-  },
-
-  async markNotificationAsRead(notificationId: string) {
-    try {
-      // TODO: Implement notifications service
-      // For now, return success to avoid 404 errors
-      console.warn('Notifications service not implemented yet');
-      return { success: true };
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      return { success: false };
-    }
-  },
+  // Notifications functionality removed - notification service eliminated
 
   // Signature API calls - using Signature service
   async signDocument(documentId: string, signatureData: any) {

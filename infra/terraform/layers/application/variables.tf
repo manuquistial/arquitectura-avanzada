@@ -137,19 +137,6 @@ variable "cert_manager_memory_limit" {
   default     = "256Mi"
 }
 
-# OpenSearch Configuration
-variable "opensearch_username" {
-  description = "OpenSearch admin username"
-  type        = string
-  default     = "admin"
-}
-
-variable "opensearch_password" {
-  description = "OpenSearch admin password"
-  type        = string
-  default     = "admin123"
-  sensitive   = true
-}
 
 # External Secrets Configuration
 variable "external_secrets_namespace" {
@@ -197,12 +184,6 @@ variable "frontdoor_enable_waf" {
   default     = true
 }
 
-# OpenSearch Namespace
-variable "opensearch_namespace" {
-  description = "Namespace where OpenSearch is deployed"
-  type        = string
-  default     = "opensearch"
-}
 
 variable "nextauth_url" {
   description = "NextAuth URL for application secrets"
@@ -210,30 +191,6 @@ variable "nextauth_url" {
   default     = "https://app.carpeta-ciudadana.dev"
 }
 
-# OpenSearch Configuration - Variables faltantes
-variable "opensearch_enabled" {
-  description = "Enable OpenSearch deployment"
-  type        = bool
-  default     = true
-}
-
-variable "opensearch_version" {
-  description = "OpenSearch Helm chart version"
-  type        = string
-  default     = "2.11.0"
-}
-
-variable "opensearch_replica_count" {
-  description = "Number of OpenSearch replicas"
-  type        = number
-  default     = 1
-}
-
-variable "opensearch_storage_size" {
-  description = "OpenSearch storage size"
-  type        = string
-  default     = "10Gi"
-}
 
 # cert-manager Configuration - Variables faltantes
 variable "cert_manager_version" {

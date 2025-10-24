@@ -27,20 +27,13 @@ data:
   AUTH_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
   CITIZEN_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
   INGESTION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
-  METADATA_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000"
   TRANSFER_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000"
   SIGNATURE_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000"
-  READ_MODELS_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-read-models:8007"
   MINTIC_CLIENT_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
   
   # Frontend URLs (for service-to-service communication)
   FRONTEND_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-frontend:80"
   
-  # OpenSearch Configuration
-  OPENSEARCH_HOST: "opensearch-cluster-master.default.svc.cluster.local"
-  OPENSEARCH_PORT: "9200"
-  OPENSEARCH_USE_SSL: "true"
-  OPENSEARCH_VERIFY_CERTS: "false"
   
   # Redis Configuration
   REDIS_PORT: "6379"

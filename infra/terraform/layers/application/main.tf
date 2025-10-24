@@ -5,7 +5,6 @@
 # - Carpeta Ciudadana Application
 # - cert-manager
 # - KEDA
-# - OpenSearch
 # - External Secrets Operator
 # =============================================================================
 
@@ -63,17 +62,6 @@ module "cert_manager" {
   depends_on = [data.terraform_remote_state.platform]
 }
 
-# OpenSearch deployment
-module "opensearch" {
-  source = "./modules/opensearch"
-  
-  opensearch_username = var.opensearch_username
-  opensearch_password = var.opensearch_password
-  
-  depends_on = [
-    data.terraform_remote_state.platform
-  ]
-}
 
 # =============================================================================
 # CARPETA CIUDADANA APPLICATION - MOVED TO SEPARATE LAYER
@@ -109,7 +97,7 @@ module "frontdoor" {
     Layer       = "Application"
   }
   
-  depends_on = [module.keda, module.cert_manager, module.opensearch]
+  depends_on = [module.keda, module.cert_manager]
 }
 
 # =============================================================================

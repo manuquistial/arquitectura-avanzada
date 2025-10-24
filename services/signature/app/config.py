@@ -64,8 +64,6 @@ class Settings(BaseSettings):
     mintic_operator_id: str = Field(default="operator-demo", alias="MINTIC_OPERATOR_ID", description="MinTIC operator ID")
     mintic_operator_name: str = Field(default="Carpeta Ciudadana Demo", alias="MINTIC_OPERATOR_NAME", description="MinTIC operator name")
     
-    # Internal services
-    metadata_service_url: str = Field(default="http://metadata:8000", alias="METADATA_SERVICE_URL", description="Metadata service URL")
     
     # Health check settings
     health_check_timeout: int = Field(default=5, alias="HEALTH_CHECK_TIMEOUT", description="Health check timeout in seconds")

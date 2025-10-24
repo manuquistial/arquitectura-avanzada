@@ -170,57 +170,17 @@ async def check_service_bus(connection_string: str, timeout: float = 3.0) -> tup
         return True, f"Service Bus warning: {str(e)[:50]}", duration
 
 
-async def check_opensearch(host: str, port: int = 9200, timeout: float = 2.0) -> tuple[bool, str, float]:
-    """
-    Check OpenSearch connectivity.
-    
-    Args:
-        host: OpenSearch host
-        port: OpenSearch port
-        timeout: Timeout in seconds
-        
-    Returns:
-        (healthy, message, duration_ms)
-    """
-    if not host or host == "localhost":
-        return True, "OpenSearch not configured", 0.0
-    
-    start = asyncio.get_event_loop().time()
-    
-    try:
-        import httpx
-        
-        url = f"http://{host}:{port}/_cluster/health"
-        
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with asyncio.timeout(timeout):
-                response = await client.get(url)
-                response.raise_for_status()
-        
-        duration = (asyncio.get_event_loop().time() - start) * 1000
-        return True, "OpenSearch OK", duration
-        
-    except asyncio.TimeoutError:
-        duration = (asyncio.get_event_loop().time() - start) * 1000
-        return False, f"OpenSearch timeout (>{timeout}s)", duration
-    except Exception as e:
-        duration = (asyncio.get_event_loop().time() - start) * 1000
-        logger.error(f"OpenSearch health check failed: {e}")
-        return False, f"OpenSearch error: {str(e)[:100]}", duration
 
 
 def create_health_router(
     check_database: bool = True,
     check_redis: bool = False,
     check_service_bus: bool = False,
-    check_opensearch: bool = False,
     database_url: Optional[str] = None,
     redis_host: Optional[str] = None,
     redis_port: int = 6379,
     redis_password: str = "",
     servicebus_conn: Optional[str] = None,
-    opensearch_host: Optional[str] = None,
-    opensearch_port: int = 9200,
 ):
     """
     Create FastAPI router with health endpoints.
@@ -229,14 +189,11 @@ def create_health_router(
         check_database: Check database in readiness
         check_redis: Check Redis in readiness
         check_service_bus: Check Service Bus in readiness
-        check_opensearch: Check OpenSearch in readiness
         database_url: Database URL
         redis_host: Redis host
         redis_port: Redis port
         redis_password: Redis password
         servicebus_conn: Service Bus connection string
-        opensearch_host: OpenSearch host
-        opensearch_port: OpenSearch port
         
     Returns:
         APIRouter with /health and /ready endpoints
@@ -267,7 +224,6 @@ def create_health_router(
         - Database (if enabled)
         - Redis (if enabled)
         - Service Bus (if enabled)
-        - OpenSearch (if enabled)
         
         Returns 200 if ready, 503 if not ready.
         """
@@ -290,12 +246,6 @@ def create_health_router(
             healthy, message, duration = await check_service_bus(servicebus_conn)
             health.add_check("service_bus", healthy, message, duration)
         
-        # Check OpenSearch
-        if check_opensearch and opensearch_host:
-            healthy, message, duration = await check_opensearch(
-                opensearch_host, opensearch_port
-            )
-            health.add_check("opensearch", healthy, message, duration)
         
         # Set response status
         if not health.ready:

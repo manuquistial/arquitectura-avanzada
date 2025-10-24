@@ -71,9 +71,7 @@ vim scripts/my-config.env
 - `tu-usuario/carpeta-ciudadana-auth:latest`
 - `tu-usuario/carpeta-ciudadana-citizen:latest`
 - `tu-usuario/carpeta-ciudadana-ingestion:latest`
-- `tu-usuario/carpeta-ciudadana-metadata:latest`
 - `tu-usuario/carpeta-ciudadana-mintic_client:latest`
-- `tu-usuario/carpeta-ciudadana-read_models:latest`
 - `tu-usuario/carpeta-ciudadana-signature:latest`
 - `tu-usuario/carpeta-ciudadana-transfer:latest`
 

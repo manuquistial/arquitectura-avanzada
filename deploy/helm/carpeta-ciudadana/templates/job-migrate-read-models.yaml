@@ -1,1 +1,0 @@
-{{- include "carpeta-ciudadana.migration" (dict "service" "read-models" "context" .) }}

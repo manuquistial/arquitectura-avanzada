@@ -25,7 +25,6 @@ export default function Navigation() {
     { name: 'Dashboard', href: '/dashboard', icon: '📊' },
     { name: 'Documentos', href: '/documents', icon: '📄' },
     { name: 'Transferencias', href: '/transfers', icon: '🔄' },
-    { name: 'Notificaciones', href: '/notifications', icon: '🔔' },
   ];
 
   // Add admin navigation for mintic users

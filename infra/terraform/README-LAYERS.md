@@ -86,7 +86,6 @@ terraform apply
 - Carpeta Ciudadana App
 - cert-manager
 - KEDA
-- OpenSearch
 - External Secrets
 
 **Despliegue:**

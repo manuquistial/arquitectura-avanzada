@@ -93,9 +93,7 @@ resource "helm_release" "carpeta_ciudadana" {
       citizen        = var.citizen_config
       ingestion      = var.ingestion_config
       signature      = var.signature_config
-      metadata       = var.metadata_config
       transfer       = var.transfer_config
-      readModels     = var.read_models_config
       minticClient   = var.mintic_client_config
       transferWorker = var.transfer_worker_config
 

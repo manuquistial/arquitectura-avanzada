@@ -34,18 +34,12 @@ spec:
           value: "{{ .Values.frontend.nextAuth.url }}/api/users"
         - name: NEXT_PUBLIC_INGESTION_SERVICE_URL
           value: "{{ .Values.frontend.nextAuth.url }}/api/documents"
-        - name: NEXT_PUBLIC_METADATA_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/metadata"
         - name: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
           value: "{{ .Values.frontend.nextAuth.url }}/api/signature"
         - name: NEXT_PUBLIC_TRANSFER_SERVICE_URL
           value: "{{ .Values.frontend.nextAuth.url }}/api/transfers"
         - name: NEXT_PUBLIC_MINTIC_SERVICE_URL
           value: "{{ .Values.frontend.nextAuth.url }}/api/mintic"
-        - name: NEXT_PUBLIC_READ_MODELS_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/dashboard"
-        - name: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/notifications"
         - name: NEXT_PUBLIC_OPERATOR_ID
           value: "{{ .Values.global.operatorId | default "operator-demo" }}"
         - name: NEXT_PUBLIC_OPERATOR_NAME

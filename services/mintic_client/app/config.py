@@ -47,7 +47,6 @@ class Settings(BaseSettings):
     hub_rate_limit_enabled: bool = Field(default=True, alias="HUB_RATE_LIMIT_ENABLED")
     
     # Internal service URLs (development local)
-    metadata_url: str = Field(default="http://localhost:8001", alias="METADATA_URL")
     citizen_url: str = Field(default="http://localhost:8000", alias="CITIZEN_URL")
     transfer_url: str = Field(default="http://localhost:8002", alias="TRANSFER_URL")
     signature_url: str = Field(default="http://localhost:8003", alias="SIGNATURE_URL")

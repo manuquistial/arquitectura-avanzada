@@ -21,14 +21,11 @@ def create_app() -> FastAPI:
             check_database=True,
             check_redis=False,
             check_service_bus=False,  # Optional, only in readiness
-            check_opensearch=False,
             database_url=settings.database_url,
             redis_host=getattr(settings, 'redis_host', None),
             redis_port=getattr(settings, 'redis_port', 6379),
             redis_password=getattr(settings, 'redis_password', ''),
             servicebus_conn=getattr(settings, 'servicebus_connection_string', None),
-            opensearch_host=getattr(settings, 'opensearch_host', None),
-            opensearch_port=getattr(settings, 'opensearch_port', 9200),
         )
         
         app.include_router(health_router, tags=["health"])
@@ -59,13 +56,7 @@ health_router = create_health_router(
     database_url=settings.database_url,
 )
 
-# 2. Metadata Service (has DB + OpenSearch)
-health_router = create_health_router(
-    check_database=True,
-    check_opensearch=True,
-    database_url=settings.database_url,
-    opensearch_host=settings.opensearch_host,
-)
+# 2. Metadata Service (removed - no longer needed)
 
 # 3. Gateway (has Redis)
 health_router = create_health_router(

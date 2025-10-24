@@ -21,7 +21,6 @@ flowchart TB
         Signature["✍️ Signature Service<br/>Document Signing"]
         MinTICClient["🏛️ MinTIC Client<br/>Hub Integration"]
         ReadModels["📊 Read Models<br/>CQRS Queries"]
-        Notification["🔔 Notification Service<br/>Event Processing"]
   end
  subgraph Workers["⚙️ Background Workers"]
         TransferWorker["🔄 Transfer Worker<br/>KEDA Auto-scaling"]
@@ -72,13 +71,12 @@ flowchart TB
     NextAuth --> B2C
     MinTICClient --> MinTIC["🏛️ MinTIC Hub<br/>govcarpeta-apis-4905ff3c005b.herokuapp.com"]
     Services --> PostgresDB & BlobStorage & RedisCache & ServiceBus & OpenSearchCluster & AppInsights & WorkloadIdentity
-    ServiceBus --> TransferWorker & ReadModels & Notification
+    ServiceBus --> TransferWorker
     WorkloadIdentity --> KeyVault
      UI:::frontend
      NextAuth:::frontend
      MinTICClient:::service
      ReadModels:::service
-     Notification:::service
      TransferWorker:::worker
      Services:::service
      PostgresDB:::database
@@ -128,7 +126,6 @@ flowchart TB
 | Signature | ✅ | ✅ | ✅ | ✅ | ❌ | 🟢 Funcional |
 | MinTIC Client | ✅ | ✅ | ✅ | ✅ | ❌ | 🟢 Funcional |
 | Read Models | ✅ | ✅ | ✅ | ✅ | ❌ | 🟢 Funcional |
-| Notification | ✅ | ✅ | ✅ | ✅ | ❌ | 🟢 Funcional |
 
 ## Problemas Identificados
 

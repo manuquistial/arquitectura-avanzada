@@ -27,7 +27,7 @@ metadata:
     {{- end }}
     # Basic security settings
     nginx.ingress.kubernetes.io/enable-access-log: "true"
-    # Body size limits (gateway handles metadata, not file uploads)
+    # Body size limits (gateway handles requests, not file uploads)
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/client-body-buffer-size: "1m"
     # Rate limiting
@@ -95,13 +95,6 @@ spec:
             name: {{ include "carpeta-ciudadana.fullname" $ }}-ingestion
             port:
               number: 8000
-      - path: /api/metadata
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ include "carpeta-ciudadana.fullname" $ }}-metadata
-            port:
-              number: 8000
       - path: /api/signature
         pathType: Prefix
         backend:
@@ -125,14 +118,6 @@ spec:
             name: {{ include "carpeta-ciudadana.fullname" $ }}-mintic-client
             port:
               number: 8000
-      # API routes - Read Models Service
-      - path: /api/dashboard
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ include "carpeta-ciudadana.fullname" $ }}-read-models
-            port:
-              number: 8007
       # Health check routes
       - path: /health
         pathType: Prefix

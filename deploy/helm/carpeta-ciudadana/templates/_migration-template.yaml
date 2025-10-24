@@ -30,24 +30,24 @@ spec:
       restartPolicy: Never
       containers:
       - name: migration
-        image: {{ printf "%s/%s:%s" $context.Values.global.imageRegistry (printf "carpeta-ciudadana-%s" $service) $context.Values.global.imageTag | default "latest" }}
+        image: {{ printf "%s/%s:%s" $context.Values.global.imageRegistry (printf "carpeta-%s" $service) $context.Values.global.imageTag | default "latest" }}
         imagePullPolicy: {{ $context.Values.global.imagePullPolicy }}
-        command: ["dotnet", "run", "--project", "/app/src/CarpetaCiudadana.{{ $service | title }}.Infrastructure/CarpetaCiudadana.{{ $service | title }}.Infrastructure.csproj", "--", "migrate"]
+        command: ["alembic", "upgrade", "head"]
+        workingDir: /app/services/{{ $service }}
         env:
-        - name: ASPNETCORE_ENVIRONMENT
+        - name: ENVIRONMENT
           value: {{ $context.Values.global.environment | quote }}
-        - name: ConnectionStrings__DefaultConnection
+        - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: database-credentials
               key: DATABASE_URL
-        - name: AzureStorage__ConnectionString
+        - name: AZURE_STORAGE_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
               name: azure-secrets
               key: STORAGE_CONNECTION_STRING
-        # ServiceBus - REMOVED
-        - name: Redis__ConnectionString
+        - name: REDIS_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
               name: azure-secrets
@@ -57,11 +57,11 @@ spec:
         {{- end }}
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
+            memory: "64Mi"
+            cpu: "10m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"
+            cpu: "50m"
       {{- with $context.Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

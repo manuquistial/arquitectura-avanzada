@@ -5,14 +5,6 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 interface UserSettings {
-  notifications: {
-    email: boolean;
-    push: boolean;
-    documentSigned: boolean;
-    transferReceived: boolean;
-    shareRequest: boolean;
-    documentExpiring: boolean;
-  };
   privacy: {
     profileVisible: boolean;
     showEmail: boolean;
@@ -28,14 +20,6 @@ export default function SettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [settings, setSettings] = useState<UserSettings>({
-    notifications: {
-      email: true,
-      push: true,
-      documentSigned: true,
-      transferReceived: true,
-      shareRequest: true,
-      documentExpiring: true,
-    },
     privacy: {
       profileVisible: true,
       showEmail: false,
@@ -48,7 +32,7 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'privacy' | 'appearance' | 'account'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'privacy' | 'appearance' | 'account'>('profile');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -113,14 +97,13 @@ export default function SettingsPage() {
           <div className="lg:col-span-1">
             <nav className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
               {[
-                { id: 'notifications', icon: '🔔', label: 'Notificaciones' },
                 { id: 'privacy', icon: '🔒', label: 'Privacidad' },
                 { id: 'appearance', icon: '🎨', label: 'Apariencia' },
                 { id: 'account', icon: '👤', label: 'Cuenta' },
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'profile' | 'notifications' | 'privacy' | 'appearance' | 'account')}
+                  onClick={() => setActiveTab(tab.id as 'profile' | 'privacy' | 'appearance' | 'account')}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-colors mb-1 ${
                     activeTab === tab.id
                       ? 'bg-blue-50 text-blue-700 font-semibold'
@@ -137,130 +120,6 @@ export default function SettingsPage() {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              {/* Notifications Tab */}
-              {activeTab === 'notifications' && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                    🔔 Notificaciones
-                  </h2>
-
-                  <div className="space-y-6">
-                    {/* Email Notifications */}
-                    <div className="border-b border-gray-200 pb-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Canales de notificación
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">📧 Correo electrónico</div>
-                            <div className="text-sm text-gray-600">Recibir notificaciones por email</div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={settings.notifications.email}
-                              onChange={(e) => updateSetting('notifications', 'email', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">📱 Notificaciones push</div>
-                            <div className="text-sm text-gray-600">Recibir notificaciones en el navegador</div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={settings.notifications.push}
-                              onChange={(e) => updateSetting('notifications', 'push', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Event Notifications */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Eventos
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">✅ Documento firmado</div>
-                            <div className="text-sm text-gray-600">Cuando un documento sea firmado exitosamente</div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={settings.notifications.documentSigned}
-                              onChange={(e) => updateSetting('notifications', 'documentSigned', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">📥 Transferencia recibida</div>
-                            <div className="text-sm text-gray-600">Cuando recibas un documento transferido</div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={settings.notifications.transferReceived}
-                              onChange={(e) => updateSetting('notifications', 'transferReceived', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">🔗 Solicitud para compartir</div>
-                            <div className="text-sm text-gray-600">Cuando alguien solicite acceso a un documento</div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={settings.notifications.shareRequest}
-                              onChange={(e) => updateSetting('notifications', 'shareRequest', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">⏰ Documento por vencer</div>
-                            <div className="text-sm text-gray-600">Recordatorios de documentos próximos a vencer</div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={settings.notifications.documentExpiring}
-                              onChange={(e) => updateSetting('notifications', 'documentExpiring', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Privacy Tab */}
               {activeTab === 'privacy' && (

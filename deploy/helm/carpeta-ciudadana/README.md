@@ -83,12 +83,9 @@ El sistema está configurado para usar dominios generados automáticamente por A
 - **Auth Service**: `/api/auth`
 - **Citizen Service**: `/api/users`
 - **Ingestion Service**: `/api/documents`
-- **Metadata Service**: `/api/metadata`
 - **Signature Service**: `/api/signature`
 - **Transfer Service**: `/api/transfers`
 - **MinTIC Service**: `/api/mintic`
-- **Read Models Service**: `/api/dashboard`
-- **Notification Service**: `/api/notifications`
 
 ### Gateway
 - **Puerto**: 8000
