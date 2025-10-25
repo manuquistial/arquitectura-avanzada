@@ -30,15 +30,12 @@ def create_database_engine():
     # Azure PostgreSQL configuration (proven to work in tests)
     if config.is_azure_environment():
         engine_config["connect_args"] = {
-            "sslmode": "require",  # Use sslmode instead of ssl for psycopg
-            "connect_timeout": 10,
-            "application_name": "mintic-client-service"
+            "ssl": "require"  # Only ssl parameter is needed for asyncpg
         }
-        logger.info("Using Azure PostgreSQL configuration with psycopg")
+        logger.info("Using Azure PostgreSQL configuration with asyncpg")
     else:
         engine_config["connect_args"] = {
-            "sslmode": config.database_sslmode,
-            "application_name": "mintic-client-service"
+            "ssl": "require" if config.database_sslmode == "require" else "disable"
         }
         logger.info("Using local PostgreSQL configuration")
     

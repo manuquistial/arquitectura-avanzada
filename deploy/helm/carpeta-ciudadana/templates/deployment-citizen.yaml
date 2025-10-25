@@ -31,6 +31,49 @@ spec:
           value: {{ .Values.global.environment | quote }}
         - name: ASPNETCORE_URLS
           value: "http://+:8000"
+        # Database configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DATABASE_URL
+              optional: true
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DB_HOST
+              optional: true
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DB_PORT
+              optional: true
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DB_NAME
+              optional: true
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DB_USER
+              optional: true
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DB_PASSWORD
+              optional: true
+        - name: DB_SSLMODE
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: DB_SSLMODE
+              optional: true
         resources:
           {{- toYaml .Values.citizen.resources | nindent 10 }}
 {{- end }}

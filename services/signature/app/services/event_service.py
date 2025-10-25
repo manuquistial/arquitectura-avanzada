@@ -135,7 +135,7 @@ class EventService:
 
     def _get_queue_name(self, event_type: str) -> str:
         """Get queue name based on event type."""
-        # Map event types to queue names
+        # Map event types to standardized queue names
         queue_mapping = {
             "document.signed": "document-events",
             "document.authenticated": "document-events", 

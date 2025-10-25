@@ -27,19 +27,49 @@ spec:
           name: http
           protocol: TCP
         env:
-        # Service URLs for frontend
+        # Service URLs for frontend - From Azure Key Vault via External Secrets
         - name: NEXT_PUBLIC_AUTH_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/auth"
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_AUTH_SERVICE_URL
+              optional: true
         - name: NEXT_PUBLIC_CITIZEN_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/users"
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_CITIZEN_SERVICE_URL
+              optional: true
         - name: NEXT_PUBLIC_INGESTION_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/documents"
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_INGESTION_SERVICE_URL
+              optional: true
         - name: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/signature"
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
+              optional: true
         - name: NEXT_PUBLIC_TRANSFER_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/transfers"
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_TRANSFER_SERVICE_URL
+              optional: true
         - name: NEXT_PUBLIC_MINTIC_SERVICE_URL
-          value: "{{ .Values.frontend.nextAuth.url }}/api/mintic"
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_MINTIC_SERVICE_URL
+              optional: true
+        - name: NEXT_PUBLIC_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_API_URL
+              optional: true
         - name: NEXT_PUBLIC_OPERATOR_ID
           value: "{{ .Values.global.operatorId | default "operator-demo" }}"
         - name: NEXT_PUBLIC_OPERATOR_NAME

@@ -1,17 +1,12 @@
 import type { Metadata } from 'next';
-import { Montserrat } from 'next/font/google';
 import { Providers } from './providers';
 import { ToastProvider } from '@/components/ToastContainer';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Navigation from '@/components/Navigation';
 import './globals.css';
 
-const montserrat = Montserrat({ 
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-montserrat',
-  preload: true,
-});
+// Use system fonts for Docker builds to avoid Google Fonts issues
+const fontClass = 'font-sans';
 
 export const metadata: Metadata = {
   title: 'Carpeta Ciudadana',
@@ -25,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es-CO">
-      <body className={`${montserrat.variable} ${montserrat.className}`}>
+      <body className={fontClass}>
         <ErrorBoundary>
           <Providers>
             <ToastProvider>

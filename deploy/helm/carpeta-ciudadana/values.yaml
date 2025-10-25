@@ -40,9 +40,9 @@ migrations:
       cpu: "100m"     # Reduced from 500m for limited environments
       memory: "256Mi"  # Reduced from 512Mi for limited environments
 
-# Service Bus configuration - REMOVED
+# Service Bus configuration
 serviceBus:
-  enabled: false
+  enabled: true
 
 
 # CORS Configuration - Permitir dominios generados por Azure

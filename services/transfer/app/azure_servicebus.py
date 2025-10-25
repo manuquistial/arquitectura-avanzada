@@ -69,7 +69,7 @@ class AzureServiceBusService:
                 "metadata": metadata or {}
             }
             
-            # Send to Service Bus queue
+            # Send to Service Bus queue (standardized queue name)
             with self.client.get_queue_sender(queue_name="transfer-notifications") as sender:
                 message_obj = ServiceBusMessage(
                     json.dumps(notification_data),

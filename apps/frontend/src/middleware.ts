@@ -36,7 +36,18 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow access to public routes
+        const { pathname } = req.nextUrl;
+        const publicRoutes = ['/', '/login', '/register', '/auth/error', '/dashboard'];
+        
+        if (publicRoutes.includes(pathname)) {
+          return true;
+        }
+        
+        // Require token for protected routes
+        return !!token;
+      },
     },
     pages: {
       signIn: "/login",

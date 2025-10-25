@@ -65,6 +65,18 @@ spec:
           value: "{{ .Values.auth.logLevel | default "INFO" }}"
         - name: ENVIRONMENT
           value: "{{ .Values.global.environment | default "dev" }}"
+        
+        # Service Bus configuration
+        - name: SERVICEBUS_ENABLED
+          value: "{{ .Values.serviceBus.enabled | default false }}"
+        {{- if .Values.serviceBus.enabled }}
+        - name: SERVICEBUS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: sb-conn
+              key: SERVICEBUS_CONNECTION_STRING
+              optional: true
+        {{- end }}
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config

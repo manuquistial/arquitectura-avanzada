@@ -25,8 +25,13 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError('Credenciales inválidas');
-      } else {
+        console.error('Login error:', result.error);
+      } else if (result?.ok) {
+        console.log('Login successful, redirecting to dashboard...');
         router.push('/dashboard');
+      } else {
+        setError('Error inesperado en el login');
+        console.error('Unexpected login result:', result);
       }
     } catch (error) {
       setError('Error al iniciar sesión');

@@ -115,3 +115,25 @@ resource "azurerm_key_vault_secret" "api_keys" {
     Service     = "API-Keys"
   }
 }
+
+# Frontend configuration secret
+resource "azurerm_key_vault_secret" "frontend_config" {
+  name         = "frontend-config"
+  value        = jsonencode({
+    "auth-service-url"     = "/api/auth"
+    "citizen-service-url"  = "/api/citizens"
+    "ingestion-service-url" = "/api/documents"
+    "signature-service-url" = "/api/signature"
+    "transfer-service-url"  = "/api/transfers"
+    "mintic-service-url"    = "/api/mintic"
+    "api-url"              = ""
+  })
+  key_vault_id = var.key_vault_id
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Layer       = "Application"
+    Service     = "Frontend"
+  }
+}

@@ -38,6 +38,9 @@ const nextConfig = {
     return config;
   },
   
+  // Font optimization
+  optimizeFonts: true,
+  
   // Image optimization
   images: {
     domains: ['localhost'],

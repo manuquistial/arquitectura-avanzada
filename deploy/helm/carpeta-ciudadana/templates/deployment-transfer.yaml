@@ -26,6 +26,8 @@ spec:
           name: http
         env:
         # DATABASE_URL is provided by the secret database-credentials
+        - name: SERVICEBUS_ENABLED
+          value: "{{ .Values.serviceBus.enabled | default false }}"
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:

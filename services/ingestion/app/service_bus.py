@@ -19,7 +19,7 @@ class ServiceBusEventPublisher:
         """Initialize Service Bus client."""
         self.config = get_config()
         self.connection_string = self.config.servicebus_connection_string
-        self.queue_name = "document-events"  # Fixed queue name
+        self.queue_name = "document-events"  # Standardized queue name
         self.enabled = self.config.servicebus_enabled and bool(self.connection_string)
         
         if not self.enabled:

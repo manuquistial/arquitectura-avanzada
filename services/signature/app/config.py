@@ -106,7 +106,9 @@ class Settings(BaseSettings):
         #    return self.database_url
         
         # Build URL from individual components
-        return f"postgresql+asyncpg://{self.database_user}:{self.database_password}@{self.database_host}:{self.database_port}/{self.database_name}?sslmode={self.database_sslmode}"
+        # For asyncpg, use ssl parameter instead of sslmode
+        # Based on test_pod_db_connection.py results, asyncpg works with ssl='require'
+        return f"postgresql+asyncpg://{self.database_user}:{self.database_password}@{self.database_host}:{self.database_port}/{self.database_name}?ssl=require"
     
     def is_production(self) -> bool:
         """Check if running in production environment."""

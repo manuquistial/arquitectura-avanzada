@@ -20,7 +20,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === 'loading') return; // Still loading
-    if (!session) router.push('/login'); // Not authenticated
+    if (!session) {
+      console.log('No session found, redirecting to login...');
+      router.push('/login');
+    } else {
+      console.log('Session found:', session.user?.email);
+    }
   }, [session, status, router]);
 
   useEffect(() => {

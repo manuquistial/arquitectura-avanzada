@@ -28,17 +28,15 @@ def create_database_engine():
     }
     
     # Azure PostgreSQL configuration (compatible with asyncpg)
+    # Based on test_pod_db_connection.py results, asyncpg works with minimal configuration
     if config.is_azure_environment():
         engine_config["connect_args"] = {
-            "sslmode": "require",  # Use sslmode parameter for asyncpg
-            "connect_timeout": 10,
-            "application_name": "auth-service"
+            "ssl": "require"  # Only ssl parameter is needed for asyncpg
         }
         logger.info("Using Azure PostgreSQL configuration with asyncpg")
     else:
         engine_config["connect_args"] = {
-            "sslmode": config.database_sslmode,
-            "application_name": "auth-service"
+            "ssl": "require" if config.database_sslmode == "require" else "disable"
         }
         logger.info("Using local PostgreSQL configuration")
     

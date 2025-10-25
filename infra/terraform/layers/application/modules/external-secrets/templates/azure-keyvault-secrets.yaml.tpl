@@ -297,3 +297,52 @@ spec:
     remoteRef:
       key: nextauth
       property: url
+
+---
+# External Secret para Frontend Configuration
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: frontend-config
+  namespace: carpeta-ciudadana
+  labels:
+    app.kubernetes.io/name: carpeta-ciudadana
+    app.kubernetes.io/part-of: carpeta-ciudadana
+    component: frontend
+spec:
+  refreshInterval: "5m"
+  secretStoreRef:
+    name: azure-keyvault-store
+    kind: ClusterSecretStore
+  target:
+    name: frontend-config
+    creationPolicy: Owner
+  data:
+  - secretKey: NEXT_PUBLIC_AUTH_SERVICE_URL
+    remoteRef:
+      key: frontend-config
+      property: auth-service-url
+  - secretKey: NEXT_PUBLIC_CITIZEN_SERVICE_URL
+    remoteRef:
+      key: frontend-config
+      property: citizen-service-url
+  - secretKey: NEXT_PUBLIC_INGESTION_SERVICE_URL
+    remoteRef:
+      key: frontend-config
+      property: ingestion-service-url
+  - secretKey: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
+    remoteRef:
+      key: frontend-config
+      property: signature-service-url
+  - secretKey: NEXT_PUBLIC_TRANSFER_SERVICE_URL
+    remoteRef:
+      key: frontend-config
+      property: transfer-service-url
+  - secretKey: NEXT_PUBLIC_MINTIC_SERVICE_URL
+    remoteRef:
+      key: frontend-config
+      property: mintic-service-url
+  - secretKey: NEXT_PUBLIC_API_URL
+    remoteRef:
+      key: frontend-config
+      property: api-url

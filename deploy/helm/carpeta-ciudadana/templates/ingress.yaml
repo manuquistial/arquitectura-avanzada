@@ -87,6 +87,13 @@ spec:
             name: {{ include "carpeta-ciudadana.fullname" $ }}-citizen
             port:
               number: 8000
+      - path: /api/citizens
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-citizen
+            port:
+              number: 8000
       # API routes - Document Services
       - path: /api/documents
         pathType: Prefix

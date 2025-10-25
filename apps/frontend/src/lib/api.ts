@@ -30,15 +30,16 @@ import type {
   APIError
 } from '../types/api';
 
-// Service URLs - local defaults aligned with running services
-const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || 'http://localhost:8000';
-const CITIZEN_SERVICE_URL = process.env.NEXT_PUBLIC_CITIZEN_SERVICE_URL || 'http://localhost:8001';
-const INGESTION_SERVICE_URL = process.env.NEXT_PUBLIC_INGESTION_SERVICE_URL || 'http://localhost:8002';
-const SIGNATURE_SERVICE_URL = process.env.NEXT_PUBLIC_SIGNATURE_SERVICE_URL || 'http://localhost:8005';
-const TRANSFER_SERVICE_URL = process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL || 'http://localhost:8004';
-const MINTIC_SERVICE_URL = process.env.NEXT_PUBLIC_MINTIC_SERVICE_URL || 'http://localhost:8003';
+// Service URLs - from environment variables (configured via Kubernetes)
+const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL;
+const CITIZEN_SERVICE_URL = process.env.NEXT_PUBLIC_CITIZEN_SERVICE_URL;
+const INGESTION_SERVICE_URL = process.env.NEXT_PUBLIC_INGESTION_SERVICE_URL;
+const SIGNATURE_SERVICE_URL = process.env.NEXT_PUBLIC_SIGNATURE_SERVICE_URL;
+const TRANSFER_SERVICE_URL = process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL;
+const MINTIC_SERVICE_URL = process.env.NEXT_PUBLIC_MINTIC_SERVICE_URL;
 
 export const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -93,7 +94,7 @@ export const apiService = {
         return [];
       }
       // Send citizen_id as string to backend
-      const response = await api.get(`${INGESTION_SERVICE_URL}/api/documents/`, {
+      const response = await api.get(`${INGESTION_SERVICE_URL}/`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -105,7 +106,7 @@ export const apiService = {
 
   async getUploadUrl(filename: string, contentType: string, title: string, citizenId: string) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/upload-url`, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/upload-url`, {
         filename,
         content_type: contentType,
         title,
@@ -120,7 +121,7 @@ export const apiService = {
 
   async confirmUpload(documentId: string, sha256: string, size: number) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/confirm-upload`, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/confirm-upload`, {
         document_id: documentId,
         sha256,
         size
@@ -134,7 +135,7 @@ export const apiService = {
 
   async getDownloadUrl(documentId: string) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/download-url`, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/download-url`, {
         document_id: documentId
       });
       return response.data;
@@ -146,7 +147,7 @@ export const apiService = {
 
   async deleteDocument(documentId: string, citizenId: string) {
     try {
-      const response = await api.delete(`${INGESTION_SERVICE_URL}/api/documents/${documentId}`, {
+      const response = await api.delete(`${INGESTION_SERVICE_URL}/${documentId}`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -166,7 +167,7 @@ export const apiService = {
         formData.append('description', description);
       }
 
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/upload-direct`, formData, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/upload-direct`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -186,7 +187,7 @@ export const apiService = {
       // Si es admin, no necesita citizenId específico
       if (userRoles?.includes('admin')) {
         // Para admin, podríamos obtener todas las transferencias o usar un ID por defecto
-        const response = await api.get(`${TRANSFER_SERVICE_URL}/api/`, {
+        const response = await api.get(`${TRANSFER_SERVICE_URL}/`, {
           params: { citizen_id: citizenId || '1234567890' }
         });
         return response.data;
@@ -196,7 +197,7 @@ export const apiService = {
         console.warn('No citizenId provided for getTransfers');
         return [];
       }
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/api/`, {
+      const response = await api.get(`${TRANSFER_SERVICE_URL}/`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -208,7 +209,7 @@ export const apiService = {
 
   async createTransfer(transferData: any) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/initiate`, transferData);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/initiate`, transferData);
       return response.data;
     } catch (error) {
       console.error('Error creating transfer:', error);
@@ -218,7 +219,7 @@ export const apiService = {
 
   async getTransferStatus(transferId: string) {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/api/status/${transferId}`);
+      const response = await api.get(`${TRANSFER_SERVICE_URL}/status/${transferId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting transfer status:', error);
@@ -228,7 +229,7 @@ export const apiService = {
 
   async acceptTransfer(transferId: string) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/${transferId}/accept`);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/${transferId}/accept`);
       return response.data;
     } catch (error) {
       console.error('Error accepting transfer:', error);
@@ -238,7 +239,7 @@ export const apiService = {
 
   async rejectTransfer(transferId: string) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/${transferId}/reject`);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/${transferId}/reject`);
       return response.data;
     } catch (error) {
       console.error('Error rejecting transfer:', error);
@@ -251,7 +252,7 @@ export const apiService = {
   // Signature API calls - using Signature service
   async signDocument(documentId: string, signatureData: any) {
     try {
-      const response = await api.post(`${SIGNATURE_SERVICE_URL}/api/signature/sign`, {
+      const response = await api.post(`${SIGNATURE_SERVICE_URL}/sign`, {
         document_id: documentId,
         ...signatureData,
       });
@@ -264,7 +265,7 @@ export const apiService = {
 
   async getSignatureStatus(documentId: string) {
     try {
-      const response = await api.get(`${SIGNATURE_SERVICE_URL}/api/signature/status/${documentId}`);
+      const response = await api.get(`${SIGNATURE_SERVICE_URL}/status/${documentId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting signature status:', error);
@@ -274,7 +275,7 @@ export const apiService = {
 
   async verifySignature(documentId: string) {
     try {
-      const response = await api.post(`${SIGNATURE_SERVICE_URL}/api/signature/verify`, {
+      const response = await api.post(`${SIGNATURE_SERVICE_URL}/verify`, {
         document_id: documentId
       });
       return response.data;
@@ -288,7 +289,7 @@ export const apiService = {
   // Citizen API calls - using Citizen service
   async registerCitizen(citizenData: CitizenCreate): Promise<CitizenResponse> {
     try {
-      const response = await api.post(`${CITIZEN_SERVICE_URL}/api/citizens/register`, citizenData);
+      const response = await api.post(`${CITIZEN_SERVICE_URL}/register`, citizenData);
       return response.data;
     } catch (error) {
       console.error('Error registering citizen:', error);
@@ -298,7 +299,7 @@ export const apiService = {
 
   async getCitizen(citizenId: string): Promise<CitizenResponse> {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/citizens/${citizenId}`);
+      const response = await api.get(`${CITIZEN_SERVICE_URL}/${citizenId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching citizen:', error);
@@ -308,7 +309,7 @@ export const apiService = {
 
   async unregisterCitizen(citizenData: CitizenUnregister): Promise<void> {
     try {
-      const response = await api.delete(`${CITIZEN_SERVICE_URL}/api/citizens/unregister`, {
+      const response = await api.delete(`${CITIZEN_SERVICE_URL}/unregister`, {
         data: citizenData
       });
       return response.data;
@@ -322,7 +323,7 @@ export const apiService = {
   // User management API calls
   async getCurrentUser() {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/me`);
+      const response = await api.get(`${CITIZEN_SERVICE_URL}/me`);
       return response.data;
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -332,7 +333,7 @@ export const apiService = {
 
   async updateUser(userId: string, userData: any) {
     try {
-      const response = await api.patch(`${CITIZEN_SERVICE_URL}/api/users/${userId}`, userData);
+      const response = await api.patch(`${CITIZEN_SERVICE_URL}/${userId}`, userData);
       return response.data;
     } catch (error) {
       console.error('Error updating user:', error);
@@ -343,7 +344,7 @@ export const apiService = {
   // MinTIC Hub API calls - using MinTIC Client service
   async syncDocumentsWithHub(citizenId: string, documentIds?: string[], syncType = 'full') {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/api/mintic/sync/documents`, {
+      const response = await api.post(`${MINTIC_SERVICE_URL}/sync/documents`, {
         citizen_id: citizenId,
         document_ids: documentIds,
         sync_type: syncType
@@ -357,7 +358,7 @@ export const apiService = {
 
   async getSyncStatus(citizenId: string) {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/api/mintic/sync/status/${citizenId}`);
+      const response = await api.get(`${MINTIC_SERVICE_URL}/sync/status/${citizenId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting sync status:', error);
@@ -367,7 +368,7 @@ export const apiService = {
 
   async validateDocumentWithHub(documentId: string, documentHash: string, citizenId: string) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/api/mintic/authenticate-document`, {
+      const response = await api.post(`${MINTIC_SERVICE_URL}/authenticate-document`, {
         document_id: documentId,
         document_hash: documentHash,
         citizen_id: citizenId
@@ -382,7 +383,7 @@ export const apiService = {
 
   async registerCitizenWithHub(citizenData: any) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/api/mintic/register-citizen`, citizenData);
+      const response = await api.post(`${MINTIC_SERVICE_URL}/register-citizen`, citizenData);
       return response.data;
     } catch (error) {
       console.error('Error registering citizen with hub:', error);
@@ -392,7 +393,7 @@ export const apiService = {
 
   async authenticateDocumentWithHub(documentData: any) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/api/mintic/authenticate-document`, documentData);
+      const response = await api.post(`${MINTIC_SERVICE_URL}/authenticate-document`, documentData);
       return response.data;
     } catch (error) {
       console.error('Error authenticating document with hub:', error);
@@ -403,7 +404,7 @@ export const apiService = {
   // Auth service calls
   async registerUser(userData: RegisterRequest): Promise<RegisterResponse> {
     try {
-      const response = await api.post(`${AUTH_SERVICE_URL}/api/auth/register`, userData);
+      const response = await api.post(`${AUTH_SERVICE_URL}/register`, userData);
       return response.data;
     } catch (error) {
       console.error('Error registering user:', error);
@@ -413,7 +414,7 @@ export const apiService = {
 
   async loginUser(credentials: LoginRequest): Promise<LoginResponse> {
     try {
-      const response = await api.post(`${AUTH_SERVICE_URL}/api/auth/login`, credentials);
+      const response = await api.post(`${AUTH_SERVICE_URL}/login`, credentials);
       return response.data;
     } catch (error) {
       console.error('Error logging in user:', error);
@@ -424,7 +425,7 @@ export const apiService = {
   // Operator management API calls - using Transfer service
   async getOperators() {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/api/operators`);
+      const response = await api.get(`${TRANSFER_SERVICE_URL}/operators`);
       return response.data;
     } catch (error) {
       console.error('Error fetching operators:', error);
@@ -434,7 +435,7 @@ export const apiService = {
 
   async registerOperator(operatorData: any) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/register-operator`, operatorData);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/register-operator`, operatorData);
       return response.data;
     } catch (error) {
       console.error('Error registering operator:', error);
@@ -444,7 +445,7 @@ export const apiService = {
 
   async getOperator(operatorId: string) {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/api/operators/${operatorId}`);
+      const response = await api.get(`${TRANSFER_SERVICE_URL}/operators/${operatorId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching operator:', error);
@@ -460,7 +461,7 @@ export const apiService = {
     participants: string[];
   }) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/api/mintic/register-operator`, operatorData);
+      const response = await api.post(`${MINTIC_SERVICE_URL}/register-operator`, operatorData);
       return response.data;
     } catch (error) {
       console.error('Error registering MinTIC operator:', error);
@@ -470,7 +471,7 @@ export const apiService = {
 
   async getMinTICOperators() {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/api/mintic/operators/local`);
+      const response = await api.get(`${MINTIC_SERVICE_URL}/operators/local`);
       return response.data;
     } catch (error) {
       console.error('Error fetching MinTIC operators:', error);
@@ -480,7 +481,7 @@ export const apiService = {
 
   async getMinTICOperator(operatorId: number) {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/api/mintic/operators/local/${operatorId}`);
+      const response = await api.get(`${MINTIC_SERVICE_URL}/operators/local/${operatorId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching MinTIC operator:', error);
@@ -490,7 +491,7 @@ export const apiService = {
 
   async deactivateMinTICOperator(operatorId: number) {
     try {
-      const response = await api.put(`${MINTIC_SERVICE_URL}/api/mintic/operators/local/${operatorId}/deactivate`);
+      const response = await api.put(`${MINTIC_SERVICE_URL}/operators/local/${operatorId}/deactivate`);
       return response.data;
     } catch (error) {
       console.error('Error deactivating MinTIC operator:', error);
@@ -500,7 +501,7 @@ export const apiService = {
 
   async deleteMinTICOperator(operatorId: number) {
     try {
-      const response = await api.delete(`${MINTIC_SERVICE_URL}/api/mintic/operators/local/${operatorId}`);
+      const response = await api.delete(`${MINTIC_SERVICE_URL}/operators/local/${operatorId}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting MinTIC operator:', error);

@@ -34,12 +34,17 @@ except ImportError:
 class ServiceBusClient:
     """Azure Service Bus async client with idempotency and DLQ."""
     
-    # Queue names (CQRS events)
-    QUEUE_CITIZEN_REGISTERED = "citizen-registered"
-    QUEUE_DOCUMENT_UPLOADED = "document-uploaded"
-    QUEUE_DOCUMENT_AUTHENTICATED = "document-authenticated"
-    QUEUE_TRANSFER_REQUESTED = "transfer-requested"
-    QUEUE_TRANSFER_CONFIRMED = "transfer-confirmed"
+    # Queue names (CQRS events) - Standardized across all services
+    QUEUE_CITIZEN_REGISTERED = "citizen-events"
+    QUEUE_DOCUMENT_UPLOADED = "document-events"
+    QUEUE_DOCUMENT_AUTHENTICATED = "document-events"
+    QUEUE_DOCUMENT_SIGNED = "document-events"
+    QUEUE_DOCUMENT_DELETED = "document-events"
+    QUEUE_SIGNATURE_COMPLETED = "signature-events"
+    QUEUE_SIGNATURE_FAILED = "signature-events"
+    QUEUE_TRANSFER_REQUESTED = "transfer-events"
+    QUEUE_TRANSFER_CONFIRMED = "transfer-events"
+    QUEUE_TRANSFER_NOTIFICATIONS = "transfer-notifications"
     
     def __init__(self, connection_string: Optional[str] = None):
         """Initialize Service Bus client.
@@ -266,6 +271,61 @@ async def publish_document_uploaded(document_id: str, citizen_id: int, filename:
             "citizen_id": citizen_id,
             "filename": filename,
             "sha256_hash": sha256_hash
+        }
+    )
+
+
+async def publish_document_signed(document_id: str, citizen_id: int, sha256_hash: str) -> str:
+    """Publish document.signed event."""
+    bus = ServiceBusClient()
+    return await bus.publish_event(
+        queue_name=ServiceBusClient.QUEUE_DOCUMENT_SIGNED,
+        event_type="document.signed",
+        data={
+            "document_id": document_id,
+            "citizen_id": citizen_id,
+            "sha256_hash": sha256_hash
+        }
+    )
+
+
+async def publish_document_deleted(document_id: str, citizen_id: int) -> str:
+    """Publish document.deleted event."""
+    bus = ServiceBusClient()
+    return await bus.publish_event(
+        queue_name=ServiceBusClient.QUEUE_DOCUMENT_DELETED,
+        event_type="document.deleted",
+        data={
+            "document_id": document_id,
+            "citizen_id": citizen_id
+        }
+    )
+
+
+async def publish_signature_completed(document_id: str, citizen_id: int, success: bool) -> str:
+    """Publish signature.completed event."""
+    bus = ServiceBusClient()
+    return await bus.publish_event(
+        queue_name=ServiceBusClient.QUEUE_SIGNATURE_COMPLETED,
+        event_type="signature.completed",
+        data={
+            "document_id": document_id,
+            "citizen_id": citizen_id,
+            "success": success
+        }
+    )
+
+
+async def publish_signature_failed(document_id: str, citizen_id: int, error: str) -> str:
+    """Publish signature.failed event."""
+    bus = ServiceBusClient()
+    return await bus.publish_event(
+        queue_name=ServiceBusClient.QUEUE_SIGNATURE_FAILED,
+        event_type="signature.failed",
+        data={
+            "document_id": document_id,
+            "citizen_id": citizen_id,
+            "error": error
         }
     )
 
