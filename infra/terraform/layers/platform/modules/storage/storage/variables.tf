@@ -219,3 +219,11 @@ variable "cors_max_age_in_seconds" {
   type        = number
   default     = 3600
 }
+
+# Key Vault Configuration
+variable "key_vault_id" {
+  description = "Azure Key Vault ID for storing secrets"
+  type        = string
+  default     = ""
+}
+

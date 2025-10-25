@@ -94,7 +94,7 @@ export const apiService = {
         return [];
       }
       // Send citizen_id as string to backend
-      const response = await api.get(`${INGESTION_SERVICE_URL}/`, {
+      const response = await api.get(`${INGESTION_SERVICE_URL}/api/documents/`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -106,7 +106,7 @@ export const apiService = {
 
   async getUploadUrl(filename: string, contentType: string, title: string, citizenId: string) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/upload-url`, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/upload-url`, {
         filename,
         content_type: contentType,
         title,
@@ -121,7 +121,7 @@ export const apiService = {
 
   async confirmUpload(documentId: string, sha256: string, size: number) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/confirm-upload`, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/confirm-upload`, {
         document_id: documentId,
         sha256,
         size
@@ -135,7 +135,7 @@ export const apiService = {
 
   async getDownloadUrl(documentId: string) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/download-url`, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/download-url`, {
         document_id: documentId
       });
       return response.data;
@@ -147,7 +147,7 @@ export const apiService = {
 
   async deleteDocument(documentId: string, citizenId: string) {
     try {
-      const response = await api.delete(`${INGESTION_SERVICE_URL}/${documentId}`, {
+      const response = await api.delete(`${INGESTION_SERVICE_URL}/api/documents/${documentId}`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -167,7 +167,7 @@ export const apiService = {
         formData.append('description', description);
       }
 
-      const response = await api.post(`${INGESTION_SERVICE_URL}/upload-direct`, formData, {
+      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/upload-direct`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

@@ -19,12 +19,24 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === 'loading') return; // Still loading
+    console.log('🔍 Dashboard useEffect - Status:', status, 'Session:', !!session);
+    console.log('🔍 Session details:', session);
+    
+    if (status === 'loading') {
+      console.log('⏳ Still loading session...');
+      return; // Still loading
+    }
+    
     if (!session) {
-      console.log('No session found, redirecting to login...');
+      console.log('❌ No session found, redirecting to login...');
       router.push('/login');
     } else {
-      console.log('Session found:', session.user?.email);
+      console.log('✅ Session found:', {
+        email: session.user?.email,
+        name: session.user?.name,
+        roles: session.user?.roles,
+        id: session.user?.id
+      });
     }
   }, [session, status, router]);
 

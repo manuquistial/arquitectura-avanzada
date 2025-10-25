@@ -13,6 +13,7 @@ export default function LoginPage() {
 
   const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔐 Starting login process for:', email);
     setIsLoading(true);
     setError('');
 
@@ -23,18 +24,21 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      console.log('🔐 Login result:', result);
+
       if (result?.error) {
         setError('Credenciales inválidas');
-        console.error('Login error:', result.error);
+        console.error('❌ Login error:', result.error);
       } else if (result?.ok) {
-        console.log('Login successful, redirecting to dashboard...');
+        console.log('✅ Login successful, redirecting to dashboard...');
         router.push('/dashboard');
       } else {
         setError('Error inesperado en el login');
-        console.error('Unexpected login result:', result);
+        console.error('❌ Unexpected login result:', result);
       }
     } catch (error) {
       setError('Error al iniciar sesión');
+      console.error('❌ Login exception:', error);
     } finally {
       setIsLoading(false);
     }

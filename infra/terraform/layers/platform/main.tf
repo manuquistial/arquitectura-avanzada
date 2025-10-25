@@ -134,6 +134,9 @@ module "storage" {
   location            = data.terraform_remote_state.base.outputs.location
   domain_name         = var.domain_name
   
+  # Key Vault for automatic secret management
+  key_vault_id = var.keyvault_enabled ? module.security[0].key_vault_id : ""
+  
   # Security Center contact
   security_contact_email = var.security_contact_email
   security_contact_phone = var.security_contact_phone

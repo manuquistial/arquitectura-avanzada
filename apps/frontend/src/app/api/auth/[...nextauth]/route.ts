@@ -21,7 +21,10 @@ const authOptions: NextAuthOptions = {
         password: { label: "Contraseña", type: "password" }
       },
       async authorize(credentials) {
-        console.log('🔐 NextAuth authorize called with:', { email: credentials?.email });
+        console.log('🔐 NextAuth authorize called with:', { 
+          email: credentials?.email,
+          hasPassword: !!credentials?.password 
+        });
         
         if (!credentials?.email || !credentials?.password) {
           console.log('❌ Missing credentials');
@@ -30,12 +33,12 @@ const authOptions: NextAuthOptions = {
 
         try {
           // Llamar al servicio de autenticación backend
-          const authServiceUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL;
+          const authServiceUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || 'http://localhost:8001';
           console.log('🌐 Auth service URL:', authServiceUrl);
           
           if (!authServiceUrl) {
-            console.warn('NEXT_PUBLIC_AUTH_SERVICE_URL not configured, using demo credentials');
-            throw new Error('Auth service URL not configured');
+            console.warn('❌ NEXT_PUBLIC_AUTH_SERVICE_URL not configured, using default');
+            return null;
           }
           
           const loginUrl = `${authServiceUrl}/api/auth/login`;
@@ -54,6 +57,7 @@ const authOptions: NextAuthOptions = {
           });
 
           console.log('📊 Login response status:', response.status);
+          console.log('📊 Login response headers:', Object.fromEntries(response.headers.entries()));
           
           if (response.ok) {
             const user = await response.json();
@@ -64,7 +68,7 @@ const authOptions: NextAuthOptions = {
               roles: user.roles
             });
             
-            return {
+            const userObject = {
               id: user.id,
               email: user.email,
               name: user.name,
@@ -73,41 +77,22 @@ const authOptions: NextAuthOptions = {
               roles: user.roles || ["user"],
               permissions: user.permissions || ["read"]
             };
+            
+            console.log('✅ Returning user object:', userObject);
+            return userObject;
           } else {
             console.log('❌ Login failed with status:', response.status);
             const errorText = await response.text();
             console.log('❌ Error response:', errorText);
+            return null;
           }
         } catch (error) {
           console.error('❌ Error authenticating user:', error);
-          console.log('Falling back to demo credentials...');
+          console.error('❌ Error details:', error.message, error.stack);
+          return null;
         }
 
-        // Fallback para credenciales de demo
-        if (credentials.email === "admin@carpeta.com" && credentials.password === "admin123") {
-          return {
-            id: "1",
-            email: "admin@carpeta.com",
-            name: "Administrador",
-            given_name: "Admin",
-            family_name: "Carpeta",
-            roles: ["admin"],
-            permissions: ["all"]
-          };
-        }
-
-        if (credentials.email === "demo@carpeta.com" && credentials.password === "demo123") {
-          return {
-            id: "2",
-            email: "demo@carpeta.com", 
-            name: "Usuario Demo",
-            given_name: "Usuario",
-            family_name: "Demo",
-            roles: ["user"],
-            permissions: ["read"]
-          };
-        }
-
+        console.log('❌ Login failed, returning null');
         return null;
       }
     })
@@ -159,6 +144,8 @@ const authOptions: NextAuthOptions = {
           name: token.name,
           roles: token.roles
         });
+        
+        console.log('🔑 Full token object:', JSON.stringify(token, null, 2));
       }
 
       // OAuth providers (Azure AD B2C, etc.)
@@ -191,30 +178,42 @@ const authOptions: NextAuthOptions = {
         sub: token.sub,
         email: token.email,
         name: token.name,
-        roles: token.roles
+        roles: token.roles,
+        hasToken: !!token,
+        tokenKeys: Object.keys(token)
+      });
+      
+      console.log('📋 Session callback called with session:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        sessionKeys: session ? Object.keys(session) : []
       });
       
       // Attach token data to session
-      session.user = {
-        id: token.sub as string,
-        email: token.email as string,
-        name: token.name as string,
-        given_name: token.given_name as string,
-        family_name: token.family_name as string,
-        roles: token.roles as string[],
-        permissions: token.permissions as string[],
-      };
-      
-      // Include access token for API calls
-      session.accessToken = token.accessToken as string;
-      session.idToken = token.idToken as string;
-      
-      console.log('📋 Session created for user:', {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name,
-        roles: session.user.roles
-      });
+      if (token && token.sub) {
+        session.user = {
+          id: token.sub as string,
+          email: token.email as string,
+          name: token.name as string,
+          given_name: token.given_name as string,
+          family_name: token.family_name as string,
+          roles: token.roles as string[],
+          permissions: token.permissions as string[],
+        };
+        
+        // Include access token for API calls
+        session.accessToken = token.accessToken as string;
+        session.idToken = token.idToken as string;
+        
+        console.log('📋 Session created for user:', {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.name,
+          roles: session.user.roles
+        });
+      } else {
+        console.log('❌ No token or token.sub found, session will be empty');
+      }
       
       return session;
     },
@@ -246,7 +245,7 @@ const authOptions: NextAuthOptions = {
 
   secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
 
-  debug: process.env.NODE_ENV === 'development', // Enable debug mode in development
+  debug: true, // Always enable debug mode // Enable debug mode in development
 };
 
 const handler = NextAuth(authOptions);
