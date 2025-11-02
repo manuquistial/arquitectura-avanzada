@@ -87,16 +87,8 @@ export default function DocumentsPage() {
 
   const handleDownload = async (documentId: string, filename: string) => {
     try {
-      // Get download URL
-      const downloadData = await apiService.getDownloadUrl(documentId);
-      
-      // Create download link
-      const a = document.createElement('a');
-      a.href = downloadData.download_url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Use secure proxy endpoint instead of direct blob URL
+      await apiService.downloadDocument(documentId, filename);
     } catch (error) {
       console.error('Error downloading document:', error);
       setError('Error al descargar el documento');

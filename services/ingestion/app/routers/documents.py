@@ -3,8 +3,10 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from io import BytesIO
 
 from app.database import get_db
 from app.models import DocumentMetadata
@@ -197,12 +199,84 @@ async def upload_document_direct(
         )
 
 
+@router.get("/download/{document_id}")
+async def download_document(
+    document_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Download a document securely via proxy endpoint.
+    
+    This endpoint downloads the document from Azure Storage using backend credentials
+    and streams it to the client. This avoids exposing blob URLs directly to users.
+    """
+    logger.info(f"Downloading document {document_id}")
+
+    try:
+        # Get blob_name from database using document_id
+        from sqlalchemy import select
+        result = await db.execute(
+            select(DocumentMetadata).where(DocumentMetadata.id == document_id)
+        )
+        metadata = result.scalar_one_or_none()
+        
+        if not metadata:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_id} not found"
+            )
+        
+        if metadata.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=f"Document {document_id} has been deleted"
+            )
+
+        # Download blob content using backend credentials
+        blob_content = storage_client.download_blob_content(metadata.blob_name)
+        
+        # Get content type from blob metadata
+        try:
+            blob_properties = storage_client.get_blob_properties(metadata.blob_name)
+            content_type = blob_properties.get("content_type", "application/octet-stream")
+        except Exception:
+            # Fallback content type
+            content_type = "application/octet-stream"
+        
+        # Extract filename from blob_name or use document filename
+        filename = metadata.filename or metadata.blob_name.split("/")[-1]
+        
+        # Audit trail logging
+        logger.info(f"Downloaded document {document_id} ({len(blob_content)} bytes)")
+
+        return StreamingResponse(
+            BytesIO(blob_content),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(blob_content)),
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to download document",
+        )
+
+
 @router.post("/download-url", response_model=DownloadURLResponse)
 async def get_download_url(
     request: DownloadURLRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> DownloadURLResponse:
-    """Get presigned URL for downloading a document."""
+    """Get presigned URL for downloading a document.
+    
+    NOTE: Consider using /download/{document_id} endpoint instead for better security.
+    This endpoint is kept for backward compatibility.
+    """
     logger.info(
         f"Generating download URL for document {request.document_id}"
     )

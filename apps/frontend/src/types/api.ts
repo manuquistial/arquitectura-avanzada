@@ -8,6 +8,7 @@
 // ========================================
 
 export interface CitizenCreate {
+  password: string;
   id: string; // Must be exactly 10 digits
   name: string;
   address: string;

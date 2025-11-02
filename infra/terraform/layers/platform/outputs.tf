@@ -40,12 +40,12 @@ output "aks_oidc_issuer_url" {
 # Key Vault Outputs
 output "key_vault_id" {
   description = "ID of the Key Vault"
-  value       = module.security[0].key_vault_id
+  value       = try(data.terraform_remote_state.security.outputs.key_vault_id, null)
 }
 
 output "key_vault_uri" {
   description = "URI of the Key Vault"
-  value       = module.security[0].key_vault_uri
+  value       = try(data.terraform_remote_state.security.outputs.key_vault_uri, null)
 }
 
 # Database Outputs
@@ -102,16 +102,39 @@ output "redis_primary_key" {
 # Security Outputs
 output "keyvault_id" {
   description = "ID of the Key Vault"
-  value       = var.keyvault_enabled ? module.security[0].key_vault_id : null
+  value       = var.keyvault_enabled ? try(data.terraform_remote_state.security.outputs.key_vault_id, null) : null
 }
 
 output "keyvault_name" {
   description = "Name of the Key Vault"
-  value       = var.keyvault_enabled ? module.security[0].key_vault_name : null
+  value       = var.keyvault_enabled ? try(data.terraform_remote_state.security.outputs.key_vault_name, null) : null
 }
 
-# Front Door Outputs
-# Front Door outputs moved to APPLICATION LAYER
+# Front Door Outputs (infraestructura de red)
+output "frontdoor_profile_name" {
+  description = "Front Door profile name"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_profile_name : null
+}
+
+output "frontdoor_profile_id" {
+  description = "Front Door profile ID"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_profile_id : null
+}
+
+output "frontdoor_endpoint_hostname" {
+  description = "Front Door endpoint hostname"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_endpoint_hostname : null
+}
+
+output "frontdoor_endpoint_id" {
+  description = "Front Door endpoint ID"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_endpoint_id : null
+}
+
+output "frontdoor_waf_policy_id" {
+  description = "Front Door WAF policy ID"
+  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_waf_policy_id : null
+}
 
 # Managed Identity outputs
 output "aks_managed_identity_client_id" {

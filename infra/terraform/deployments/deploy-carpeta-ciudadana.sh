@@ -1,20 +1,20 @@
 #!/bin/bash
 # =============================================================================
-# DEPLOY PLATFORM LAYER
+# DEPLOY CARPETA CIUDADANA LAYER
 # =============================================================================
-# Script para desplegar la capa de plataforma (servicios)
+# Script para desplegar la capa de la aplicación Carpeta Ciudadana (helm chart)
 # =============================================================================
 
 set -e
 
-echo "🚀 Deploying PLATFORM LAYER..."
+echo "🚀 Deploying CARPETA CIUDADANA LAYER..."
 
-# Cambiar al directorio de la capa de plataforma
-cd layers/platform
+# Cambiar al directorio de la capa carpeta-ciudadana
+cd "$(dirname "$0")/../layers/carpeta-ciudadana"
 
 # Inicializar Terraform
 echo "📦 Initializing Terraform..."
-terraform init
+terraform init -upgrade
 
 # Validar configuración
 echo "✅ Validating configuration..."
@@ -22,22 +22,10 @@ terraform validate
 
 # Plan de despliegue
 echo "📋 Planning deployment..."
-terraform plan -out=platform.tfplan
+terraform plan -out=carpeta.tfplan
 
 # Aplicar cambios
 echo "🏗️ Applying changes..."
-terraform apply platform.tfplan
+terraform apply carpeta.tfplan
 
-echo "✅ PLATFORM LAYER deployed successfully!"
-echo "📊 Outputs:"
-terraform output
-
-echo ""
-echo "🎯 Next steps:"
-echo "1. Run: ./deploy-external-secrets.sh"
-echo "2. Run: ./deploy-application.sh"
-
-
-
-
-
+echo "✅ CARPETA CIUDADANA LAYER deployed successfully!"

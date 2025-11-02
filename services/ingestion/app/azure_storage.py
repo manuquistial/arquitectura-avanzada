@@ -139,7 +139,7 @@ class AzureBlobDocumentClient:
                     permission=BlobSasPermissions(write=True, create=True, add=True),
                     expiry=expiry_time,
                     start=start_time,
-                    content_type=content_type,
+                    # Note: Don't include content_type in SAS to allow flexible Content-Type headers
                 )
                 logger.info(f"Generated User Delegation SAS for PUT: {blob_name}")
             else:
@@ -154,7 +154,7 @@ class AzureBlobDocumentClient:
                     account_key=self.account_key,
                     permission=BlobSasPermissions(write=True, create=True, add=True),
                     expiry=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
-                    content_type=content_type,
+                    # Note: Don't include content_type in SAS to allow flexible Content-Type headers
                 )
                 logger.info(f"Generated Account Key SAS for PUT: {blob_name}")
             
@@ -271,6 +271,21 @@ class AzureBlobDocumentClient:
             logger.info(f"Deleted blob: {blob_name}")
         except Exception as e:
             logger.error(f"Error deleting blob {blob_name}: {e}")
+            raise
+
+    def download_blob_content(self, blob_name: str) -> bytes:
+        """Download blob content from storage."""
+        try:
+            blob_client = self.blob_service_client.get_blob_client(
+                container=self.container_name,
+                blob=blob_name
+            )
+            download_stream = blob_client.download_blob()
+            content = download_stream.readall()
+            logger.info(f"Downloaded blob content: {blob_name} ({len(content)} bytes)")
+            return content
+        except Exception as e:
+            logger.error(f"Error downloading blob {blob_name}: {e}")
             raise
 
     @staticmethod

@@ -12,8 +12,11 @@ def get_service_url(service_name: str, default_port: int) -> str:
     Development: http://localhost:{port}
     Kubernetes: http://carpeta-ciudadana-{service}:8000
     """
-    env = os.getenv("ENVIRONMENT", "development")
-    if env == "development":
+    env = os.getenv("ENVIRONMENT", "development").lower()
+    # Check if running in Kubernetes by checking for KUBERNETES_SERVICE_HOST
+    is_kubernetes = os.getenv("KUBERNETES_SERVICE_HOST") is not None
+    
+    if env == "development" and not is_kubernetes:
         return f"http://localhost:{default_port}"
     else:
         # Kubernetes service discovery
@@ -57,6 +60,11 @@ class Settings(BaseSettings):
         default_factory=lambda: os.getenv("MINTIC_CLIENT_URL") or get_service_url("mintic-client", 8005),
         alias="MINTIC_CLIENT_URL",
         description="MinTIC Client service URL"
+    )
+    auth_service_url: str = Field(
+        default_factory=lambda: os.getenv("AUTH_SERVICE_URL") or get_service_url("auth", 8001),
+        alias="AUTH_SERVICE_URL",
+        description="Auth service URL"
     )
     
     # JWT Configuration

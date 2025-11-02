@@ -132,3 +132,10 @@ variable "allow_azure_services" {
   type        = bool
   default     = false
 }
+
+# Key Vault Configuration
+variable "key_vault_id" {
+  description = "Azure Key Vault ID for storing secrets"
+  type        = string
+  default     = ""
+}

@@ -64,7 +64,7 @@ async def register_citizen(
         # Register citizen in MinTIC Hub via mintic_client service (simple facade)
         logger.info(f"Calling MinTIC service at: {settings.mintic_client_url}/api/mintic/register-citizen")
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
                 # Call mintic_client service (facade to hub)
                 mintic_payload = {
                     "id": int(citizen.id),  # Convert to int as expected by MinTIC service
@@ -117,6 +117,24 @@ async def register_citizen(
                     )
         except HTTPException:
             raise  # Re-raise HTTP exceptions
+        except httpx.TimeoutException as e:
+            # Timeout error - service might be slow or unavailable
+            logger.error(f"Timeout calling MinTIC client service: {e}")
+            logger.error(f"Service URL: {settings.mintic_client_url}/api/mintic/register-citizen")
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"El servicio MinTIC client no respondió a tiempo. Por favor intenta nuevamente.",
+            )
+        except httpx.ConnectError as e:
+            # Connection error - service might be down
+            logger.error(f"Cannot connect to MinTIC client service: {e}")
+            logger.error(f"Service URL: {settings.mintic_client_url}/api/mintic/register-citizen")
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"No se pudo conectar con el servicio MinTIC client. El servicio puede estar temporalmente no disponible.",
+            )
         except Exception as e:
             # Rollback on any unexpected error
             logger.error(f"Error calling MinTIC client service: {e}")
@@ -133,6 +151,52 @@ async def register_citizen(
         await db.commit()
         await db.refresh(citizen)
         logger.info(f"Citizen {citizen.id} successfully committed to local database")
+        
+        # Create auth user with password
+        logger.info(f"Creating auth user for citizen {citizen.id}...")
+        logger.info(f"Auth service URL: {settings.auth_service_url}")
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Split name into given_name and family_name
+                name_parts = citizen.name.split(maxsplit=1)
+                given_name = name_parts[0] if name_parts else ""
+                family_name = name_parts[1] if len(name_parts) > 1 else ""
+                
+                auth_payload = {
+                    "email": citizen.email,
+                    "password": citizen_data.password,
+                    "name": citizen.name,
+                    "given_name": given_name,
+                    "family_name": family_name
+                }
+                logger.info(f"Auth service payload: {auth_payload['email']} (password hidden)")
+                
+                auth_url = f"{settings.auth_service_url}/api/auth/register"
+                logger.info(f"Calling auth service: {auth_url}")
+                
+                auth_response = await client.post(
+                    auth_url,
+                    json=auth_payload
+                )
+                
+                logger.info(f"Auth service response status: {auth_response.status_code}")
+                
+                if auth_response.status_code == 200:
+                    logger.info(f"✅ Auth user created for citizen {citizen.id}")
+                elif auth_response.status_code == 400:
+                    # User might already exist, log warning but don't fail
+                    error_data = auth_response.json() if auth_response.headers.get("content-type") == "application/json" else {}
+                    error_detail = error_data.get("detail", auth_response.text)
+                    logger.warning(f"⚠️  Auth user might already exist: {error_detail}")
+                else:
+                    # Log error but don't fail citizen registration
+                    logger.warning(f"⚠️  Failed to create auth user: {auth_response.status_code} - {auth_response.text}")
+        except httpx.ConnectError as e:
+            # Connection error - service might not be available
+            logger.warning(f"⚠️  Cannot connect to auth service at {settings.auth_service_url}: {e}")
+        except Exception as e:
+            # Log error but don't fail citizen registration
+            logger.warning(f"⚠️  Error creating auth user: {e}")
         
         # Publish event to Service Bus
         try:

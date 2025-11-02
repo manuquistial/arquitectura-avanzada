@@ -1,20 +1,20 @@
 #!/bin/bash
 # =============================================================================
-# DEPLOY PLATFORM LAYER
+# DEPLOY SECURITY LAYER
 # =============================================================================
-# Script para desplegar la capa de plataforma (servicios)
+# Script para desplegar la capa de seguridad (Key Vault y MI)
 # =============================================================================
 
 set -e
 
-echo "🚀 Deploying PLATFORM LAYER..."
+echo "🚀 Deploying SECURITY LAYER..."
 
-# Cambiar al directorio de la capa de plataforma
-cd layers/platform
+# Cambiar al directorio de la capa de seguridad
+cd "$(dirname "$0")/../layers/security"
 
 # Inicializar Terraform
 echo "📦 Initializing Terraform..."
-terraform init
+terraform init -upgrade
 
 # Validar configuración
 echo "✅ Validating configuration..."
@@ -22,22 +22,16 @@ terraform validate
 
 # Plan de despliegue
 echo "📋 Planning deployment..."
-terraform plan -out=platform.tfplan
+terraform plan -out=security.tfplan
 
 # Aplicar cambios
 echo "🏗️ Applying changes..."
-terraform apply platform.tfplan
+terraform apply security.tfplan
 
-echo "✅ PLATFORM LAYER deployed successfully!"
+echo "✅ SECURITY LAYER deployed successfully!"
 echo "📊 Outputs:"
 terraform output
 
 echo ""
 echo "🎯 Next steps:"
-echo "1. Run: ./deploy-external-secrets.sh"
-echo "2. Run: ./deploy-application.sh"
-
-
-
-
-
+echo "1. Run: ./deploy-platform.sh"

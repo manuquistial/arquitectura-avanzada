@@ -26,6 +26,8 @@ PULL=true
 CLEANUP=false
 SERVICES_ONLY=false
 FRONTEND_ONLY=false
+ASSUME_LOGGED_IN=false
+ASSUME_DOCKER_RUNNING=false
 
 # Services to build
 ALL_SERVICES=(
@@ -116,6 +118,14 @@ while [[ $# -gt 0 ]]; do
             load_config "$2"
             shift 2
             ;;
+        --assume-logged-in)
+            ASSUME_LOGGED_IN=true
+            shift
+            ;;
+        --assume-docker-running)
+            ASSUME_DOCKER_RUNNING=true
+            shift
+            ;;
         -h|--help)
             show_usage
             exit 0
@@ -127,6 +137,14 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Map optional config aliases if provided via --config
+if [ -n "$BUILD_NO_CACHE" ]; then
+    NO_CACHE=$BUILD_NO_CACHE
+fi
+if [ -n "$BUILD_PULL" ]; then
+    PULL=$BUILD_PULL
+fi
 
 # Validate required parameters
 if [ -z "$DOCKER_HUB_USERNAME" ]; then
@@ -155,17 +173,30 @@ echo -e "${YELLOW}Services Only: ${SERVICES_ONLY}${NC}"
 echo -e "${YELLOW}Frontend Only: ${FRONTEND_ONLY}${NC}"
 echo ""
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo -e "${RED}❌ Docker is not running. Please start Docker and try again.${NC}"
-    exit 1
+# Check if Docker is running (can be skipped)
+if [ "$ASSUME_DOCKER_RUNNING" != true ]; then
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}❌ Docker is not running. Please start Docker and try again.${NC}"
+        echo -e "${YELLOW}   Tip: pass --assume-docker-running to skip this check (use with care)${NC}"
+        exit 1
+    fi
 fi
 
-# Check if logged in to Docker Hub
-if ! docker info | grep -q "Username"; then
-    echo -e "${YELLOW}⚠️  Not logged in to Docker Hub. Please login first:${NC}"
-    echo -e "${YELLOW}   docker login${NC}"
-    read -p "Press Enter to continue after logging in, or Ctrl+C to exit..."
+# Check if logged in to Docker Hub (robust, non-interactive)
+if [ "$ASSUME_LOGGED_IN" != true ]; then
+    if ! docker info 2>/dev/null | grep -qi "Username"; then
+        if [ -n "$DOCKER_HUB_TOKEN" ] && [ -n "$DOCKER_HUB_USERNAME" ]; then
+            echo -e "${CYAN}🔐 Attempting non-interactive Docker login with DOCKER_HUB_TOKEN...${NC}"
+            if echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin; then
+                echo -e "${GREEN}✅ Docker login successful${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Docker login failed. Continuing; push may fail if not authenticated.${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Docker Hub login not detected. Continuing; push may fail if not authenticated.${NC}"
+            echo -e "${YELLOW}   Tip: set DOCKER_HUB_TOKEN env or pass --assume-logged-in to skip this check${NC}"
+        fi
+    fi
 fi
 
 # Function to build and push image
@@ -184,7 +215,8 @@ build_and_push() {
     
     # Special handling for frontend
     if [ "$service_name" = "frontend" ]; then
-        build_context="."
+        # Use the frontend folder as build context so COPY package.json works
+        build_context="apps/frontend"
         dockerfile_path="apps/frontend/Dockerfile"
         echo -e "${YELLOW}   Context: ${build_context}${NC}"
         echo -e "${YELLOW}   Dockerfile: ${dockerfile_path}${NC}"

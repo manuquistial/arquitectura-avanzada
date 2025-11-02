@@ -25,6 +25,7 @@ data:
   
   # Service URLs (internal)
   AUTH_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
+  AUTH_SERVICE_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
   CITIZEN_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
   INGESTION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
   TRANSFER_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000"

@@ -382,4 +382,28 @@ variable "keyvault_initial_secrets" {
 
 # External Secrets variables moved to EXTERNAL-SECRETS LAYER
 
-# Front Door moved to APPLICATION LAYER
+# Front Door Configuration (infraestructura de red)
+# DESHABILITADO POR DEFECTO - El proyecto usa LoadBalancer de Kubernetes + Ingress
+variable "frontdoor_enabled" {
+  description = "Enable Azure Front Door (disabled by default - uses Kubernetes LoadBalancer + Ingress)"
+  type        = bool
+  default     = false
+}
+
+variable "frontdoor_frontend_hostname" {
+  description = "Hostname for the frontend service (IP or FQDN)"
+  type        = string
+  default     = ""
+}
+
+variable "frontdoor_api_hostname" {
+  description = "Hostname for the API gateway service (IP or FQDN)"
+  type        = string
+  default     = ""
+}
+
+variable "frontdoor_enable_waf" {
+  description = "Enable Web Application Firewall (WAF) for Front Door (only if frontdoor_enabled = true)"
+  type        = bool
+  default     = false
+}

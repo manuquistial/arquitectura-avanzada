@@ -34,26 +34,9 @@ output "cluster_secret_store_name" {
   value       = data.terraform_remote_state.external_secrets.outputs.cluster_secret_store_name
 }
 
-# Front Door Outputs (moved from PLATFORM LAYER)
-output "frontdoor_id" {
-  description = "ID of the Front Door"
-  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_profile_id : null
-}
-
-output "frontdoor_endpoint" {
-  description = "Front Door endpoint"
-  value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_endpoint_hostname : null
-}
-
-output "frontdoor_frontend_hostname" {
-  description = "Front Door frontend hostname"
-  value       = var.frontdoor_enabled ? var.frontdoor_frontend_hostname : null
-}
-
-output "frontdoor_api_hostname" {
-  description = "Front Door API hostname"
-  value       = var.frontdoor_enabled ? var.frontdoor_api_hostname : null
-}
+# Front Door Outputs - MOVED TO PLATFORM LAYER
+# Front Door es infraestructura de red y se gestiona en PLATFORM layer
+# Acceder a través de: data.terraform_remote_state.platform.outputs.frontdoor_*
 
 output "nextauth_url" {
   description = "NextAuth URL for application secrets"

@@ -85,15 +85,18 @@ redis_enable_vnet_integration = false
 redis_enable_firewall_rules = false
 redis_allow_azure_services = false
 
-# Key Vault Configuration
+# Key Vault (gestionado en SECURITY layer)
 keyvault_enabled = true
-keyvault_name = "carpeta-ciudadana-kv-v2"
-keyvault_sku_name = "standard"
-keyvault_purge_protection_enabled = true
-keyvault_soft_delete_retention_days = 90
-keyvault_network_acls_default_action = "Deny"
-keyvault_network_acls_bypass = "AzureServices"
-keyvault_allowed_ip_rules = ["181.137.38.147"]  # Agregar tu IP actual aquí
-keyvault_initial_secrets = {}
 
-# Front Door moved to APPLICATION LAYER
+# Front Door Configuration - DESHABILITADO POR DEFECTO
+# El proyecto está configurado para usar LoadBalancer de Kubernetes + Ingress (NGINX) + cert-manager
+# Front Door está deshabilitado. Si necesitas habilitarlo más adelante, cambia frontdoor_enabled a true
+# 
+# Arquitectura actual sin Front Door:
+# Internet → LoadBalancer (AKS) → Ingress (NGINX) → Services
+#                        ↓
+#                  cert-manager (SSL/TLS automático)
+frontdoor_enabled = false  # Deshabilitado - usando LoadBalancer de Kubernetes
+frontdoor_frontend_hostname = ""  # Solo necesario si frontdoor_enabled = true
+frontdoor_api_hostname = ""       # Solo necesario si frontdoor_enabled = true
+frontdoor_enable_waf = false      # Solo necesario si frontdoor_enabled = true

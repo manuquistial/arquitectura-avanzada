@@ -225,3 +225,10 @@ variable "availability_zone" {
   type        = string
   default     = "1"
 }
+
+# Key Vault Configuration
+variable "key_vault_id" {
+  description = "Azure Key Vault ID for storing secrets"
+  type        = string
+  default     = ""
+}

@@ -33,6 +33,16 @@ resource "azurerm_role_assignment" "aks_to_keyvault" {
   description = "Permite a AKS leer secrets del Key Vault"
 }
 
+# Asignar rol "Key Vault Secrets User" al Kubelet Identity (Agent Pool)
+# Necesario para External Secrets Operator con Workload Identity
+resource "azurerm_role_assignment" "aks_kubelet_to_keyvault" {
+  scope                = data.terraform_remote_state.platform.outputs.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = data.terraform_remote_state.platform.outputs.aks_kubelet_identity_principal_id
+  
+  description = "Permite al AKS Kubelet Identity (Agent Pool) leer secrets del Key Vault para External Secrets"
+}
+
 # KEDA (Kubernetes Event-Driven Autoscaling)
 module "keda" {
   source = "./modules/keda"
@@ -79,26 +89,9 @@ data "terraform_remote_state" "external_secrets" {
   }
 }
 
-# Azure Front Door (HTTPS Gateway) - Moved from PLATFORM LAYER
-module "frontdoor" {
-  count  = var.frontdoor_enabled ? 1 : 0
-  source = "./modules/frontdoor"
-
-  environment         = var.environment
-  resource_group_name = "carpeta-ciudadana-production-rg"
-  frontend_hostname   = var.frontdoor_frontend_hostname
-  api_hostname        = var.frontdoor_api_hostname
-  enable_waf          = var.frontdoor_enable_waf
-  
-  tags = {
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-    Layer       = "Application"
-  }
-  
-  depends_on = [module.keda, module.cert_manager]
-}
+# Azure Front Door (HTTPS Gateway) - MOVED BACK TO PLATFORM LAYER
+# Front Door es infraestructura de red y no necesita dependencias de aplicaciones
+# Se movió a PLATFORM layer para mejor organización y despliegue más rápido
 
 # =============================================================================
 # APPLICATION SECRETS
@@ -118,4 +111,56 @@ module "application_secrets" {
   nextauth_url = "https://app.carpeta-ciudadana.dev"
 
   depends_on = [data.terraform_remote_state.platform]
+}
+
+# =============================================================================
+# EXTERNAL SECRETS CONFIG (CRDs ya instalados por EXTERNAL-SECRETS layer)
+# =============================================================================
+
+# Secret con credenciales/IDs para autenticación (si usas Workload Identity, puedes omitirlo)
+resource "kubernetes_secret" "azure_credentials" {
+  metadata {
+    name      = "azure-credentials"
+    namespace = var.external_secrets_namespace
+  }
+
+  data = {
+    client-id     = data.terraform_remote_state.platform.outputs.aks_managed_identity_client_id
+    client-secret = data.terraform_remote_state.platform.outputs.aks_managed_identity_principal_id
+  }
+
+  type = "Opaque"
+}
+
+# ClusterSecretStore apuntando a Key Vault
+resource "kubernetes_manifest" "cluster_secret_store" {
+  depends_on = [
+    kubernetes_secret.azure_credentials
+  ]
+
+  manifest = {
+    apiVersion = "external-secrets.io/v1beta1"
+    kind       = "ClusterSecretStore"
+    metadata = {
+      name = "azure-keyvault"
+    }
+    spec = {
+      provider = {
+        azurekv = {
+          tenantId = data.azurerm_client_config.current.tenant_id
+          vaultUrl = data.terraform_remote_state.platform.outputs.key_vault_uri
+          authSecretRef = {
+            clientId = {
+              name = "azure-credentials"
+              key  = "client-id"
+            }
+            clientSecret = {
+              name = "azure-credentials"
+              key  = "client-secret"
+            }
+          }
+        }
+      }
+    }
+  }
 }

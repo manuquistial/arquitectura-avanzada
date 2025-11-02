@@ -159,30 +159,9 @@ variable "m2m_secret_key" {
   default     = ""
 }
 
-# Front Door Configuration (moved from PLATFORM LAYER)
-variable "frontdoor_enabled" {
-  description = "Enable Azure Front Door for HTTPS"
-  type        = bool
-  default     = true
-}
-
-variable "frontdoor_frontend_hostname" {
-  description = "Frontend hostname for Front Door"
-  type        = string
-  default     = "135.222.244.88"
-}
-
-variable "frontdoor_api_hostname" {
-  description = "API hostname for Front Door"
-  type        = string
-  default     = "135.234.144.31"
-}
-
-variable "frontdoor_enable_waf" {
-  description = "Enable Web Application Firewall on Front Door"
-  type        = bool
-  default     = true
-}
+# Front Door Configuration - MOVED TO PLATFORM LAYER
+# Front Door es infraestructura de red y se gestiona en PLATFORM layer
+# Ver: infra/terraform/layers/platform/variables.tf
 
 
 variable "nextauth_url" {

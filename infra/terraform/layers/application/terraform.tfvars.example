@@ -35,12 +35,9 @@ cert_manager_version = "v1.13.0"
 cert_manager_namespace = "cert-manager"
 cert_manager_replica_count = 1
 
-
-# Front Door Configuration
-frontdoor_enabled = true
-frontdoor_frontend_hostname = "app.carpeta-ciudadana.dev"
-frontdoor_api_hostname = "api.carpeta-ciudadana.dev"
-frontdoor_enable_waf = true
+# Front Door Configuration - MOVED TO PLATFORM LAYER
+# Front Door es infraestructura de red y se gestiona en PLATFORM layer
+# Ver: infra/terraform/layers/platform/terraform.tfvars.example
 
 # Application Secrets Configuration
 nextauth_url = "https://app.carpeta-ciudadana.dev"

@@ -34,5 +34,7 @@ terraform output
 
 echo ""
 echo "🎯 Next steps:"
-echo "1. Run: ./deploy-platform.sh"
-echo "2. Run: ./deploy-application.sh"
+echo "1. Run: ./deploy-security.sh"
+echo "2. Run: ./deploy-platform.sh"
+echo "3. Run: ./deploy-external-secrets.sh"
+echo "4. Run: ./deploy-application.sh"

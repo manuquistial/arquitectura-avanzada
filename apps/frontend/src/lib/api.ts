@@ -145,6 +145,28 @@ export const apiService = {
     }
   },
 
+  async downloadDocument(documentId: string, filename: string) {
+    try {
+      const response = await api.get(`${INGESTION_SERVICE_URL}/api/documents/download/${documentId}`, {
+        responseType: 'blob'
+      });
+      
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      throw error;
+    }
+  },
+
   async deleteDocument(documentId: string, citizenId: string) {
     try {
       const response = await api.delete(`${INGESTION_SERVICE_URL}/api/documents/${documentId}`, {
@@ -289,7 +311,7 @@ export const apiService = {
   // Citizen API calls - using Citizen service
   async registerCitizen(citizenData: CitizenCreate): Promise<CitizenResponse> {
     try {
-      const response = await api.post(`${CITIZEN_SERVICE_URL}/register`, citizenData);
+      const response = await api.post(`${CITIZEN_SERVICE_URL}/api/citizens/register`, citizenData);
       return response.data;
     } catch (error) {
       console.error('Error registering citizen:', error);
@@ -299,7 +321,7 @@ export const apiService = {
 
   async getCitizen(citizenId: string): Promise<CitizenResponse> {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/${citizenId}`);
+      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/citizens/${citizenId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching citizen:', error);
@@ -309,7 +331,7 @@ export const apiService = {
 
   async unregisterCitizen(citizenData: CitizenUnregister): Promise<void> {
     try {
-      const response = await api.delete(`${CITIZEN_SERVICE_URL}/unregister`, {
+      const response = await api.delete(`${CITIZEN_SERVICE_URL}/api/citizens/unregister`, {
         data: citizenData
       });
       return response.data;
@@ -323,7 +345,7 @@ export const apiService = {
   // User management API calls
   async getCurrentUser() {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/me`);
+      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/me`);
       return response.data;
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -333,7 +355,7 @@ export const apiService = {
 
   async updateUser(userId: string, userData: any) {
     try {
-      const response = await api.patch(`${CITIZEN_SERVICE_URL}/${userId}`, userData);
+      const response = await api.patch(`${CITIZEN_SERVICE_URL}/api/users/${userId}`, userData);
       return response.data;
     } catch (error) {
       console.error('Error updating user:', error);

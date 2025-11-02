@@ -74,6 +74,9 @@ spec:
               name: database-credentials
               key: DB_SSLMODE
               optional: true
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         resources:
           {{- toYaml .Values.citizen.resources | nindent 10 }}
 {{- end }}

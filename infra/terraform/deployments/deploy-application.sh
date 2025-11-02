@@ -33,7 +33,10 @@ echo "📊 Outputs:"
 terraform output
 
 echo ""
-echo "🎉 All layers deployed successfully!"
-echo "🌐 Your application should be available at the configured endpoints."
+echo "🎯 Next steps:"
+echo "1. Run: ./deploy-carpeta-ciudadana.sh"
+
+
+
 
 

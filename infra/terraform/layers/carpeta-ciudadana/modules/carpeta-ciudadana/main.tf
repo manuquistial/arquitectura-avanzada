@@ -6,13 +6,24 @@ locals {
   frontend_url_auto = var.frontend_url != "" ? var.frontend_url : "http://LOADBALANCER-IP-PENDING"
 }
 
+# Namespace debe crearse primero antes que los secrets y el Helm release
+resource "kubernetes_namespace" "carpeta_ciudadana" {
+  metadata {
+    name = var.namespace
+    labels = {
+      app = "carpeta-ciudadana"
+      managed-by = "terraform"
+    }
+  }
+}
+
 # Helm Release for Carpeta Ciudadana
 resource "helm_release" "carpeta_ciudadana" {
   name       = "carpeta-ciudadana"
   chart      = var.chart_path
   version    = var.chart_version
   namespace  = var.namespace
-  create_namespace = true
+  create_namespace = false  # Namespace ya creado por kubernetes_namespace
   timeout    = var.timeout
 
   values = [
@@ -54,52 +65,20 @@ resource "helm_release" "carpeta_ciudadana" {
     value = var.domain_name
   }
 
-  # Dependencias manejadas por el layer principal
+  # Esperar a que el namespace esté creado antes de desplegar el Helm release
+  # Los secrets se crearán automáticamente por External Secrets Operator desde Key Vault
+  depends_on = [
+    kubernetes_namespace.carpeta_ciudadana
+  ]
 }
 
-# Kubernetes Secret for database credentials
-resource "kubernetes_secret" "database_credentials" {
-  metadata {
-    name      = "database-credentials"
-    namespace = var.namespace
-  }
-
-  data = {
-    username = var.database_username
-    password = var.database_password
-  }
-
-  type = "Opaque"
-}
-
-# Kubernetes Secret for Redis credentials
-resource "kubernetes_secret" "redis_credentials" {
-  metadata {
-    name      = "redis-credentials"
-    namespace = var.namespace
-  }
-
-  data = {
-    password = var.redis_password
-  }
-
-  type = "Opaque"
-}
-
-# Kubernetes Secret for storage credentials
-resource "kubernetes_secret" "storage_credentials" {
-  metadata {
-    name      = "storage-credentials"
-    namespace = var.namespace
-  }
-
-  data = {
-    accountName = var.storage_account_name
-    accountKey  = var.storage_account_key
-  }
-
-  type = "Opaque"
-}
+# Los secrets de Kubernetes (database-credentials, redis, azure-storage) 
+# se crean automáticamente por External Secrets Operator desde Azure Key Vault
+# NO es necesario crearlos manualmente aquí. External Secrets los sincroniza automáticamente.
+# 
+# Los secrets en Key Vault se crean automáticamente por:
+# - Platform layer: database-credentials (PostgreSQL), redis (Redis), azure-storage (Storage)
+# Estos secrets se sincronizan a Kubernetes mediante External Secrets Operator
 
 # Data source to get LoadBalancer IP/FQDN after deployment
 data "kubernetes_service" "frontend_lb" {

@@ -110,16 +110,30 @@ spec:
     - protocol: TCP
   
   egress:
+  # Inter-service communication within namespace (same namespace, port 8000)
+  # Allow services to communicate with each other
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
+          app.kubernetes.io/instance: {{ .Release.Name }}
+    ports:
+    - protocol: TCP
+      port: 8000
+  
   # DNS resolution (always required)
+  # Allow DNS queries to kube-system namespace where CoreDNS runs
   - to:
     - namespaceSelector:
         matchLabels:
-          name: kube-system
+          kubernetes.io/metadata.name: kube-system
     - podSelector:
         matchLabels:
           k8s-app: kube-dns
     ports:
     - protocol: UDP
+      port: 53
+    - protocol: TCP
       port: 53
   
   # Database access (PostgreSQL) - Allow external connections
@@ -128,7 +142,8 @@ spec:
     - protocol: TCP
       port: 5432
   
-  # Redis access
+  # Redis access (internal and external Azure Cache for Redis)
+  # Internal Redis (if deployed in cluster)
   - to:
     - podSelector:
         matchLabels:
@@ -136,6 +151,11 @@ spec:
     ports:
     - protocol: TCP
       port: 6379
+  # External Azure Cache for Redis (SSL port)
+  - to: []  # Allow to any destination for Azure Redis Cache
+    ports:
+    - protocol: TCP
+      port: 6380  # SSL port for Azure Cache for Redis
   
   - to:
     - namespaceSelector:
@@ -167,6 +187,7 @@ spec:
 # DENY-ALL POLICY (Zero Trust)
 # =============================================================================
 # This policy ensures that any pod not explicitly allowed is denied
+# However, we allow DNS resolution for all pods (required for basic functionality)
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -181,5 +202,19 @@ spec:
   policyTypes:
   - Ingress
   - Egress
-  # No rules = deny all (overridden by the unified policy above)
+  # Allow DNS resolution for all pods (required for basic functionality)
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # No other egress rules = deny all other traffic (overridden by the unified policy above)
 {{- end }}

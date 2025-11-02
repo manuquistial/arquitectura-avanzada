@@ -20,32 +20,30 @@ const nextConfig = {
   },
   
   // Production optimizations
-  swcMinify: true,
   compress: true,  // Enable gzip compression
   poweredByHeader: false,  // Remove X-Powered-By header
   
-  // Bundle optimization
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Optimize client bundle
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-      };
-    }
-    return config;
-  },
-  
-  // Font optimization
-  optimizeFonts: true,
+  // Turbopack configuration (Next 16)
+  turbopack: {},
   
   // Image optimization
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3000',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '8011',
+        pathname: '/**',
+      },
+    ],
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60,  // Cache images for 1 minute
+    minimumCacheTTL: 60,
   },
   
   // Output optimization

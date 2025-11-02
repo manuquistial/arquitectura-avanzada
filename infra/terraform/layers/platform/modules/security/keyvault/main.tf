@@ -98,9 +98,10 @@ resource "azurerm_role_assignment" "external_secrets_secrets_officer" {
 # Asignar rol "Key Vault Secrets User" al Managed Identity del AKS
 # (usado por External Secrets Operator)
 resource "azurerm_role_assignment" "aks_managed_identity_secrets_user" {
-  scope                = azurerm_key_vault.main.id
+  count               = var.aks_managed_identity_principal_id != "" ? 1 : 0
+  scope               = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets User"
-  principal_id         = var.aks_managed_identity_principal_id
+  principal_id        = var.aks_managed_identity_principal_id
   
   description = "Permite al AKS Managed Identity (External Secrets Operator) leer secrets"
 }
@@ -108,9 +109,10 @@ resource "azurerm_role_assignment" "aks_managed_identity_secrets_user" {
 # Asignar rol "Key Vault Secrets Officer" al Managed Identity del AKS
 # (para gestión completa de secrets)
 resource "azurerm_role_assignment" "aks_managed_identity_secrets_officer" {
-  scope                = azurerm_key_vault.main.id
+  count               = var.aks_managed_identity_principal_id != "" ? 1 : 0
+  scope               = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = var.aks_managed_identity_principal_id
+  principal_id        = var.aks_managed_identity_principal_id
   
   description = "Permite al AKS Managed Identity (External Secrets Operator) gestionar secrets completamente"
 }

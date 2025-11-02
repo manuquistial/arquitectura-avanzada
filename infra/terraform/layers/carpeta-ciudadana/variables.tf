@@ -31,9 +31,9 @@ variable "enable_tls" {
 }
 
 variable "frontdoor_enabled" {
-  description = "Enable Azure Front Door for HTTPS"
+  description = "Enable Azure Front Door (disabled by default - uses Kubernetes LoadBalancer + Ingress)"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "frontdoor_frontend_hostname" {
@@ -49,9 +49,9 @@ variable "frontdoor_api_hostname" {
 }
 
 variable "frontdoor_enable_waf" {
-  description = "Enable Web Application Firewall on Front Door"
+  description = "Enable Web Application Firewall on Front Door (only if frontdoor_enabled = true)"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "azure_subscription_id" {

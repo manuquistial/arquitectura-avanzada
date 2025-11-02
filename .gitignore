@@ -101,6 +101,7 @@ temp/
 *.tfstate
 *.tfstate.backup
 *.tfstate.lock.info
+*.terraform.lock.hcl
 
 # Local tfvars and plans
 infra/terraform/terraform.tfvars
@@ -115,4 +116,8 @@ services/gateway/.env
 # Root local env
 .env
 .envrc
+
+# Terraform lock files (ignore globally)
+**/*.lock.hcl
+**/.terraform.lock.hcl
 

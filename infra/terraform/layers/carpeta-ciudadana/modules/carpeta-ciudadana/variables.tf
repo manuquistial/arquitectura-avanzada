@@ -323,9 +323,9 @@ variable "frontdoor_api_hostname" {
 }
 
 variable "frontdoor_enable_waf" {
-  description = "Enable WAF on Front Door"
+  description = "Enable WAF on Front Door (only if frontdoor_enabled = true)"
   type        = bool
-  default     = true
+  default     = false
 }
 
 # Frontend configuration

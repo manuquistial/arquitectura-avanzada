@@ -18,6 +18,14 @@ data "terraform_remote_state" "base" {
   }
 }
 
+# Data source para outputs de la capa security (Key Vault)
+data "terraform_remote_state" "security" {
+  backend = "local"
+  config = {
+    path = "../security/terraform.tfstate"
+  }
+}
+
 # Data source para obtener información del tenant
 data "azurerm_client_config" "current" {}
 
@@ -119,6 +127,9 @@ module "database" {
   public_network_access_enabled = false
   allow_azure_services          = false
   allow_current_ip             = false
+  
+  # Key Vault for automatic secret management (from security layer)
+  key_vault_id = var.keyvault_enabled ? data.terraform_remote_state.security.outputs.key_vault_id : ""
   current_ip_address           = "0.0.0.0"
   aks_egress_ip               = ""
 }
@@ -134,12 +145,17 @@ module "storage" {
   location            = data.terraform_remote_state.base.outputs.location
   domain_name         = var.domain_name
   
-  # Key Vault for automatic secret management
-  key_vault_id = var.keyvault_enabled ? module.security[0].key_vault_id : ""
+  # Key Vault for automatic secret management (from security layer)
+  key_vault_id = var.keyvault_enabled ? data.terraform_remote_state.security.outputs.key_vault_id : ""
   
   # Security Center contact
   security_contact_email = var.security_contact_email
   security_contact_phone = var.security_contact_phone
+  
+  # Network rules - Allow access from AKS subnet
+  enable_storage_network_rules = true
+  allowed_subnet_ids          = [data.terraform_remote_state.base.outputs.aks_subnet_id]
+  allowed_ip_addresses        = []
 }
 
 # Redis for caching and rate limiting
@@ -169,73 +185,39 @@ module "cache" {
   aks_subnet_end_ip          = var.redis_enable_firewall_rules ? "10.0.1.255" : null
   allow_azure_services        = var.redis_allow_azure_services
   
+  # Key Vault for automatic secret management (from security layer)
+  key_vault_id = var.keyvault_enabled ? data.terraform_remote_state.security.outputs.key_vault_id : ""
+  
   depends_on = [module.aks]
 }
 
-# Azure Key Vault para gestión centralizada de secrets
-module "security" {
-  count  = var.keyvault_enabled ? 1 : 0
-  source = "./modules/security/keyvault"
-
-  keyvault_name                        = var.keyvault_name
-  location                            = data.terraform_remote_state.base.outputs.location
-  resource_group_name                 = data.terraform_remote_state.base.outputs.resource_group_name
-  environment                         = var.environment
-  sku_name                           = var.keyvault_sku_name
-  purge_protection_enabled           = var.keyvault_purge_protection_enabled
-  soft_delete_retention_days         = var.keyvault_soft_delete_retention_days
-  network_acls_default_action        = var.keyvault_network_acls_default_action
-  network_acls_bypass                = var.keyvault_network_acls_bypass
-  allowed_subnet_ids                 = [data.terraform_remote_state.base.outputs.aks_subnet_id]
-  allowed_ip_rules                   = var.keyvault_allowed_ip_rules
-  aks_managed_identity_principal_id  = module.aks.kubelet_identity_object_id
-  aks_kubelet_identity_principal_id  = module.aks.kubelet_identity_object_id
-  aks_oidc_issuer_url               = module.aks.oidc_issuer_url
-  # external_secrets_namespace moved to EXTERNAL-SECRETS LAYER
-  initial_secrets = merge(var.keyvault_initial_secrets, {
-    # Database credentials (para external-secret-database.yaml)
-    "database-credentials" = jsonencode({
-      "database-url" = module.database.connection_string_uri
-      "postgres-uri" = module.database.connection_string_uri
-      "db-host"      = module.database.fqdn
-      "db-port"      = "5432"
-      "db-name"      = module.database.database_name
-      "db-user"      = "psqladmin"
-      "db-password"  = var.db_admin_password
-      "db-sslmode"   = "require"
-    }),
-    
-    # Azure Storage (para external-secret-azure.yaml)
-    "azure-storage" = jsonencode({
-      "account-name"    = module.storage.storage_account_name
-      "account-key"     = module.storage.primary_access_key
-      "container-name"  = module.storage.container_name
-      "connection-string" = module.storage.primary_connection_string
-    }),
-    
-    # Redis (para external-secret-azure.yaml)
-    "redis" = jsonencode({
-      "host"     = module.cache[0].redis_hostname
-      "port"     = "6380"
-      "password" = module.cache[0].redis_primary_key
-      "ssl"      = "true"
-      "connection-string" = module.cache[0].redis_connection_string
-      "session-db" = "1"
-    }),
-    
-    # Service Bus (para external-secret-servicebus.yaml) - Placeholder
-    "servicebus-secrets" = jsonencode({
-      "connection-string" = "Endpoint=sb://placeholder.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=placeholder"
-    })
-  })
-
-  depends_on = [data.terraform_remote_state.base, module.aks]
-}
+## Key Vault is now created in SECURITY layer
 
 # Random IDs for secrets - MOVED TO APPLICATION LAYER
 
-# Azure Front Door (HTTPS Gateway) - MOVED TO APPLICATION LAYER
-# Front Door is now deployed in APPLICATION LAYER to avoid circular dependencies
+# Azure Front Door (HTTPS Gateway) - Infraestructura de red
+# Front Door es infraestructura de red/gateway y no necesita dependencias de aplicaciones
+# Se despliega en PLATFORM layer para mejor organización y despliegue más rápido
+module "frontdoor" {
+  count  = var.frontdoor_enabled ? 1 : 0
+  source = "./modules/frontdoor"
+
+  environment         = var.environment
+  resource_group_name = data.terraform_remote_state.base.outputs.resource_group_name
+  frontend_hostname   = var.frontdoor_frontend_hostname
+  api_hostname        = var.frontdoor_api_hostname
+  enable_waf          = var.frontdoor_enable_waf
+  
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Layer       = "Platform"
+  }
+  
+  # Front Door solo necesita el Resource Group (de BASE layer)
+  # No necesita AKS ni otras dependencias
+}
 
 # Managed Identity para AKS
 resource "azurerm_user_assigned_identity" "aks_identity" {

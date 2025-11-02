@@ -1,0 +1,15 @@
+# Copy this file to terraform.tfvars and adjust values per environment
+
+# Required
+azure_subscription_id = "00000000-0000-0000-0000-000000000000"
+environment           = "production"   # dev | staging | production
+project_name          = "carpeta-ciudadana"
+
+# Key Vault
+keyvault_name                        = "carpeta-ciudadana-kv-v2"
+keyvault_sku_name                    = "standard"
+keyvault_purge_protection_enabled    = true
+keyvault_soft_delete_retention_days  = 90
+keyvault_network_acls_default_action = "Deny"
+keyvault_network_acls_bypass         = "AzureServices"
+keyvault_allowed_ip_rules            = []

@@ -37,3 +37,11 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# Opcional: nombre explícito del Front Door Profile.
+# Si se deja vacío, se usará "${var.environment}-carpeta-afd-<sufijo>".
+variable "profile_name" {
+  description = "Optional explicit name for the Front Door Profile"
+  type        = string
+  default     = ""
+}

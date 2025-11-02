@@ -11,6 +11,8 @@ export default function RegisterPage() {
     name: '',
     address: '',
     email: '',
+    password: '',
+    confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,8 +24,22 @@ export default function RegisterPage() {
     setError('');
 
     // Validate all fields are filled
-    if (!formData.id.trim() || !formData.name.trim() || !formData.address.trim() || !formData.email.trim()) {
+    if (!formData.id.trim() || !formData.name.trim() || !formData.address.trim() || !formData.email.trim() || !formData.password.trim()) {
       setError('Todos los campos son obligatorios');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password
+    if (formData.password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password confirmation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Las contraseñas no coinciden');
       setLoading(false);
       return;
     }
@@ -61,6 +77,7 @@ export default function RegisterPage() {
         name: formData.name.trim(),
         address: formData.address.trim(),
         email: formData.email.trim(),
+        password: formData.password,
         operator_id: process.env.NEXT_PUBLIC_OPERATOR_ID || 'OP001',
         operator_name: process.env.NEXT_PUBLIC_OPERATOR_NAME || 'Operador Demo',
       });
@@ -164,6 +181,30 @@ export default function RegisterPage() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <input
+              type="password"
+              placeholder="Contraseña (mínimo 8 caracteres)"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required
+              minLength={8}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <input
+              type="password"
+              placeholder="Confirmar contraseña"
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              required
+              minLength={8}
               className="w-full"
             />
           </div>

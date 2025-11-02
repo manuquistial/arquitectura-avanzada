@@ -37,8 +37,19 @@ class CitizenBase(BaseModel):
 class CitizenCreate(CitizenBase):
     """Create citizen schema."""
 
+    password: str = Field(..., description="User password for authentication", min_length=8, max_length=128)
     operator_id: str = Field(..., description="Operator ID", min_length=1, max_length=100)
     operator_name: str = Field(..., description="Operator name", min_length=1, max_length=255)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Validate password meets requirements."""
+        if not v or not v.strip():
+            raise ValueError("Password cannot be empty")
+        if len(v.strip()) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        return v.strip()
 
     @field_validator("operator_id", "operator_name")
     @classmethod

@@ -4,18 +4,37 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
+}
+
+# Suffix aleatorio para evitar conflictos de nombre (estable dentro del estado)
+resource "random_string" "suffix" {
+  length  = 5
+  upper   = false
+  special = false
 }
 
 # Azure Front Door Profile (Standard)
 resource "azurerm_cdn_frontdoor_profile" "main" {
-  name                = "${var.environment}-carpeta-afd"
+  name                = var.profile_name != "" ? var.profile_name : "${var.environment}-carpeta-afd-${random_string.suffix.result}"
   resource_group_name = var.resource_group_name
   sku_name            = "Standard_AzureFrontDoor"
   
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
+  }
+  
+  # Timeout extendido para Front Door (puede tardar 30-45 minutos)
+  timeouts {
+    create = "45m"
+    update = "45m"
+    read   = "5m"
+    delete = "45m"
   }
 }
 

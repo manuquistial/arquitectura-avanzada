@@ -11,8 +11,8 @@ export default function Navigation() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Don't show navigation on login page
-  if (pathname === '/login' || status === 'loading') {
+  // Don't show navigation on login page or home page (which is now login)
+  if (pathname === '/login' || pathname === '/' || status === 'loading') {
     return null;
   }
 
