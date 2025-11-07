@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 
 # Try to import Azure Service Bus
 try:
-    from azure.servicebus.aio import ServiceBusClient, ServiceBusMessage
-    from azure.servicebus import ServiceBusReceiveMode
-    from azure.core.exceptions import ServiceBusError
+    from azure.servicebus.aio import ServiceBusClient
+    from azure.servicebus import ServiceBusReceiveMode, ServiceBusMessage
+    from azure.servicebus.exceptions import ServiceBusError
     AZURE_SB_AVAILABLE = True
 except ImportError:
     AZURE_SB_AVAILABLE = False

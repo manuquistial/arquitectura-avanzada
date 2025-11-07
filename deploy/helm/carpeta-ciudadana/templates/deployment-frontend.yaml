@@ -29,65 +29,52 @@ spec:
           name: http
           protocol: TCP
         env:
-        # Service URLs for frontend - From Azure Key Vault via External Secrets
+        # Service URLs for frontend - sourced from shared application config
         - name: NEXT_PUBLIC_AUTH_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_AUTH_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: AUTH_URL
         - name: NEXT_PUBLIC_CITIZEN_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_CITIZEN_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: CITIZEN_URL
         - name: NEXT_PUBLIC_INGESTION_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_INGESTION_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: INGESTION_URL
         - name: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: SIGNATURE_URL
         - name: NEXT_PUBLIC_TRANSFER_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_TRANSFER_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: TRANSFER_URL
         - name: NEXT_PUBLIC_MINTIC_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_MINTIC_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: MINTIC_CLIENT_URL
         - name: NEXT_PUBLIC_METADATA_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_METADATA_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: METADATA_URL
         - name: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
-              optional: true
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: NOTIFICATION_URL
         - name: NEXT_PUBLIC_API_URL
           valueFrom:
-            secretKeyRef:
-              name: frontend-config
-              key: NEXT_PUBLIC_API_URL
-              optional: true
-        - name: NEXT_PUBLIC_OPERATOR_ID
-          value: "{{ .Values.global.operatorId | default "operator-demo" }}"
-        - name: NEXT_PUBLIC_OPERATOR_NAME
-          value: "{{ .Values.global.operatorName | default "Carpeta Ciudadana Demo" }}"
+            configMapKeyRef:
+              name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+              key: FRONTEND_URL
         - name: NODE_ENV
           value: "production"
         # NextAuth Configuration - from Kubernetes secrets
