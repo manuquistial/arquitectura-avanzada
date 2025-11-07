@@ -210,11 +210,50 @@ async def register_citizen(
                 
                 if auth_response.status_code == 200:
                     logger.info(f"✅ Auth user created for citizen {citizen.id}")
+                    auth_user_data = auth_response.json()
+                    auth_user_id = auth_user_data.get("id")
+                    
+                    # Now update the user in citizen service's users table with citizen_id
+                    if auth_user_id:
+                        logger.info(f"Linking user {auth_user_id} to citizen {citizen.id}...")
+                        from sqlalchemy import text
+                        update_user_query = text("""
+                            UPDATE users 
+                            SET citizen_id = :citizen_id
+                            WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT) OR email = :email
+                        """)
+                        result = await db.execute(update_user_query, {
+                            "citizen_id": citizen.id,
+                            "user_id": auth_user_id,
+                            "email": citizen.email
+                        })
+                        if result.rowcount > 0:
+                            logger.info(f"✅ User {auth_user_id} linked to citizen {citizen.id}")
+                        else:
+                            logger.warning(f"⚠️  User {auth_user_id} not found in users table to link to citizen")
                 elif auth_response.status_code == 400:
                     # User might already exist, log warning but don't fail
                     error_data = auth_response.json() if auth_response.headers.get("content-type") == "application/json" else {}
                     error_detail = error_data.get("detail", auth_response.text)
                     logger.warning(f"⚠️  Auth user might already exist: {error_detail}")
+                    
+                    # Try to link existing user to citizen
+                    try:
+                        from sqlalchemy import text
+                        update_user_query = text("""
+                            UPDATE users 
+                            SET citizen_id = :citizen_id
+                            WHERE email = :email
+                        """)
+                        result = await db.execute(update_user_query, {
+                            "citizen_id": citizen.id,
+                            "email": citizen.email
+                        })
+                        if result.rowcount > 0:
+                            logger.info(f"✅ Linked existing user to citizen {citizen.id}")
+                        await db.commit()
+                    except Exception as e:
+                        logger.warning(f"⚠️  Failed to link user to citizen: {e}")
                 else:
                     # Log error but don't fail citizen registration
                     logger.warning(f"⚠️  Failed to create auth user: {auth_response.status_code} - {auth_response.text}")
@@ -285,113 +324,76 @@ async def unregister_citizen(
     """Unregister a citizen.
     
     This endpoint:
-    1. Marks the citizen as inactive
-    2. Marks the associated user as inactive (soft delete)
-    3. Unregisters from MinTIC Hub
-    4. Publishes event to Service Bus
+    1. Finds the user by user.id (sent from frontend)
+    2. Gets the citizen_id from the user
+    3. Finds the citizen by citizen_id
+    4. Deletes the user completely (hard delete)
+    5. Deletes the citizen completely (hard delete)
+    6. Unregisters from MinTIC Hub using citizen.id
+    7. Publishes event to Service Bus
     
-    This is the proper way to delete a citizen and their associated user account.
+    This is a complete deletion (hard delete), not a soft delete.
     """
-    logger.info(f"Unregistering citizen: {data.id}")
+    logger.info(f"=== UNREGISTER CITIZEN START ===")
+    logger.info(f"Received unregister request with ID: {data.id} (type: {type(data.id)})")
+    logger.info(f"This should be a user.id from the users table")
 
     try:
-        # Get citizen - first try by ID, then by email if ID is not a valid citizen ID (10 digits)
-        # This handles cases where the frontend sends user ID instead of citizen ID
-        citizen = None
-        
-        # Check if data.id looks like a citizen ID (10 digits)
-        if data.id.isdigit() and len(data.id) == 10:
-            # Try to find by citizen ID first
-            result = await db.execute(select(Citizen).where(Citizen.id == data.id))
-            citizen = result.scalar_one_or_none()
-            logger.info(f"Searched for citizen by ID: {data.id}, found: {citizen is not None}")
-        
-        # If not found and data.id is not 10 digits, it might be a user ID
-        # In this case, we need to find the citizen by looking up the user's email
-        if not citizen:
-            logger.info(f"Citizen not found by ID {data.id}, trying to find by user email...")
-            from sqlalchemy import text
-            
-            # Try to find user by ID (which might be the user ID from the users table)
-            user_query = text("""
-                SELECT email FROM users 
-                WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
-                LIMIT 1
-            """)
-            user_result = await db.execute(user_query, {"user_id": data.id})
-            user_row = user_result.fetchone()
-            
-            if user_row and user_row.email:
-                logger.info(f"Found user with email: {user_row.email}, searching for citizen...")
-                # Now search for citizen by email
-                result = await db.execute(select(Citizen).where(Citizen.email == user_row.email))
-                citizen = result.scalar_one_or_none()
-                if citizen:
-                    logger.info(f"Found citizen by email: {citizen.id} (email: {citizen.email})")
-        
-        if not citizen:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Citizen not found. Searched by ID '{data.id}' and associated user email.",
-            )
-
-        # Mark citizen as inactive
-        citizen.is_active = False
-        await db.flush()  # Flush but don't commit yet
-
-        # Also mark associated user as inactive (soft delete)
-        # Users are linked to citizens by email
         from sqlalchemy import text
         
-        try:
-            # Soft delete the user using raw SQL (to avoid ORM issues with missing columns)
-            # Try soft delete with deleted_at first
-            user_delete_query = text("""
-                UPDATE users 
-                SET deleted_at = CURRENT_TIMESTAMP, is_active = false
-                WHERE email = :email
-            """)
-            result = await db.execute(user_delete_query, {"email": citizen.email})
-            if result.rowcount > 0:
-                logger.info(f"User with email {citizen.email} soft deleted (deleted_at set)")
-            else:
-                logger.info(f"No user found with email {citizen.email}")
-        except Exception as e:
-            # Fallback: just set is_active to False if deleted_at doesn't exist
-            logger.warning(f"Failed to soft delete with deleted_at: {e}, trying fallback...")
-            # Rollback the failed transaction before trying fallback
-            try:
-                await db.rollback()
-                # Re-flush the citizen change after rollback
-                citizen.is_active = False
-                await db.flush()
-            except Exception as rollback_error:
-                logger.warning(f"Error during rollback: {rollback_error}")
+        # Step 1: Find the user by user.id (this is what the frontend sends)
+        logger.info(f"Step 1: Searching for user with ID: {data.id} in users table...")
+        user_query = text("""
+        SELECT id, email, citizen_id FROM users 
+        WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
+        LIMIT 1
+        """)
+        user_result = await db.execute(user_query, {"user_id": data.id})
+        user_row = user_result.fetchone()
             
-            try:
-                fallback_query = text("""
-                    UPDATE users 
-                    SET is_active = false
-                    WHERE email = :email
-                """)
-                result = await db.execute(fallback_query, {"email": citizen.email})
-                if result.rowcount > 0:
-                    logger.info(f"User with email {citizen.email} marked as inactive")
-                else:
-                    logger.info(f"No user found with email {citizen.email}")
-            except Exception as e2:
-                logger.warning(f"Failed to soft delete user: {e2}")
-                # Continue even if user deletion fails
-
-        # Commit both citizen and user changes
-        await db.commit()
-
-        # Unregister from MinTIC Hub (async, non-blocking)
-        # Get operator_id and operator_name from citizen or system config
+        if not user_row:
+            logger.error(f"❌ User not found with ID: {data.id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User not found with ID: {data.id}",
+            )
+        
+        logger.info(f"✅ User found: ID={user_row.id}, Email={user_row.email}, Citizen ID={user_row.citizen_id}")
+        
+        # Step 2: Get citizen_id from user
+        if not user_row.citizen_id:
+            logger.error(f"❌ User {user_row.id} does not have a citizen_id linked")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User {data.id} does not have a citizen linked. Cannot unregister.",
+            )
+        
+        citizen_id = user_row.citizen_id
+        logger.info(f"Step 2: Found citizen_id: {citizen_id} from user")
+        
+        # Step 3: Find the citizen by citizen_id
+        logger.info(f"Step 3: Searching for citizen with ID: {citizen_id}...")
+        result = await db.execute(select(Citizen).where(Citizen.id == citizen_id))
+        citizen = result.scalar_one_or_none()
+        
+        if not citizen:
+            logger.error(f"❌ Citizen not found with ID: {citizen_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Citizen not found with ID: {citizen_id}",
+            )
+        
+        logger.info(f"✅ Citizen found: ID={citizen.id}, Email={citizen.email}, Name={citizen.name}")
+        
+        # Step 4: Save citizen info before deletion (needed for MinTIC unregister and Service Bus)
+        citizen_id_for_mintic = citizen.id
+        citizen_email_for_event = citizen.email
+        citizen_operator_id_for_event = citizen.operator_id
+        
+        # Step 5: Get operator info for MinTIC unregister (before deleting)
         operator_id = citizen.operator_id
         operator_name = citizen.operator_name
         
-        # If citizen doesn't have operator info, fetch from system config
         if not operator_id or not operator_name:
             logger.info("Citizen doesn't have operator info, fetching from system config...")
             try:
@@ -408,40 +410,146 @@ async def unregister_citizen(
                         logger.warning(f"⚠️  Failed to fetch system config: {config_response.status_code}")
             except Exception as e:
                 logger.warning(f"⚠️  Error fetching system config: {e}")
-                # Use defaults if config fetch fails
                 if not operator_id:
                     operator_id = "operator-demo"
                 if not operator_name:
                     operator_name = "Carpeta Ciudadana Demo"
         
+        # Step 6: Delete related records first (to avoid foreign key violations)
+        logger.info(f"Step 6: Deleting related records for user {user_row.id}...")
+        
+        # Use savepoints to handle errors without aborting the entire transaction
+        # Delete audit_logs entries (if table exists)
+        try:
+            # Create a savepoint before attempting to delete audit_logs
+            await db.execute(text("SAVEPOINT before_delete_audit_logs"))
+            delete_audit_logs_query = text("""
+                DELETE FROM audit_logs 
+                WHERE CAST(user_id AS TEXT) = CAST(:user_id AS TEXT)
+            """)
+            audit_logs_result = await db.execute(delete_audit_logs_query, {"user_id": data.id})
+            if audit_logs_result.rowcount > 0:
+                logger.info(f"✅ Deleted {audit_logs_result.rowcount} audit_logs entries for user {user_row.id}")
+            # Release savepoint if successful
+            await db.execute(text("RELEASE SAVEPOINT before_delete_audit_logs"))
+        except Exception as e:
+            # Table might not exist or error occurred, rollback to savepoint and continue
+            logger.debug(f"Could not delete audit_logs (table may not exist): {e}")
+            try:
+                await db.execute(text("ROLLBACK TO SAVEPOINT before_delete_audit_logs"))
+            except Exception as rollback_error:
+                # If savepoint doesn't exist, try full rollback
+                logger.debug(f"Could not rollback to savepoint: {rollback_error}")
+                try:
+                    await db.rollback()
+                except Exception as full_rollback_error:
+                    logger.debug(f"Full rollback also failed: {full_rollback_error}")
+        
+        # Delete audit_events entries (if table exists)
+        try:
+            # Create a savepoint before attempting to delete audit_events
+            await db.execute(text("SAVEPOINT before_delete_audit_events"))
+            delete_audit_events_query = text("""
+                DELETE FROM audit_events 
+                WHERE user_id = :user_id
+            """)
+            audit_events_result = await db.execute(delete_audit_events_query, {"user_id": str(data.id)})
+            if audit_events_result.rowcount > 0:
+                logger.info(f"✅ Deleted {audit_events_result.rowcount} audit_events entries for user {user_row.id}")
+            # Release savepoint if successful
+            await db.execute(text("RELEASE SAVEPOINT before_delete_audit_events"))
+        except Exception as e:
+            # Table might not exist or error occurred, rollback to savepoint and continue
+            logger.debug(f"Could not delete audit_events (table may not exist): {e}")
+            try:
+                await db.execute(text("ROLLBACK TO SAVEPOINT before_delete_audit_events"))
+            except Exception as rollback_error:
+                # If savepoint doesn't exist, try full rollback
+                logger.debug(f"Could not rollback to savepoint: {rollback_error}")
+                try:
+                    await db.rollback()
+                except Exception as full_rollback_error:
+                    logger.debug(f"Full rollback also failed: {full_rollback_error}")
+        
+        # Step 7: Delete user completely (hard delete)
+        logger.info(f"Step 7: Deleting user {user_row.id} completely (hard delete)...")
+        delete_user_query = text("""
+            DELETE FROM users 
+            WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
+        """)
+        user_delete_result = await db.execute(delete_user_query, {"user_id": data.id})
+        if user_delete_result.rowcount > 0:
+            logger.info(f"✅ User {user_row.id} deleted completely")
+        else:
+            logger.warning(f"⚠️  No user was deleted (may have already been deleted)")
+        
+        # Step 8: Delete citizen completely (hard delete)
+        logger.info(f"Step 8: Deleting citizen {citizen.id} completely (hard delete)...")
+        delete_citizen_query = text("""
+            DELETE FROM citizens 
+            WHERE id = :citizen_id
+        """)
+        citizen_delete_result = await db.execute(delete_citizen_query, {"citizen_id": citizen.id})
+        if citizen_delete_result.rowcount > 0:
+            logger.info(f"✅ Citizen {citizen.id} deleted completely")
+        else:
+            logger.warning(f"⚠️  No citizen was deleted (may have already been deleted)")
+        
+        # Commit the deletions
+        try:
+            await db.commit()
+            logger.info(f"✅ User and citizen deleted successfully")
+        except Exception as commit_error:
+            logger.error(f"Failed to commit deletions: {commit_error}")
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete user and citizen: {str(commit_error)}"
+            )
+
+        # Step 9: Unregister from MinTIC Hub (async, non-blocking)
+        # Use saved operator_id and operator_name (already fetched before deletion)
+        logger.info(f"Step 9: Unregistering citizen {citizen_id_for_mintic} from MinTIC Hub...")
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                # httpx.AsyncClient.delete() doesn't accept 'json', use 'content' with json.dumps
                 import json as json_lib
-                response = await client.delete(
-                    f"{settings.mintic_client_url}/apis/unregisterCitizen",
-                    content=json_lib.dumps({
-                        "id": int(citizen.id),
-                        "operatorId": operator_id,
-                        "operatorName": operator_name,
-                    }),
-                    headers={"Content-Type": "application/json"}
+
+                payload = {
+                    "id": int(citizen_id_for_mintic),  # Use saved citizen.id (documento de 10 dígitos)
+                    "operatorId": operator_id,
+                    "operatorName": operator_name,
+                }
+
+                mintic_endpoint = f"{settings.mintic_client_url}/api/mintic/unregister-citizen"
+                logger.info("Calling MinTIC client endpoint: %s", mintic_endpoint)
+
+                response = await client.request(
+                    "DELETE",
+                    mintic_endpoint,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
                 )
+
                 if response.status_code == 200:
-                    logger.info(f"Citizen {citizen.id} unregistered from MinTIC Hub")
+                    logger.info(f"Citizen {citizen_id_for_mintic} unregistered from MinTIC Hub")
                 else:
-                    logger.warning(f"Failed to unregister from MinTIC Hub: {response.text}")
+                    logger.warning(
+                        "Failed to unregister from MinTIC Hub: %s (status: %s, payload: %s)",
+                        response.text,
+                        response.status_code,
+                        json_lib.dumps(payload),
+                    )
         except Exception as e:
-            logger.error(f"Error calling MinTIC client: {e}")
+            logger.error(f"Error calling MinTIC client: {e}", exc_info=True)
         
         # Publish event to Service Bus
         try:
             from carpeta_common.bus import publish_citizen_unregistered
             
             await publish_citizen_unregistered(
-                citizen_id=citizen.id,
-                email=citizen.email,
-                operator_id=str(citizen.operator_id) if citizen.operator_id else "carpeta-ciudadana"
+                citizen_id=citizen_id_for_mintic,  # Use saved citizen.id
+                email=citizen_email_for_event,  # Use saved citizen.email
+                operator_id=str(citizen_operator_id_for_event) if citizen_operator_id_for_event else "carpeta-ciudadana"
             )
             logger.info("Event published to Service Bus")
         except ImportError:

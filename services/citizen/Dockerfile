@@ -19,6 +19,10 @@ RUN poetry config virtualenvs.create false \
 # Copy application code
 COPY services/citizen/app/ ./app/
 
+# Copy Alembic configuration and migrations
+COPY services/citizen/alembic/ ./alembic/
+COPY services/citizen/alembic.ini ./
+
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser

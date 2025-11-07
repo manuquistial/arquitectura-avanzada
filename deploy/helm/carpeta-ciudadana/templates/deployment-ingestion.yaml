@@ -34,7 +34,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ .Values.global.logLevel }}
         - name: SERVICEBUS_ENABLED
-          value: "{{ .Values.serviceBus.enabled | default false }}"
+          value: "{{ .Values.serviceBus.enabled | default true }}"
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:

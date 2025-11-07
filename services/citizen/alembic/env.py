@@ -45,7 +45,11 @@ def run_migrations_offline() -> None:
     """
     # Use application configuration instead of alembic.ini
     settings = get_settings()
-    url = settings.get_database_url()
+    
+    # Build database URL using the same method as the application
+    # But use psycopg (synchronous) instead of asyncpg (asynchronous) for Alembic
+    # Alembic needs a synchronous driver, not asyncpg
+    url = f"postgresql+psycopg://{settings.database_user}:{settings.database_password}@{settings.database_host}:{settings.database_port}/{settings.database_name}?sslmode={settings.database_sslmode}"
     
     context.configure(
         url=url,
@@ -68,10 +72,15 @@ def run_migrations_online() -> None:
     # Use application configuration instead of alembic.ini
     settings = get_settings()
     
+    # Build database URL using the same method as the application
+    # But use psycopg (synchronous) instead of asyncpg (asynchronous) for Alembic
+    # Alembic needs a synchronous driver, not asyncpg
+    database_url = f"postgresql+psycopg://{settings.database_user}:{settings.database_password}@{settings.database_host}:{settings.database_port}/{settings.database_name}?sslmode={settings.database_sslmode}"
+    
     # Create engine from application settings
     from sqlalchemy import create_engine
     connectable = create_engine(
-        settings.database_url,
+        database_url,
         poolclass=pool.NullPool,
     )
 

@@ -76,18 +76,22 @@ export default function UsersAdminPage() {
   };
 
   const handleUnregisterCitizen = async (userId: string, userEmail: string) => {
-    if (!confirm(`¿Estás seguro de que deseas desregistrar al ciudadano/usuario ${userEmail}? Esta acción eliminará el usuario, desactivará el ciudadano y desregistrará del Hub MinTIC. No se puede deshacer.`)) {
+    if (!confirm(`¿Estás seguro de que deseas desregistrar al ciudadano/usuario ${userEmail}? Esta acción eliminará completamente el usuario, el ciudadano y desregistrará del Hub MinTIC. No se puede deshacer.`)) {
       return;
     }
     
     try {
-      // In most cases, userId is the same as citizenId (citizen ID is used as user ID when registering)
-      // So we'll try using userId directly as citizenId
-      // If the citizen is not found, the backend will return a 404 and we can handle it
-      const citizenId = userId;
+      // Always send the user.id (not email or citizen ID)
+      // The backend will:
+      // 1. Find the user by user.id
+      // 2. Get the citizen_id from the user
+      // 3. Find the citizen by citizen_id
+      // 4. Use citizen.id for MinTIC unregister
+      // 5. Delete the user completely (hard delete)
+      // 6. Delete the citizen completely (hard delete)
       
       await apiService.unregisterCitizen({
-        id: citizenId
+        id: userId  // Always send user.id, backend will find citizen_id
         // operator_id is not sent - backend will fetch it from citizen or system config
       });
       await fetchUsers();

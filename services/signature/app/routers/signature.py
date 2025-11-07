@@ -54,8 +54,48 @@ async def sign_document(
     """
     logger.info(f"Signing document {request.document_id} for citizen {request.citizen_id}")
     
+    # Resolve citizen_id: if it's a user.id (not a 10-digit document), get the real citizen_id
+    # MinTIC Hub requires the citizen.id (10-digit document number), not user.id
+    citizen_id_for_mintic = request.citizen_id
+    
+    # Check if citizen_id is a 10-digit number (citizen.id) or something else (user.id)
+    # citizen.id is always a 10-digit string (document number)
+    if not (citizen_id_for_mintic.isdigit() and len(citizen_id_for_mintic) == 10):
+        logger.info(f"⚠️  Received citizen_id '{citizen_id_for_mintic}' which doesn't look like a 10-digit document. Resolving from user.id...")
+        try:
+            # This is likely a user.id, need to get citizen_id from users table
+            # Both services share the same database, so we can query directly
+            from sqlalchemy import text
+            user_query = text("""
+                SELECT citizen_id FROM users 
+                WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
+                LIMIT 1
+            """)
+            user_result = await db.execute(user_query, {"user_id": citizen_id_for_mintic})
+            user_row = user_result.fetchone()
+            
+            if user_row and user_row.citizen_id:
+                citizen_id_for_mintic = str(user_row.citizen_id)
+                logger.info(f"✅ Resolved user.id '{request.citizen_id}' to citizen.id '{citizen_id_for_mintic}'")
+            else:
+                logger.warning(f"⚠️  User {request.citizen_id} not found or does not have a citizen_id linked")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User {request.citizen_id} does not have a citizen linked. Cannot sign document."
+                )
+        except HTTPException:
+            raise  # Re-raise HTTP exceptions
+        except Exception as e:
+            logger.error(f"❌ Error resolving user.id to citizen.id: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to resolve user.id to citizen.id: {str(e)}"
+            )
+    
+    logger.info(f"Using citizen_id '{citizen_id_for_mintic}' for MinTIC Hub authentication")
+    
     # Check Redis idempotency (simplified, should use redis_client from common)
-    # idempotency_key = f"authdoc:{request.citizen_id}:{request.document_id}"
+    # idempotency_key = f"authdoc:{citizen_id_for_mintic}:{request.document_id}"
     
     try:
         # 1. Fetch document metadata from database to get blob_name
@@ -65,20 +105,20 @@ async def sign_document(
         document_metadata = document_result.scalar_one_or_none()
         
         if not document_metadata:
-            logger.warning(f"⚠️  Document {request.document_id} not found in database for citizen {request.citizen_id}")
+            logger.warning(f"⚠️  Document {request.document_id} not found in database for citizen {citizen_id_for_mintic}")
             # Try to provide more helpful error message by checking if document exists for this citizen
             try:
                 from sqlalchemy import text
                 check_result = await db.execute(
                     text("SELECT COUNT(*) as count FROM document_metadata WHERE citizen_id = :citizen_id"),
-                    {"citizen_id": str(request.citizen_id)}
+                    {"citizen_id": str(citizen_id_for_mintic)}
                 )
                 count_row = check_result.fetchone()
                 count = count_row[0] if count_row else 0
                 if count == 0:
-                    detail = f"Document {request.document_id} not found. No documents exist for citizen {request.citizen_id}"
+                    detail = f"Document {request.document_id} not found. No documents exist for citizen {citizen_id_for_mintic}"
                 else:
-                    detail = f"Document {request.document_id} not found. Citizen {request.citizen_id} has {count} document(s), but this ID doesn't match"
+                    detail = f"Document {request.document_id} not found. Citizen {citizen_id_for_mintic} has {count} document(s), but this ID doesn't match"
             except Exception as check_error:
                 logger.debug(f"Could not check document count: {check_error}")
                 detail = f"Document {request.document_id} not found"
@@ -133,7 +173,7 @@ async def sign_document(
                 hub_response = await hub_client.put(
                     hub_url,
                     json={
-                        "idCitizen": request.citizen_id,
+                        "idCitizen": int(citizen_id_for_mintic),  # Use resolved citizen.id (10-digit document number)
                         "UrlDocument": sas_url,
                         "documentTitle": request.document_title
                     },
@@ -145,7 +185,7 @@ async def sign_document(
                 
                 if hub_response.status_code == 200:
                     hub_result = {"success": True, "message": hub_response.text}
-                    logger.info(f"✅ Document authenticated with MinTIC Hub for citizen {request.citizen_id}")
+                    logger.info(f"✅ Document authenticated with MinTIC Hub for citizen {citizen_id_for_mintic}")
                 else:
                     hub_result = {"success": False, "message": f"Hub returned {hub_response.status_code}: {hub_response.text}"}
                     logger.warning(f"⚠️  MinTIC Hub authentication failed: {hub_response.status_code}")
@@ -167,7 +207,7 @@ async def sign_document(
         try:
             record = SignatureRecord(
                 document_id=request.document_id,
-                citizen_id=request.citizen_id,
+                citizen_id=citizen_id_for_mintic,  # Use resolved citizen.id
                 document_title=request.document_title,
                 sha256_hash=sha256_hash,
                 signature_algorithm=algorithm,
@@ -256,7 +296,7 @@ async def sign_document(
             
             await publish_document_authenticated(
                 document_id=request.document_id,
-                citizen_id=request.citizen_id,
+                citizen_id=citizen_id_for_mintic,  # Use resolved citizen.id
                 sha256_hash=sha256_hash,
                 hub_success=hub_result["success"]
             )
@@ -266,7 +306,7 @@ async def sign_document(
             try:
                 await _events.publish_document_authenticated(
                     request.document_id,
-                    request.citizen_id,
+                    citizen_id_for_mintic,  # Use resolved citizen.id
                     hub_result["success"]
                 )
             except Exception as event_error:
@@ -276,7 +316,7 @@ async def sign_document(
             try:
                 await _events.publish_document_authenticated(
                     request.document_id,
-                    request.citizen_id,
+                    citizen_id_for_mintic,  # Use resolved citizen.id
                     hub_result["success"]
                 )
             except Exception as event_error:

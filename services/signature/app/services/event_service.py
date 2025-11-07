@@ -75,7 +75,8 @@ class EventService:
         
         try:
             # Use Azure Service Bus client
-            from azure.servicebus import ServiceBusClient, ServiceBusMessage
+            from azure.servicebus import ServiceBusMessage
+            from azure.servicebus.aio import ServiceBusClient
             from azure.servicebus.exceptions import ServiceBusError
             
             # Get connection string from environment
@@ -138,7 +139,8 @@ class EventService:
         # Map event types to standardized queue names
         queue_mapping = {
             "document.signed": "document-events",
-            "document.authenticated": "document-events", 
+            "document.authenticated": "document-events",
+            "document.hubAuthenticated": "document-events",
             "signature.completed": "signature-events",
             "signature.failed": "signature-events"
         }

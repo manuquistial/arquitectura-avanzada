@@ -9,10 +9,11 @@ class Settings(BaseSettings):
     """Signature Service settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", 
+        env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        env_prefix=""
+        env_prefix="",
+        extra="ignore",
     )
 
     # CORS

@@ -125,8 +125,30 @@ async def init_db() -> None:
         else:
             logger.info("Database connection successful")
         
-        # Note: Notification Service may not need to create tables
-        # It reads from existing tables (citizens, users, etc.)
+        # Ensure notifications table exists
+        async with engine.begin() as conn:
+            logger.info("Ensuring notifications table exists...")
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id VARCHAR(36) PRIMARY KEY,
+                    citizen_id VARCHAR(255) NOT NULL,
+                    event_type VARCHAR(100) NOT NULL,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    metadata JSONB,
+                    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+                )
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notifications_citizen_id
+                ON notifications (citizen_id)
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_notifications_created_at
+                ON notifications (created_at DESC)
+            """))
+            logger.info("Notifications table verified")
         
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")

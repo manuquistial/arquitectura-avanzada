@@ -110,6 +110,20 @@ async def bootstrap_user(
         
         return existing_user
     
+    # Try to find citizen by email to link user to citizen
+    citizen_id = None
+    try:
+        from ..models import Citizen
+        citizen_result = await db.execute(
+            select(Citizen).where(Citizen.email == user_data.email)
+        )
+        citizen = citizen_result.scalar_one_or_none()
+        if citizen:
+            citizen_id = citizen.id
+    except Exception as e:
+        # If citizens table doesn't exist or query fails, continue without citizen_id
+        pass
+    
     # Create new user
     new_user = User(
         id=user_data.id,
@@ -125,6 +139,7 @@ async def bootstrap_user(
         is_active=True,
         is_verified=False,
         operator_id=user_data.operator_id,
+        citizen_id=citizen_id,  # Link to citizen if found
         last_login_at=datetime.utcnow(),
     )
     

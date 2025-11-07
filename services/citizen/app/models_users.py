@@ -63,6 +63,11 @@ class User(Base):
     preferred_language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="es")
     timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="America/Bogota")
     
+    # Relationship to Citizen
+    citizen_id: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, index=True, comment="Citizen ID (document number) - foreign key to citizens table"
+    )
+    
     # Audit fields
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
