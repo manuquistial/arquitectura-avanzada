@@ -239,3 +239,4 @@ kubectl get nodes -l nodepool=spot
 
 
 
+

@@ -24,3 +24,19 @@ class Operator(Base):
     
     def __repr__(self):
         return f"<Operator(id={self.id}, mintic_id='{self.mintic_operator_id}', name='{self.name}')>"
+
+
+class SystemConfig(Base):
+    """System configuration for Carpeta Ciudadana."""
+    
+    __tablename__ = "system_config"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    config_key = Column(String(100), unique=True, nullable=False, index=True)
+    config_value = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_by = Column(String(255), nullable=True)  # User email or system
+    
+    def __repr__(self):
+        return f"<SystemConfig(key='{self.config_key}', value='{self.config_value}')>"

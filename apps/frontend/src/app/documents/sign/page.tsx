@@ -12,7 +12,9 @@ interface Document {
   filename: string;
   content_type: string;
   status: string;
-  state?: string;
+  state?: string;  // 'SIGNED' or 'UNSIGNED'
+  worm_locked?: boolean;
+  signed_at?: string;
   created_at: string;
 }
 
@@ -47,9 +49,9 @@ export default function SignDocumentPage() {
       const citizenId = session?.user?.id || '1234567890';
       const data = await apiService.getDocuments(citizenId, session?.user?.roles);
       
-      // Filter only unsigned documents
+      // Filter only unsigned documents (not signed and not WORM-locked)
       const unsignedDocs = data.filter((doc: Document) => 
-        doc.status !== 'signed' && doc.state !== 'SIGNED'
+        doc.status !== 'signed' && doc.state !== 'SIGNED' && !doc.worm_locked
       );
       
       setDocuments(unsignedDocs);

@@ -49,15 +49,17 @@ class AuthMiddleware:
             from sqlalchemy import text
             # Select only columns that definitely exist (based on migration 002_create_users)
             # Avoid email_verified, operator_id, last_login_at, etc. that might not exist
+            # Ensure user_id is a string and cast both sides to VARCHAR for safe comparison
+            user_id_str = str(user_id)  # Ensure it's always a string
             result = await db.execute(
                 text("""
                     SELECT id, email, name, given_name, family_name, 
                            roles, permissions, is_active, is_verified,
                            created_at, updated_at
                     FROM users
-                    WHERE id = :user_id
+                    WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
                 """),
-                {"user_id": user_id}
+                {"user_id": user_id_str}
             )
             
             row = result.fetchone()

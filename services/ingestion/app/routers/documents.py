@@ -503,6 +503,9 @@ async def list_documents(
                 "filename": doc.filename,
                 "content_type": doc.content_type,
                 "status": doc.status,
+                "state": doc.state if hasattr(doc, 'state') else (doc.status if doc.status == 'signed' else 'UNSIGNED'),  # Include state field
+                "worm_locked": doc.worm_locked if hasattr(doc, 'worm_locked') else False,  # Include worm_locked
+                "signed_at": doc.signed_at.isoformat() if hasattr(doc, 'signed_at') and doc.signed_at else None,  # Include signed_at
                 "size_bytes": doc.size_bytes,
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
                 "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,

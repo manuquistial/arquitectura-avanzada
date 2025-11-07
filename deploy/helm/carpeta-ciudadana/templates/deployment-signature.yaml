@@ -51,15 +51,23 @@ spec:
           value: {{ .Values.global.logLevel }}
         # DATABASE_URL is provided by the secret database-credentials
         - name: AZURE_STORAGE_ACCOUNT_NAME
-          value: {{ .Values.azure.storage.accountName | default "devstorage" | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: AZURE_STORAGE_ACCOUNT_NAME
+              optional: true
         - name: AZURE_STORAGE_ACCOUNT_KEY
           valueFrom:
             secretKeyRef:
-              name: azure-storage-secret
-              key: account-key
+              name: azure-secrets
+              key: AZURE_STORAGE_ACCOUNT_KEY
               optional: true
-        - name: AZURE_STORAGE_CONTAINER
-          value: {{ .Values.azure.storage.containerName | default "devcontainer" | quote }}
+        - name: AZURE_STORAGE_CONTAINER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: AZURE_STORAGE_CONTAINER_NAME
+              optional: true
         - name: MINTIC_HUB_URL
           value: {{ .Values.mintic.hubUrl | default "https://govcarpeta-apis-4905ff3c005b.herokuapp.com" | quote }}
         - name: MINTIC_OPERATOR_ID

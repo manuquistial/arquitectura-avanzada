@@ -34,13 +34,19 @@ export default function NotificationBell() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      // Safely check if ref and target exist before accessing
+      if (
+        dropdownRef.current && 
+        event.target instanceof Node &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    // Use capture phase to avoid conflicts with extensions
+    document.addEventListener('mousedown', handleClickOutside, true);
+    return () => document.removeEventListener('mousedown', handleClickOutside, true);
   }, []);
 
   const fetchNotifications = async () => {

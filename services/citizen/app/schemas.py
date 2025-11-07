@@ -38,8 +38,9 @@ class CitizenCreate(CitizenBase):
     """Create citizen schema."""
 
     password: str = Field(..., description="User password for authentication", min_length=8, max_length=128)
-    operator_id: str = Field(..., description="Operator ID", min_length=1, max_length=100)
-    operator_name: str = Field(..., description="Operator name", min_length=1, max_length=255)
+    # operator_id and operator_name are now optional - will be fetched from system config
+    operator_id: str | None = Field(None, description="Operator ID (optional, will be fetched from system config if not provided)")
+    operator_name: str | None = Field(None, description="Operator name (optional, will be fetched from system config if not provided)")
 
     @field_validator("password")
     @classmethod
@@ -49,14 +50,6 @@ class CitizenCreate(CitizenBase):
             raise ValueError("Password cannot be empty")
         if len(v.strip()) < 8:
             raise ValueError("Password must be at least 8 characters long")
-        return v.strip()
-
-    @field_validator("operator_id", "operator_name")
-    @classmethod
-    def validate_operator_fields(cls, v: str, info) -> str:
-        """Validate operator fields are not empty or whitespace only."""
-        if not v or not v.strip():
-            raise ValueError(f"{info.field_name} cannot be empty or whitespace")
         return v.strip()
 
 
@@ -75,6 +68,6 @@ class CitizenResponse(CitizenBase):
 class CitizenUnregister(BaseModel):
     """Unregister citizen schema."""
 
-    id: str = Field(..., description="Citizen ID")
-    operator_id: str = Field(..., description="Operator ID")
+    id: str = Field(..., description="Citizen ID or User ID")
+    operator_id: str | None = Field(None, description="Operator ID (optional, will be fetched from citizen or system config)")
 

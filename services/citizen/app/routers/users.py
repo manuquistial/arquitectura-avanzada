@@ -6,7 +6,7 @@ Handles user bootstrap and management
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -248,28 +248,32 @@ async def list_users(
             detail="Access denied. Admin role required."
         )
     
-    # Use raw SQL to avoid issues with missing columns (like azure_b2c_object_id)
+    # Use raw SQL to avoid issues with missing columns
     from sqlalchemy import text
     
-    # Query with only columns that should exist in most cases
-    # Try with deleted_at filter first
-    query = text("""
-        SELECT 
-            id, email, name, given_name, family_name,
-            roles, permissions, is_active, is_verified, email_verified,
-            operator_id, created_at, updated_at, last_login_at
-        FROM users
-        WHERE deleted_at IS NULL
-        ORDER BY created_at DESC
-        LIMIT :limit OFFSET :skip
-    """)
-    
+    # Ensure we're working with a fresh transaction
+    # Rollback any existing failed transaction first
     try:
-        result = await db.execute(query, {"limit": limit, "skip": skip})
-        rows = result.fetchall()
-    except Exception as e:
-        # If deleted_at doesn't exist, query without it
-        query = text("""
+        await db.rollback()
+    except Exception:
+        pass  # Ignore rollback errors if there's no transaction
+    
+    # Try multiple query variations, starting with the most complete
+    # and falling back to simpler queries if columns don't exist
+    queries = [
+        # Query 1: Full query with all optional columns
+        ("""
+            SELECT 
+                id, email, name, given_name, family_name,
+                roles, permissions, is_active, is_verified, email_verified,
+                operator_id, created_at, updated_at, last_login_at
+            FROM users
+            WHERE deleted_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :skip
+        """, True),
+        # Query 2: Without deleted_at filter
+        ("""
             SELECT 
                 id, email, name, given_name, family_name,
                 roles, permissions, is_active, is_verified, email_verified,
@@ -277,28 +281,101 @@ async def list_users(
             FROM users
             ORDER BY created_at DESC
             LIMIT :limit OFFSET :skip
-        """)
-        result = await db.execute(query, {"limit": limit, "skip": skip})
-        rows = result.fetchall()
+        """, True),
+        # Query 3: Without email_verified, operator_id, last_login_at
+        ("""
+            SELECT 
+                id, email, name, given_name, family_name,
+                roles, permissions, is_active, is_verified,
+                created_at, updated_at
+            FROM users
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :skip
+        """, False),
+        # Query 4: Minimal query with only essential columns
+        ("""
+            SELECT 
+                id, email, name, given_name, family_name,
+                roles, permissions, is_active, is_verified,
+                created_at, updated_at
+            FROM users
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :skip
+        """, False),
+    ]
+    
+    rows = None
+    has_optional_columns = False
+    
+    for query_sql, has_optional in queries:
+        try:
+            query = text(query_sql)
+            result = await db.execute(query, {"limit": limit, "skip": skip})
+            rows = result.fetchall()
+            has_optional_columns = has_optional
+            break  # Success, exit loop
+        except Exception as e:
+            # Rollback the failed transaction
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            # Try next query
+            continue
+    
+    if rows is None:
+        # All queries failed, raise error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to query users table"
+        )
     
     # Convert rows to User-like objects
+    import json
     users = []
     for row in rows:
+        # Safely get values, using defaults if columns don't exist
+        # Convert id to string (may come as int from database)
+        user_id = str(getattr(row, 'id', ''))
+        
+        # Parse roles and permissions - they may come as JSON strings or arrays
+        roles_raw = getattr(row, 'roles', [])
+        if isinstance(roles_raw, str):
+            try:
+                roles = json.loads(roles_raw) if roles_raw else []
+            except (json.JSONDecodeError, ValueError):
+                roles = []
+        elif isinstance(roles_raw, list):
+            roles = roles_raw
+        else:
+            roles = []
+        
+        permissions_raw = getattr(row, 'permissions', [])
+        if isinstance(permissions_raw, str):
+            try:
+                permissions = json.loads(permissions_raw) if permissions_raw else []
+            except (json.JSONDecodeError, ValueError):
+                permissions = []
+        elif isinstance(permissions_raw, list):
+            permissions = permissions_raw
+        else:
+            permissions = []
+        
         user_dict = {
-            'id': row.id,
-            'email': row.email,
-            'name': row.name,
-            'given_name': row.given_name,
-            'family_name': row.family_name,
-            'roles': row.roles or [],
-            'permissions': row.permissions or [],
-            'is_active': row.is_active,
-            'is_verified': row.is_verified,
-            'email_verified': row.email_verified,
-            'operator_id': row.operator_id,
-            'created_at': row.created_at,
-            'updated_at': row.updated_at,
-            'last_login_at': row.last_login_at,
+            'id': user_id,
+            'email': getattr(row, 'email', ''),
+            'name': getattr(row, 'name', None),
+            'given_name': getattr(row, 'given_name', None),
+            'family_name': getattr(row, 'family_name', None),
+            'roles': roles,
+            'permissions': permissions,
+            'is_active': bool(getattr(row, 'is_active', True)),
+            'is_verified': bool(getattr(row, 'is_verified', False)),
+            'email_verified': bool(getattr(row, 'email_verified', False)) if has_optional_columns else False,
+            'operator_id': getattr(row, 'operator_id', None) if has_optional_columns else None,
+            'created_at': getattr(row, 'created_at', None),
+            'updated_at': getattr(row, 'updated_at', None),
+            'last_login_at': getattr(row, 'last_login_at', None) if has_optional_columns else None,
             'azure_b2c_object_id': None,
             'idp': None,
             'preferred_language': None,
@@ -311,4 +388,9 @@ async def list_users(
         users.append(user_obj)
     
     return users
+
+
+# DELETE /api/users/{user_id} endpoint has been removed
+# Users should be deleted through the unregisterCitizen endpoint
+# which properly handles both citizen and user deletion along with MinTIC Hub unregistration
 

@@ -132,10 +132,10 @@ export default function AdminPage() {
                     <div className="ml-5 w-0 flex-1">
                       <dl>
                         <dt className="text-sm font-medium text-gray-500 truncate">
-                          Configuración
+                          Configuración del Sistema
                         </dt>
                         <dd className="text-lg font-medium text-gray-900">
-                          Configuración del sistema
+                          Configurar Operator ID y Name
                         </dd>
                       </dl>
                     </div>
@@ -143,9 +143,12 @@ export default function AdminPage() {
                 </div>
                 <div className="bg-gray-50 px-5 py-3">
                   <div className="text-sm">
-                    <span className="font-medium text-gray-500">
-                      Próximamente
-                    </span>
+                    <Link
+                      href="/admin/system-config"
+                      className="font-medium text-purple-600 hover:text-purple-500"
+                    >
+                      Configurar sistema
+                    </Link>
                   </div>
                 </div>
               </div>

@@ -412,12 +412,20 @@ export const apiService = {
 
   async unregisterCitizen(citizenData: CitizenUnregister): Promise<void> {
     try {
+      // For DELETE requests with body, Axios needs the data in the config
       const response = await api.delete(`${CITIZEN_SERVICE_URL}/api/citizens/unregister`, {
-        data: citizenData
+        data: citizenData,
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error unregistering citizen:', error);
+      // Provide more helpful error message
+      if (error?.response?.status === 404) {
+        throw new Error(error.response.data?.detail || 'Ciudadano no encontrado');
+      }
       throw error;
     }
   },
@@ -445,6 +453,10 @@ export const apiService = {
       throw error;
     }
   },
+
+  // deleteUser has been removed
+  // Users should be deleted through unregisterCitizen endpoint
+  // which properly handles both citizen and user deletion along with MinTIC Hub unregistration
 
   async getUserById(userId: string) {
     try {
@@ -630,6 +642,31 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error('Error deleting MinTIC operator:', error);
+      throw error;
+    }
+  },
+
+  // System Configuration
+  async getSystemOperatorConfig() {
+    try {
+      const response = await api.get(`${MINTIC_SERVICE_URL}/api/mintic/system-config/operator`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching system operator config:', error);
+      throw error;
+    }
+  },
+
+  async updateSystemOperatorConfig(operatorId: string, operatorName: string, updatedBy?: string) {
+    try {
+      const response = await api.put(`${MINTIC_SERVICE_URL}/api/mintic/system-config/operator`, {
+        operator_id: operatorId,
+        operator_name: operatorName,
+        updated_by: updatedBy
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating system operator config:', error);
       throw error;
     }
   },

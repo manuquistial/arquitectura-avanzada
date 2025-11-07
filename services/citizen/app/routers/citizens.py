@@ -30,8 +30,35 @@ async def register_citizen(
     logger.info(f"Citizen ID: {citizen_data.id}")
     logger.info(f"Citizen name: {citizen_data.name}")
     logger.info(f"Citizen email: {citizen_data.email}")
-    logger.info(f"Operator ID: {citizen_data.operator_id}")
-    logger.info(f"Operator name: {citizen_data.operator_name}")
+    
+    # Get operator_id and operator_name from system config if not provided
+    operator_id = citizen_data.operator_id
+    operator_name = citizen_data.operator_name
+    
+    if not operator_id or not operator_name:
+        logger.info("Operator ID/Name not provided, fetching from system config...")
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
+                config_response = await client.get(
+                    f"{settings.mintic_client_url}/api/mintic/system-config/operator"
+                )
+                if config_response.status_code == 200:
+                    config_data = config_response.json()
+                    operator_id = operator_id or config_data.get("operator_id")
+                    operator_name = operator_name or config_data.get("operator_name")
+                    logger.info(f"✅ Fetched operator config: {operator_name} (ID: {operator_id})")
+                else:
+                    logger.warning(f"⚠️  Failed to fetch system config: {config_response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️  Error fetching system config: {e}")
+            # Use defaults if config fetch fails
+            if not operator_id:
+                operator_id = "operator-demo"
+            if not operator_name:
+                operator_name = "Carpeta Ciudadana Demo"
+    
+    logger.info(f"Using Operator ID: {operator_id}")
+    logger.info(f"Using Operator Name: {operator_name}")
 
     try:
         # Check if citizen already exists in local database
@@ -53,8 +80,8 @@ async def register_citizen(
             name=citizen_data.name,
             address=citizen_data.address,
             email=citizen_data.email,
-            operator_id=citizen_data.operator_id,
-            operator_name=citizen_data.operator_name,
+            operator_id=operator_id,
+            operator_name=operator_name,
         )
 
         db.add(citizen)
@@ -236,39 +263,169 @@ async def register_citizen(
         )
 
 
+@router.get("/", response_model=list[CitizenResponse])
+async def list_citizens(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    skip: int = 0,
+    limit: int = 100,
+) -> list[Citizen]:
+    """List all citizens."""
+    result = await db.execute(
+        select(Citizen).where(Citizen.is_active == True).offset(skip).limit(limit)
+    )
+    citizens = result.scalars().all()
+    return list(citizens)
+
+
 @router.delete("/unregister", status_code=status.HTTP_200_OK)
 async def unregister_citizen(
     data: CitizenUnregister,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, str]:
-    """Unregister a citizen."""
+    """Unregister a citizen.
+    
+    This endpoint:
+    1. Marks the citizen as inactive
+    2. Marks the associated user as inactive (soft delete)
+    3. Unregisters from MinTIC Hub
+    4. Publishes event to Service Bus
+    
+    This is the proper way to delete a citizen and their associated user account.
+    """
     logger.info(f"Unregistering citizen: {data.id}")
 
     try:
-        # Get citizen
-        result = await db.execute(select(Citizen).where(Citizen.id == data.id))
-        citizen = result.scalar_one_or_none()
-
+        # Get citizen - first try by ID, then by email if ID is not a valid citizen ID (10 digits)
+        # This handles cases where the frontend sends user ID instead of citizen ID
+        citizen = None
+        
+        # Check if data.id looks like a citizen ID (10 digits)
+        if data.id.isdigit() and len(data.id) == 10:
+            # Try to find by citizen ID first
+            result = await db.execute(select(Citizen).where(Citizen.id == data.id))
+            citizen = result.scalar_one_or_none()
+            logger.info(f"Searched for citizen by ID: {data.id}, found: {citizen is not None}")
+        
+        # If not found and data.id is not 10 digits, it might be a user ID
+        # In this case, we need to find the citizen by looking up the user's email
+        if not citizen:
+            logger.info(f"Citizen not found by ID {data.id}, trying to find by user email...")
+            from sqlalchemy import text
+            
+            # Try to find user by ID (which might be the user ID from the users table)
+            user_query = text("""
+                SELECT email FROM users 
+                WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
+                LIMIT 1
+            """)
+            user_result = await db.execute(user_query, {"user_id": data.id})
+            user_row = user_result.fetchone()
+            
+            if user_row and user_row.email:
+                logger.info(f"Found user with email: {user_row.email}, searching for citizen...")
+                # Now search for citizen by email
+                result = await db.execute(select(Citizen).where(Citizen.email == user_row.email))
+                citizen = result.scalar_one_or_none()
+                if citizen:
+                    logger.info(f"Found citizen by email: {citizen.id} (email: {citizen.email})")
+        
         if not citizen:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Citizen {data.id} not found",
+                detail=f"Citizen not found. Searched by ID '{data.id}' and associated user email.",
             )
 
-        # Mark as inactive
+        # Mark citizen as inactive
         citizen.is_active = False
+        await db.flush()  # Flush but don't commit yet
+
+        # Also mark associated user as inactive (soft delete)
+        # Users are linked to citizens by email
+        from sqlalchemy import text
+        
+        try:
+            # Soft delete the user using raw SQL (to avoid ORM issues with missing columns)
+            # Try soft delete with deleted_at first
+            user_delete_query = text("""
+                UPDATE users 
+                SET deleted_at = CURRENT_TIMESTAMP, is_active = false
+                WHERE email = :email
+            """)
+            result = await db.execute(user_delete_query, {"email": citizen.email})
+            if result.rowcount > 0:
+                logger.info(f"User with email {citizen.email} soft deleted (deleted_at set)")
+            else:
+                logger.info(f"No user found with email {citizen.email}")
+        except Exception as e:
+            # Fallback: just set is_active to False if deleted_at doesn't exist
+            logger.warning(f"Failed to soft delete with deleted_at: {e}, trying fallback...")
+            # Rollback the failed transaction before trying fallback
+            try:
+                await db.rollback()
+                # Re-flush the citizen change after rollback
+                citizen.is_active = False
+                await db.flush()
+            except Exception as rollback_error:
+                logger.warning(f"Error during rollback: {rollback_error}")
+            
+            try:
+                fallback_query = text("""
+                    UPDATE users 
+                    SET is_active = false
+                    WHERE email = :email
+                """)
+                result = await db.execute(fallback_query, {"email": citizen.email})
+                if result.rowcount > 0:
+                    logger.info(f"User with email {citizen.email} marked as inactive")
+                else:
+                    logger.info(f"No user found with email {citizen.email}")
+            except Exception as e2:
+                logger.warning(f"Failed to soft delete user: {e2}")
+                # Continue even if user deletion fails
+
+        # Commit both citizen and user changes
         await db.commit()
 
         # Unregister from MinTIC Hub (async, non-blocking)
+        # Get operator_id and operator_name from citizen or system config
+        operator_id = citizen.operator_id
+        operator_name = citizen.operator_name
+        
+        # If citizen doesn't have operator info, fetch from system config
+        if not operator_id or not operator_name:
+            logger.info("Citizen doesn't have operator info, fetching from system config...")
+            try:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
+                    config_response = await client.get(
+                        f"{settings.mintic_client_url}/api/mintic/system-config/operator"
+                    )
+                    if config_response.status_code == 200:
+                        config_data = config_response.json()
+                        operator_id = operator_id or config_data.get("operator_id")
+                        operator_name = operator_name or config_data.get("operator_name")
+                        logger.info(f"✅ Fetched operator config: {operator_name} (ID: {operator_id})")
+                    else:
+                        logger.warning(f"⚠️  Failed to fetch system config: {config_response.status_code}")
+            except Exception as e:
+                logger.warning(f"⚠️  Error fetching system config: {e}")
+                # Use defaults if config fetch fails
+                if not operator_id:
+                    operator_id = "operator-demo"
+                if not operator_name:
+                    operator_name = "Carpeta Ciudadana Demo"
+        
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
+                # httpx.AsyncClient.delete() doesn't accept 'json', use 'content' with json.dumps
+                import json as json_lib
                 response = await client.delete(
                     f"{settings.mintic_client_url}/apis/unregisterCitizen",
-                    json={
+                    content=json_lib.dumps({
                         "id": int(citizen.id),
-                        "operatorId": citizen.operator_id,
-                        "operatorName": citizen.operator_name,
-                    }
+                        "operatorId": operator_id,
+                        "operatorName": operator_name,
+                    }),
+                    headers={"Content-Type": "application/json"}
                 )
                 if response.status_code == 200:
                     logger.info(f"Citizen {citizen.id} unregistered from MinTIC Hub")
@@ -277,14 +434,28 @@ async def unregister_citizen(
         except Exception as e:
             logger.error(f"Error calling MinTIC client: {e}")
         
-        # TODO: Publish event to Service Bus/SQS for async processing
+        # Publish event to Service Bus
+        try:
+            from carpeta_common.bus import publish_citizen_unregistered
+            
+            await publish_citizen_unregistered(
+                citizen_id=citizen.id,
+                email=citizen.email,
+                operator_id=str(citizen.operator_id) if citizen.operator_id else "carpeta-ciudadana"
+            )
+            logger.info("Event published to Service Bus")
+        except ImportError:
+            logger.warning("carpeta_common not installed, skipping event publishing")
+        except Exception as e:
+            logger.warning(f"Failed to publish event: {e}")
 
-        return {"message": f"Citizen {data.id} unregistered successfully"}
+        return {"message": f"Citizen {data.id} and associated user unregistered successfully"}
     
     except HTTPException:
         raise  # Re-raise HTTP exceptions
     except Exception as e:
         logger.error(f"Error unregistering citizen {data.id}: {e}")
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"

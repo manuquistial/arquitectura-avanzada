@@ -5,7 +5,8 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.client import MinTICClient
 from app.database import get_db
@@ -16,6 +17,7 @@ from app.models import (
     RegisterCitizenRequest,
     RegisterOperatorRequest,
     RegisterTransferEndPointRequest,
+    SystemOperatorConfigRequest,
     UnregisterCitizenRequest,
 )
 
@@ -91,7 +93,7 @@ async def validate_citizen(
 async def register_operator(
     data: RegisterOperatorRequest,
     client: Annotated[MinTICClient, Depends(get_mintic_client)],
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MinTICResponse:
     """Register operator in MinTIC Hub and persist in database."""
     logger.info(f"Registering operator: {data.name}")
@@ -112,13 +114,29 @@ async def register_operator(
     
     # Persist in database
     try:
-        from app.services.operator_service import OperatorService
-        operator_service = OperatorService(db)
-        operator_service.create_operator(data, mintic_operator_id)
+        from app.database_models import Operator
+        import json
+        
+        # Convert participants list to JSON string
+        participants_json = json.dumps(data.participants) if data.participants else None
+        
+        operator = Operator(
+            mintic_operator_id=mintic_operator_id,
+            name=data.name,
+            address=data.address,
+            contact_mail=data.contactMail,
+            participants=participants_json,
+            is_active=True
+        )
+        
+        db.add(operator)
+        await db.commit()
+        await db.refresh(operator)
         
         logger.info(f"✅ Operator registered and persisted: {data.name} (MinTIC ID: {mintic_operator_id})")
         
     except Exception as e:
+        await db.rollback()
         logger.error(f"❌ Failed to persist operator in database: {e}")
         # Note: We don't raise here because MinTIC registration was successful
         # The operator exists in MinTIC Hub even if our DB save failed
@@ -307,14 +325,20 @@ async def validate_document_with_hub(
 # Operator Management Endpoints
 @router.get("/operators/local")
 async def get_local_operators(
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     active_only: bool = True
 ) -> dict:
     """Get all operators from local database."""
     try:
-        from app.services.operator_service import OperatorService
-        operator_service = OperatorService(db)
-        operators = operator_service.get_all_operators(active_only=active_only)
+        from app.database_models import Operator
+        
+        query = select(Operator)
+        if active_only:
+            query = query.where(Operator.is_active == True)
+        query = query.order_by(Operator.created_at.desc())
+        
+        result = await db.execute(query)
+        operators = result.scalars().all()
         
         return {
             "operators": [
@@ -345,13 +369,16 @@ async def get_local_operators(
 @router.get("/operators/local/{operator_id}")
 async def get_local_operator(
     operator_id: int,
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Get operator by ID from local database."""
     try:
-        from app.services.operator_service import OperatorService
-        operator_service = OperatorService(db)
-        operator = operator_service.get_operator_by_id(operator_id)
+        from app.database_models import Operator
+        
+        result = await db.execute(
+            select(Operator).where(Operator.id == operator_id)
+        )
+        operator = result.scalar_one_or_none()
         
         if not operator:
             raise HTTPException(
@@ -384,25 +411,33 @@ async def get_local_operator(
 @router.put("/operators/local/{operator_id}/deactivate")
 async def deactivate_operator(
     operator_id: int,
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Deactivate operator."""
     try:
-        from app.services.operator_service import OperatorService
-        operator_service = OperatorService(db)
+        from app.database_models import Operator
         
-        success = operator_service.deactivate_operator(operator_id)
-        if not success:
+        result = await db.execute(
+            select(Operator).where(Operator.id == operator_id)
+        )
+        operator = result.scalar_one_or_none()
+        
+        if not operator:
             raise HTTPException(
                 status_code=404,
                 detail=f"Operator with ID {operator_id} not found"
             )
         
+        operator.is_active = False
+        await db.commit()
+        
+        logger.info(f"✅ Operator deactivated: {operator.name}")
         return {"message": f"Operator {operator_id} deactivated successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to deactivate operator {operator_id}: {e}")
         raise HTTPException(
             status_code=500,
@@ -413,28 +448,191 @@ async def deactivate_operator(
 @router.delete("/operators/local/{operator_id}")
 async def delete_operator(
     operator_id: int,
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)]
 ) -> dict:
     """Delete operator."""
     try:
-        from app.services.operator_service import OperatorService
-        operator_service = OperatorService(db)
+        from app.database_models import Operator
         
-        success = operator_service.delete_operator(operator_id)
-        if not success:
+        result = await db.execute(
+            select(Operator).where(Operator.id == operator_id)
+        )
+        operator = result.scalar_one_or_none()
+        
+        if not operator:
             raise HTTPException(
                 status_code=404,
                 detail=f"Operator with ID {operator_id} not found"
             )
         
+        await db.delete(operator)
+        await db.commit()
+        
+        logger.info(f"✅ Operator deleted: {operator.name}")
         return {"message": f"Operator {operator_id} deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to delete operator {operator_id}: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete operator: {str(e)}"
+        )
+
+
+# ========================================
+# System Configuration Endpoints
+# ========================================
+
+@router.get("/system-config/operator")
+async def get_system_operator_config(
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
+    """Get the system operator configuration (operatorId and operatorName).
+    
+    This is the operator configuration that should be used throughout
+    the entire system for all MinTIC Hub interactions.
+    """
+    try:
+        from app.database_models import SystemConfig
+        
+        # Get operator_id
+        result = await db.execute(
+            select(SystemConfig).filter(
+                SystemConfig.config_key == "system_operator_id"
+            )
+        )
+        operator_id_config = result.scalar_one_or_none()
+        
+        # Get operator_name
+        result = await db.execute(
+            select(SystemConfig).filter(
+                SystemConfig.config_key == "system_operator_name"
+            )
+        )
+        operator_name_config = result.scalar_one_or_none()
+        
+        # Return configured values or defaults
+        operator_id = operator_id_config.config_value if operator_id_config else None
+        operator_name = operator_name_config.config_value if operator_name_config else None
+        
+        # Fallback to configured defaults if not set
+        if not operator_id or not operator_name:
+            from app.config import get_config
+            config = get_config()
+            operator_id = operator_id or config.mintic_operator_id
+            operator_name = operator_name or config.mintic_operator_name
+        
+        return {
+            "operator_id": operator_id,
+            "operator_name": operator_name,
+            "is_configured": operator_id_config is not None and operator_name_config is not None
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get system operator config: {e}")
+        # Fallback to configured defaults on error
+        from app.config import get_config
+        config = get_config()
+        return {
+            "operator_id": config.mintic_operator_id,
+            "operator_name": config.mintic_operator_name,
+            "is_configured": False
+        }
+
+
+@router.put("/system-config/operator")
+async def update_system_operator_config(
+    config_data: SystemOperatorConfigRequest,
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict:
+    """Update the system operator configuration.
+    
+    This sets the operatorId and operatorName that will be used
+    throughout the entire system.
+    
+    Request body:
+    {
+        "operator_id": "OP-12345",
+        "operator_name": "Carpeta Ciudadana",
+        "updated_by": "admin@carpeta.com" (optional)
+    }
+    """
+    try:
+        from app.database_models import SystemConfig
+        from datetime import datetime
+        
+        operator_id = config_data.operator_id
+        operator_name = config_data.operator_name
+        updated_by = config_data.updated_by
+        
+        if not operator_id or not operator_name:
+            raise HTTPException(
+                status_code=400,
+                detail="operator_id and operator_name are required"
+            )
+        
+        # Update or create operator_id config
+        result = await db.execute(
+            select(SystemConfig).filter(
+                SystemConfig.config_key == "system_operator_id"
+            )
+        )
+        operator_id_config = result.scalar_one_or_none()
+        
+        if operator_id_config:
+            operator_id_config.config_value = operator_id
+            operator_id_config.updated_at = datetime.utcnow()
+            operator_id_config.updated_by = updated_by
+        else:
+            operator_id_config = SystemConfig(
+                config_key="system_operator_id",
+                config_value=operator_id,
+                description="System operator ID for MinTIC Hub interactions",
+                updated_by=updated_by
+            )
+            db.add(operator_id_config)
+        
+        # Update or create operator_name config
+        result = await db.execute(
+            select(SystemConfig).filter(
+                SystemConfig.config_key == "system_operator_name"
+            )
+        )
+        operator_name_config = result.scalar_one_or_none()
+        
+        if operator_name_config:
+            operator_name_config.config_value = operator_name
+            operator_name_config.updated_at = datetime.utcnow()
+            operator_name_config.updated_by = updated_by
+        else:
+            operator_name_config = SystemConfig(
+                config_key="system_operator_name",
+                config_value=operator_name,
+                description="System operator name for MinTIC Hub interactions",
+                updated_by=updated_by
+            )
+            db.add(operator_name_config)
+        
+        await db.commit()
+        
+        logger.info(f"✅ System operator config updated: {operator_name} (ID: {operator_id})")
+        
+        return {
+            "message": "System operator configuration updated successfully",
+            "operator_id": operator_id,
+            "operator_name": operator_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to update system operator config: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update system operator config: {str(e)}"
         )
 

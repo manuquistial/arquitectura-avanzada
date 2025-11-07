@@ -75,6 +75,30 @@ export default function UsersAdminPage() {
     }
   };
 
+  const handleUnregisterCitizen = async (userId: string, userEmail: string) => {
+    if (!confirm(`¿Estás seguro de que deseas desregistrar al ciudadano/usuario ${userEmail}? Esta acción eliminará el usuario, desactivará el ciudadano y desregistrará del Hub MinTIC. No se puede deshacer.`)) {
+      return;
+    }
+    
+    try {
+      // In most cases, userId is the same as citizenId (citizen ID is used as user ID when registering)
+      // So we'll try using userId directly as citizenId
+      // If the citizen is not found, the backend will return a 404 and we can handle it
+      const citizenId = userId;
+      
+      await apiService.unregisterCitizen({
+        id: citizenId
+        // operator_id is not sent - backend will fetch it from citizen or system config
+      });
+      await fetchUsers();
+      alert('Ciudadano/usuario desregistrado correctamente');
+    } catch (error: any) {
+      console.error('Error unregistering citizen:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Error al desregistrar el ciudadano/usuario';
+      alert(errorMessage);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     if (filter === 'active') return user.is_active;
     if (filter === 'inactive') return !user.is_active;
@@ -248,12 +272,22 @@ export default function UsersAdminPage() {
                         {formatDate(user.last_login_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => setEditingUser(user)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          Editar
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setEditingUser(user)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Editar
+                          </button>
+                          {user.id !== session?.user?.id && (
+                            <button
+                              onClick={() => handleUnregisterCitizen(user.id, user.email)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Desregistrar
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

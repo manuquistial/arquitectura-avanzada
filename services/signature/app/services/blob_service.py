@@ -36,7 +36,24 @@ class BlobService:
             self.client = None
             return
         
-        # Try to use Managed Identity first
+        # Use Account Key first (Managed Identity may not have blob read permissions)
+        # Try Account Key first since we know it works for Ingestion Service
+        logger.info(f"🔧 Initializing BlobService - Account Name: {config.azure_storage_account_name}, Has Key: {bool(config.azure_storage_account_key)}")
+        if config.azure_storage_account_key and config.azure_storage_account_name:
+            try:
+                logger.info("🔧 Attempting to use Account Key for Azure Blob Storage")
+                self._try_account_key_fallback()
+                if self.client:
+                    logger.info("✅ Using Account Key for Azure Blob Storage (bypassing Managed Identity)")
+                    return
+                else:
+                    logger.warning("⚠️  Account Key setup did not create client, trying Managed Identity as fallback")
+            except Exception as e:
+                logger.warning(f"⚠️  Account Key setup failed: {e}, trying Managed Identity as fallback", exc_info=True)
+        else:
+            logger.warning(f"⚠️  Account Key or Account Name not available - Key: {bool(config.azure_storage_account_key)}, Name: {bool(config.azure_storage_account_name)}")
+        
+        # Fallback to Managed Identity if Account Key is not available
         if config.azure_storage_account_name:
             try:
                 account_url = f"https://{config.azure_storage_account_name}.blob.core.windows.net"
@@ -51,11 +68,11 @@ class BlobService:
             except AzureError as e:
                 logger.warning(f"⚠️  Azure Managed Identity auth failed: {e}")
                 self.use_managed_identity = False
-                self._try_account_key_fallback()
+                self.client = None
             except Exception as e:
                 logger.error(f"❌ Unexpected error during Managed Identity setup: {e}")
                 self.use_managed_identity = False
-                self._try_account_key_fallback()
+                self.client = None
         else:
             logger.warning("⚠️  Azure Storage account name not configured")
             self.client = None
@@ -64,6 +81,7 @@ class BlobService:
         """Try Account Key fallback for Azure Blob Storage."""
         try:
             if self.config.azure_storage_account_key:
+                logger.info(f"🔧 Creating BlobServiceClient with Account Key for account: {self.config.azure_storage_account_name}")
                 connection_string = (
                     f"DefaultEndpointsProtocol=https;"
                     f"AccountName={self.config.azure_storage_account_name};"
@@ -71,16 +89,18 @@ class BlobService:
                     f"EndpointSuffix=core.windows.net"
                 )
                 self.client = BlobServiceClient.from_connection_string(connection_string)
-                logger.info("✅ Using Account Key for Azure Blob Storage")
+                logger.info(f"✅ BlobServiceClient created successfully using Account Key")
             else:
                 logger.warning("⚠️  Azure Storage account key not configured")
                 self.client = None
         except AzureError as e:
-            logger.error(f"❌ Azure Account Key authentication failed: {e}")
+            logger.error(f"❌ Azure Account Key authentication failed: {e}", exc_info=True)
             self.client = None
+            raise
         except Exception as e:
-            logger.error(f"❌ Unexpected error during Account Key setup: {e}")
+            logger.error(f"❌ Unexpected error during Account Key setup: {e}", exc_info=True)
             self.client = None
+            raise
     
     def _get_user_delegation_key(self) -> UserDelegationKey | None:
         """Get User Delegation Key for generating User Delegation SAS.

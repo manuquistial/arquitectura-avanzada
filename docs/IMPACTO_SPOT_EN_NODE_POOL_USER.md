@@ -216,3 +216,4 @@ kubectl describe node <spot-node> | grep "Allocated resources"
 
 
 
+

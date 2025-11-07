@@ -13,8 +13,8 @@ export interface CitizenCreate {
   name: string;
   address: string;
   email: string;
-  operator_id: string;
-  operator_name: string;
+  operator_id?: string; // Optional - will be fetched from system config if not provided
+  operator_name?: string; // Optional - will be fetched from system config if not provided
 }
 
 export interface CitizenResponse {
@@ -31,7 +31,7 @@ export interface CitizenResponse {
 
 export interface CitizenUnregister {
   id: string;
-  operator_id: string;
+  operator_id?: string; // Optional - backend will fetch it from citizen or system config
 }
 
 // ========================================

@@ -14,12 +14,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-try:
-    from carpeta_common.redis_client import get_redis_client
-    REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    logger.warning("⚠️  Redis not available, hub rate limiting disabled")
+# Redis client will be passed from MinTICClient
+REDIS_AVAILABLE = True
 
 try:
     from opentelemetry import metrics
@@ -35,28 +31,24 @@ class HubRateLimiter:
     Uses sliding window algorithm in Redis.
     """
     
-    def __init__(self, requests_per_minute: int = 10, enabled: bool = True):
+    def __init__(self, requests_per_minute: int = 10, enabled: bool = True, redis_client=None):
         """Initialize hub rate limiter.
         
         Args:
             requests_per_minute: Max requests per minute per endpoint
             enabled: Whether rate limiting is enabled
+            redis_client: Redis client instance (optional)
         """
         self.requests_per_minute = requests_per_minute
         self.enabled = enabled
-        self.redis_client = None
+        self.redis_client = redis_client
         
-        if enabled and REDIS_AVAILABLE:
-            try:
-                self.redis_client = get_redis_client()
-                logger.info(
-                    f"✅ Hub rate limiter initialized: {requests_per_minute} req/min per endpoint"
-                )
-            except Exception as e:
-                logger.warning(f"⚠️  Failed to connect to Redis: {e}")
-                self.enabled = False
+        if enabled and redis_client:
+            logger.info(
+                f"✅ Hub rate limiter initialized: {requests_per_minute} req/min per endpoint"
+            )
         else:
-            logger.warning("⚠️  Hub rate limiting disabled")
+            logger.warning("⚠️  Hub rate limiting disabled (Redis not available)")
         
         # OpenTelemetry metrics
         if OTEL_AVAILABLE:
@@ -82,17 +74,31 @@ class HubRateLimiter:
         if not self.enabled or not self.redis_client:
             return True, self.requests_per_minute
         
+        # Check if redis_client has a client attribute (RedisClient wrapper)
+        redis = self.redis_client
+        if not hasattr(redis, 'get'):
+            # Not a valid RedisClient instance, allow request
+            return True, self.requests_per_minute
+        
+        if hasattr(redis, 'client') and redis.client is None:
+            # Redis client not connected, allow request
+            return True, self.requests_per_minute
+        
         try:
             # Sliding window key: hub:ratelimit:{endpoint}:{current_minute}
             current_minute = int(time.time() / 60)
             key = f"hub:ratelimit:{endpoint}:{current_minute}"
             
             # Get current count
-            current_count = await self.redis_client.get(key)
+            current_count = await redis.get(key)
             if current_count is None:
                 current_count = 0
             else:
-                current_count = int(current_count)
+                # Try to convert to int if it's a string
+                try:
+                    current_count = int(current_count)
+                except (ValueError, TypeError):
+                    current_count = 0
             
             remaining = self.requests_per_minute - current_count
             
@@ -110,10 +116,9 @@ class HubRateLimiter:
                 return False, 0
             
             # Increment counter
-            pipe = self.redis_client.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, 60)  # TTL: 60 seconds
-            await pipe.execute()
+            # Use individual operations instead of pipeline
+            new_count = current_count + 1
+            await redis.set(key, str(new_count), ttl=60)
             
             remaining -= 1
             
@@ -163,7 +168,11 @@ class HubRateLimiter:
             if current_count is None:
                 current_count = 0
             else:
-                current_count = int(current_count)
+                # Try to convert to int if it's a string
+                try:
+                    current_count = int(current_count)
+                except (ValueError, TypeError):
+                    current_count = 0
             
             remaining = max(0, self.requests_per_minute - current_count)
             reset_at = (current_minute + 1) * 60  # Next minute

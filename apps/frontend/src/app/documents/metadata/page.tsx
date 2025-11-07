@@ -132,14 +132,29 @@ export default function MetadataPage() {
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  const getStateBadge = (state: string) => {
-    switch (state) {
-      case 'SIGNED':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Firmado</span>;
+  const getStateBadge = (doc: DocumentMetadata) => {
+    // Priority 1: Check if document is signed (state or worm_locked)
+    if (doc.state === 'SIGNED' || doc.worm_locked) {
+      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
+    }
+    // Priority 2: Check status field for backward compatibility
+    if (doc.status === 'signed' || doc.status === 'authenticated') {
+      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
+    }
+    // Priority 3: Check upload status
+    if (!doc.is_uploaded) {
+      return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">⏳ Pendiente</span>;
+    }
+    // Priority 4: Show state
+    switch (doc.state) {
       case 'UNSIGNED':
-        return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Sin Firmar</span>;
+        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
       default:
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{state}</span>;
+        // If status is uploaded but state is unknown, show as uploaded
+        if (doc.status === 'uploaded') {
+          return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
+        }
+        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{doc.state || doc.status}</span>;
     }
   };
 
@@ -281,10 +296,13 @@ export default function MetadataPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="space-y-1">
-                          {getStateBadge(doc.state)}
-                          <div className="text-xs text-gray-500">
-                            {doc.is_uploaded ? '✅ Subido' : '⏳ Pendiente'}
-                          </div>
+                          {getStateBadge(doc)}
+                          {/* Show additional info only if document is not signed */}
+                          {doc.state !== 'SIGNED' && !doc.worm_locked && (
+                            <div className="text-xs text-gray-500">
+                              {doc.is_uploaded ? '✅ Subido' : '⏳ Pendiente subida'}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -108,27 +108,42 @@ start_aks() {
         echo -e "${YELLOW}⚠️  No se pudieron obtener los node pools de AKS${NC}"
         echo -e "${YELLOW}   Escalando a valores por defecto...${NC}"
         
-        # Escalar a valores por defecto
-        for POOL in system user; do
-            echo -e "  ${YELLOW}→ Escalando node pool '${POOL}' a 1...${NC}"
-            if az aks nodepool scale \
-                --resource-group "$RESOURCE_GROUP" \
-                --cluster-name "$AKS_CLUSTER" \
-                --name "$POOL" \
-                --node-count 1 \
-                --no-wait 2>/dev/null; then
-                echo -e "  ${GREEN}✓ Node pool '${POOL}' escalado a 1${NC}"
-            else
-                echo -e "  ${YELLOW}⚠️  Node pool '${POOL}' no existe o ya está escalado${NC}"
-            fi
-        done
+        # Escalar a valores por defecto (system: 1, user: 2 según configuración de Terraform)
+        echo -e "  ${YELLOW}→ Escalando node pool 'system' a 1...${NC}"
+        if az aks nodepool scale \
+            --resource-group "$RESOURCE_GROUP" \
+            --cluster-name "$AKS_CLUSTER" \
+            --name "system" \
+            --node-count 1 \
+            --no-wait 2>/dev/null; then
+            echo -e "  ${GREEN}✓ Node pool 'system' escalado a 1${NC}"
+        else
+            echo -e "  ${YELLOW}⚠️  Node pool 'system' no existe o ya está escalado${NC}"
+        fi
+        
+        echo -e "  ${YELLOW}→ Escalando node pool 'user' a 2...${NC}"
+        if az aks nodepool scale \
+            --resource-group "$RESOURCE_GROUP" \
+            --cluster-name "$AKS_CLUSTER" \
+            --name "user" \
+            --node-count 2 \
+            --no-wait 2>/dev/null; then
+            echo -e "  ${GREEN}✓ Node pool 'user' escalado a 2${NC}"
+        else
+            echo -e "  ${YELLOW}⚠️  Node pool 'user' no existe o ya está escalado${NC}"
+        fi
     else
         # Usar valores mínimos de cada node pool
         # Si jq está disponible, usarlo; si no, usar valores por defecto
         if command -v jq &> /dev/null; then
             echo "$NODE_POOLS_JSON" | jq -r '.[] | "\(.name)|\(.min)"' | while IFS='|' read -r POOL MIN_COUNT; do
                 if [ -z "$MIN_COUNT" ] || [ "$MIN_COUNT" = "null" ] || [ "$MIN_COUNT" = "0" ]; then
-                    MIN_COUNT=1
+                    # Usar valores por defecto según el tipo de pool (system: 1, user: 2)
+                    if [ "$POOL" = "user" ]; then
+                        MIN_COUNT=2
+                    else
+                        MIN_COUNT=1
+                    fi
                 fi
                 echo -e "  ${YELLOW}→ Escalando node pool '${POOL}' a ${MIN_COUNT}...${NC}"
                 if az aks nodepool scale \
@@ -143,21 +158,31 @@ start_aks() {
                 fi
             done
         else
-            # Sin jq, usar valores por defecto
+            # Sin jq, usar valores por defecto (system: 1, user: 2 según configuración de Terraform)
             echo -e "${YELLOW}⚠️  jq no está instalado, usando valores por defecto${NC}"
-            for POOL in system user; do
-                echo -e "  ${YELLOW}→ Escalando node pool '${POOL}' a 1...${NC}"
-                if az aks nodepool scale \
-                    --resource-group "$RESOURCE_GROUP" \
-                    --cluster-name "$AKS_CLUSTER" \
-                    --name "$POOL" \
-                    --node-count 1 \
-                    --no-wait 2>/dev/null; then
-                    echo -e "  ${GREEN}✓ Node pool '${POOL}' escalado a 1${NC}"
-                else
-                    echo -e "  ${YELLOW}⚠️  Node pool '${POOL}' no existe o ya está escalado${NC}"
-                fi
-            done
+            echo -e "  ${YELLOW}→ Escalando node pool 'system' a 1...${NC}"
+            if az aks nodepool scale \
+                --resource-group "$RESOURCE_GROUP" \
+                --cluster-name "$AKS_CLUSTER" \
+                --name "system" \
+                --node-count 1 \
+                --no-wait 2>/dev/null; then
+                echo -e "  ${GREEN}✓ Node pool 'system' escalado a 1${NC}"
+            else
+                echo -e "  ${YELLOW}⚠️  Node pool 'system' no existe o ya está escalado${NC}"
+            fi
+            
+            echo -e "  ${YELLOW}→ Escalando node pool 'user' a 2...${NC}"
+            if az aks nodepool scale \
+                --resource-group "$RESOURCE_GROUP" \
+                --cluster-name "$AKS_CLUSTER" \
+                --name "user" \
+                --node-count 2 \
+                --no-wait 2>/dev/null; then
+                echo -e "  ${GREEN}✓ Node pool 'user' escalado a 2${NC}"
+            else
+                echo -e "  ${YELLOW}⚠️  Node pool 'user' no existe o ya está escalado${NC}"
+            fi
         fi
     fi
 }
@@ -304,6 +329,7 @@ echo -e "  • PostgreSQL puede tardar 2-3 minutos en estar completamente listo"
 echo -e "  • Los pods de AKS pueden tardar unos minutos en iniciar"
 echo -e "  • Verifica el estado con: ${CYAN}kubectl get pods -n carpeta-ciudadana${NC}"
 echo ""
+
 
 
 

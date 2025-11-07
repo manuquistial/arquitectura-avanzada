@@ -65,9 +65,27 @@ async def sign_document(
         document_metadata = document_result.scalar_one_or_none()
         
         if not document_metadata:
+            logger.warning(f"⚠️  Document {request.document_id} not found in database for citizen {request.citizen_id}")
+            # Try to provide more helpful error message by checking if document exists for this citizen
+            try:
+                from sqlalchemy import text
+                check_result = await db.execute(
+                    text("SELECT COUNT(*) as count FROM document_metadata WHERE citizen_id = :citizen_id"),
+                    {"citizen_id": str(request.citizen_id)}
+                )
+                count_row = check_result.fetchone()
+                count = count_row[0] if count_row else 0
+                if count == 0:
+                    detail = f"Document {request.document_id} not found. No documents exist for citizen {request.citizen_id}"
+                else:
+                    detail = f"Document {request.document_id} not found. Citizen {request.citizen_id} has {count} document(s), but this ID doesn't match"
+            except Exception as check_error:
+                logger.debug(f"Could not check document count: {check_error}")
+                detail = f"Document {request.document_id} not found"
+            
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document {request.document_id} not found"
+                detail=detail
             )
         
         # Check if document is already signed
@@ -275,8 +293,11 @@ async def sign_document(
             signed_blob_url=sas_url
         )
         
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404, 400) as-is
+        raise
     except Exception as e:
-        logger.error(f"❌ Signing failed: {e}")
+        logger.error(f"❌ Signing failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Signing failed: {str(e)}"

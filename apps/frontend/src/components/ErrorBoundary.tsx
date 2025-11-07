@@ -23,8 +23,17 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    // TODO: Send to error tracking service (e.g., Sentry)
+    // Filter out errors from browser extensions
+    const isExtensionError = 
+      error.stack?.includes('content_script') ||
+      error.stack?.includes('chrome-extension://') ||
+      error.stack?.includes('extension://') ||
+      error.message.includes('content_script');
+    
+    if (!isExtensionError) {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+      // TODO: Send to error tracking service (e.g., Sentry)
+    }
   }
 
   render() {

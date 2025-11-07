@@ -49,6 +49,14 @@ class RegisterTransferEndPointRequest(BaseModel):
     endPointConfirm: str = Field(..., description="Transfer confirmation endpoint URL")
 
 
+class SystemOperatorConfigRequest(BaseModel):
+    """System operator configuration request."""
+    
+    operator_id: str = Field(..., description="System operator ID")
+    operator_name: str = Field(..., description="System operator name")
+    updated_by: str = Field(default="admin", description="User who updated the config")
+
+
 # Response Models
 class OperatorInfo(BaseModel):
     """Operator information."""
@@ -83,4 +91,3 @@ class MinTICResponse(BaseModel):
     def success(self) -> bool:
         """Alias for backward compatibility."""
         return self.ok
-

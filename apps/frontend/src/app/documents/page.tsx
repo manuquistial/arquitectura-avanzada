@@ -12,6 +12,9 @@ interface Document {
   filename: string;
   content_type: string;
   status: string;
+  state?: string;  // 'SIGNED' or 'UNSIGNED'
+  worm_locked?: boolean;
+  signed_at?: string;
   size_bytes?: number;
   created_at: string;
   updated_at: string;
@@ -117,16 +120,27 @@ export default function DocumentsPage() {
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (doc: Document) => {
+    // Priority 1: Check state and worm_locked (most reliable indicators)
+    if (doc.state === 'SIGNED' || doc.worm_locked) {
+      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
+    }
+    // Priority 2: Check status field for backward compatibility
+    if (doc.status === 'signed' || doc.status === 'authenticated') {
+      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
+    }
+    // Priority 3: Show status for unsigned documents
+    switch (doc.status) {
       case 'uploaded':
         return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
-      case 'signed':
-        return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Firmado</span>;
       case 'pending':
         return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Pendiente</span>;
       default:
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{status}</span>;
+        // If status is 'authenticated' but state is not SIGNED, show as uploaded
+        if (doc.status === 'authenticated' && doc.state !== 'SIGNED') {
+          return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
+        }
+        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{doc.status}</span>;
     }
   };
 
@@ -213,7 +227,7 @@ export default function DocumentsPage() {
               <div key={doc.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="text-3xl">📄</div>
-                  {getStatusBadge(doc.status)}
+                  {getStatusBadge(doc)}
                 </div>
                 
                 <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
@@ -236,7 +250,7 @@ export default function DocumentsPage() {
                     ⬇️ Descargar
                   </button>
                   
-                  {doc.status !== 'signed' && doc.state !== 'SIGNED' && (
+                  {doc.status !== 'signed' && doc.state !== 'SIGNED' && !doc.worm_locked && (
                     <button
                       onClick={() => router.push(`/documents/sign?document=${doc.id}`)}
                       className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded text-sm font-medium transition-colors"

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000")
 
     # MinTIC Hub (GovCarpeta APIs - public API, no auth required)
-    mintic_base_url: str = Field(default="https://mock-mintic-hub.example.com")
+    mintic_base_url: str = Field(default="https://mock-mintic-hub.example.com", alias="HUB_BASE_URL")
     mintic_operator_id: str = Field(default="operator-demo")
     mintic_operator_name: str = Field(default="Carpeta Ciudadana Demo")
 

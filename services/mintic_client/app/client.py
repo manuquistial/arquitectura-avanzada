@@ -67,14 +67,15 @@ class MinTICClient:
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
         )
         
+        # Redis client for caching
+        self.redis_client = RedisClient(settings)
+        
         # Hub rate limiter (protect public hub from saturation)
         self.hub_rate_limiter = HubRateLimiter(
             requests_per_minute=settings.hub_rate_limit_per_minute,
-            enabled=settings.hub_rate_limit_enabled
+            enabled=settings.hub_rate_limit_enabled,
+            redis_client=self.redis_client
         )
-        
-        # Redis client for caching
-        self.redis_client = RedisClient(settings)
         
         # Circuit breakers per endpoint
         self.circuit_breakers = {}

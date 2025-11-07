@@ -72,14 +72,14 @@ export default function RegisterPage() {
 
     try {
       // Register citizen (trim all fields)
+      // operator_id and operator_name are now fetched automatically from system config
       await apiService.registerCitizen({
         id: formData.id,
         name: formData.name.trim(),
         address: formData.address.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        operator_id: process.env.NEXT_PUBLIC_OPERATOR_ID || 'OP001',
-        operator_name: process.env.NEXT_PUBLIC_OPERATOR_NAME || 'Operador Demo',
+        // operator_id and operator_name are optional - will be fetched from system config
       });
 
       setSuccess(true);
