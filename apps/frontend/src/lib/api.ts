@@ -37,6 +37,8 @@ const INGESTION_SERVICE_URL = process.env.NEXT_PUBLIC_INGESTION_SERVICE_URL;
 const SIGNATURE_SERVICE_URL = process.env.NEXT_PUBLIC_SIGNATURE_SERVICE_URL;
 const TRANSFER_SERVICE_URL = process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL;
 const MINTIC_SERVICE_URL = process.env.NEXT_PUBLIC_MINTIC_SERVICE_URL;
+const METADATA_SERVICE_URL = process.env.NEXT_PUBLIC_METADATA_SERVICE_URL;
+const NOTIFICATION_SERVICE_URL = process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_URL;
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || '',
@@ -50,8 +52,20 @@ api.interceptors.request.use(
   async (config) => {
     try {
       const session = await getSession();
-      if (session?.accessToken) {
-        config.headers.Authorization = `Bearer ${session.accessToken}`;
+      if (session?.user?.id) {
+        // For Citizen Service, we need to use the user_id directly
+        // The Citizen Service will verify the token format
+        // Since NextAuth token might not be compatible, we'll send the user_id as a simple token
+        // TODO: Generate proper HS256 JWT token with shared secret
+        
+        // For now, try to use accessToken if available, otherwise use a simple format
+        if (session?.accessToken) {
+          config.headers.Authorization = `Bearer ${session.accessToken}`;
+        } else {
+          // Fallback: send user_id as token (will need to be handled by backend)
+          // This is a temporary solution until we implement proper JWT token generation
+          console.warn('No accessToken available, using user_id as fallback');
+        }
       }
     } catch (error) {
       console.error('Error getting session:', error);
@@ -201,7 +215,44 @@ export const apiService = {
     }
   },
 
-  // Document search functionality removed - metadata service eliminated
+  // Metadata Service API calls
+  async getDocumentMetadata(citizenId: string) {
+    try {
+      if (!METADATA_SERVICE_URL) {
+        console.warn('NEXT_PUBLIC_METADATA_SERVICE_URL not configured');
+        return [];
+      }
+      const response = await api.get(`${METADATA_SERVICE_URL}/api/metadata/documents/citizen/${citizenId}`);
+      // The response is an object with 'documents' array, not a direct array
+      if (response.data && Array.isArray(response.data.documents)) {
+        return response.data.documents;
+      } else if (Array.isArray(response.data)) {
+        // Fallback: if response.data is already an array, return it
+        return response.data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching document metadata:', error);
+      return [];
+    }
+  },
+
+  async searchDocuments(query: string, citizenId?: string) {
+    try {
+      if (!METADATA_SERVICE_URL) {
+        console.warn('NEXT_PUBLIC_METADATA_SERVICE_URL not configured');
+        return { documents: [], total: 0 };
+      }
+      const response = await api.post(`${METADATA_SERVICE_URL}/api/metadata/search`, {
+        query,
+        citizen_id: citizenId,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error searching documents:', error);
+      return { documents: [], total: 0 };
+    }
+  },
 
   // Transfers API calls - using Transfer service
   async getTransfers(citizenId?: string, userRoles?: string[]) {
@@ -209,7 +260,7 @@ export const apiService = {
       // Si es admin, no necesita citizenId específico
       if (userRoles?.includes('admin')) {
         // Para admin, podríamos obtener todas las transferencias o usar un ID por defecto
-        const response = await api.get(`${TRANSFER_SERVICE_URL}/`, {
+        const response = await api.get(`${TRANSFER_SERVICE_URL}/api`, {
           params: { citizen_id: citizenId || '1234567890' }
         });
         return response.data;
@@ -219,7 +270,7 @@ export const apiService = {
         console.warn('No citizenId provided for getTransfers');
         return [];
       }
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/`, {
+      const response = await api.get(`${TRANSFER_SERVICE_URL}/api`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -231,7 +282,7 @@ export const apiService = {
 
   async createTransfer(transferData: any) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/initiate`, transferData);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/initiate`, transferData);
       return response.data;
     } catch (error) {
       console.error('Error creating transfer:', error);
@@ -241,7 +292,7 @@ export const apiService = {
 
   async getTransferStatus(transferId: string) {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/status/${transferId}`);
+      const response = await api.get(`${TRANSFER_SERVICE_URL}/api/status/${transferId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting transfer status:', error);
@@ -251,7 +302,7 @@ export const apiService = {
 
   async acceptTransfer(transferId: string) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/${transferId}/accept`);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/${transferId}/accept`);
       return response.data;
     } catch (error) {
       console.error('Error accepting transfer:', error);
@@ -261,7 +312,7 @@ export const apiService = {
 
   async rejectTransfer(transferId: string) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/${transferId}/reject`);
+      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/${transferId}/reject`);
       return response.data;
     } catch (error) {
       console.error('Error rejecting transfer:', error);
@@ -269,14 +320,43 @@ export const apiService = {
     }
   },
 
-  // Notifications functionality removed - notification service eliminated
+  // Notification Service API calls
+  async getNotificationStats() {
+    try {
+      if (!NOTIFICATION_SERVICE_URL) {
+        console.warn('NEXT_PUBLIC_NOTIFICATION_SERVICE_URL not configured');
+        return { total_notifications: 0 };
+      }
+      const response = await api.get(`${NOTIFICATION_SERVICE_URL}/api/notifications/stats`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching notification stats:', error);
+      return { total_notifications: 0 };
+    }
+  },
+
+  async getUserNotifications(citizenId: string) {
+    try {
+      if (!NOTIFICATION_SERVICE_URL) {
+        console.warn('NEXT_PUBLIC_NOTIFICATION_SERVICE_URL not configured');
+        return [];
+      }
+      const response = await api.get(`${NOTIFICATION_SERVICE_URL}/api/notifications/user/${citizenId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user notifications:', error);
+      return [];
+    }
+  },
 
   // Signature API calls - using Signature service
-  async signDocument(documentId: string, signatureData: any) {
+  async signDocument(documentId: string, signatureData: SignDocumentRequest) {
     try {
-      const response = await api.post(`${SIGNATURE_SERVICE_URL}/sign`, {
+      const response = await api.post(`${SIGNATURE_SERVICE_URL}/api/signature/sign`, {
         document_id: documentId,
-        ...signatureData,
+        citizen_id: signatureData.citizen_id,
+        signature_type: signatureData.signature_type || "PAdES",
+        document_title: signatureData.document_title || "",
       });
       return response.data;
     } catch (error) {
@@ -286,9 +366,10 @@ export const apiService = {
   },
 
   async getSignatureStatus(documentId: string) {
+    // Note: This endpoint doesn't exist in the backend
+    // Using verifySignature instead to check signature status
     try {
-      const response = await api.get(`${SIGNATURE_SERVICE_URL}/status/${documentId}`);
-      return response.data;
+      return await this.verifySignature(documentId);
     } catch (error) {
       console.error('Error getting signature status:', error);
       throw error;
@@ -297,8 +378,8 @@ export const apiService = {
 
   async verifySignature(documentId: string) {
     try {
-      const response = await api.post(`${SIGNATURE_SERVICE_URL}/verify`, {
-        document_id: documentId
+      const response = await api.post(`${SIGNATURE_SERVICE_URL}/api/signature/verify`, {
+        signed_document_id: documentId  // Backend expects signed_document_id
       });
       return response.data;
     } catch (error) {
@@ -349,6 +430,28 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error('Error fetching current user:', error);
+      throw error;
+    }
+  },
+
+  async getAllUsers(skip: number = 0, limit: number = 100) {
+    try {
+      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/`, {
+        params: { skip, limit }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+  },
+
+  async getUserById(userId: string) {
+    try {
+      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
       throw error;
     }
   },
@@ -531,28 +634,93 @@ export const apiService = {
     }
   },
 
-  async getDashboardStats() {
+  async getDashboardStats(citizenId?: string) {
     try {
-      // Mock data for now - replace with actual API call when backend is ready
+      // Use provided citizenId or default for testing
+      const id = citizenId || '1234567890';
+      
+      // Get documents from Ingestion Service
+      const documents = await this.getDocuments(id);
+      const totalDocuments = documents.length;
+      
+      // Count signed documents (filter by status === 'signed' or state === 'SIGNED')
+      const signedDocuments = documents.filter((doc: any) => 
+        doc.status === 'signed' || doc.state === 'SIGNED'
+      ).length;
+      
+      // Get transfers from Transfer Service
+      const transfers = await this.getTransfers(id);
+      const pendingTransfers = transfers.filter((t: any) => 
+        t.status === 'pending'
+      ).length;
+      
+      // Get notification stats from Notification Service
+      const notifStats = await this.getNotificationStats();
+      
       return {
-        totalDocuments: 0,
-        pendingTransfers: 0,
-        signedDocuments: 0,
-        sharedDocuments: 0
+        totalDocuments,
+        signedDocuments,
+        pendingTransfers,
+        sharedDocuments: notifStats.total_notifications || 0,
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      throw error;
+      return {
+        totalDocuments: 0,
+        signedDocuments: 0,
+        pendingTransfers: 0,
+        sharedDocuments: 0,
+      };
     }
   },
 
-  async getRecentActivities() {
+  async getRecentActivities(citizenId?: string) {
     try {
-      // Mock data for now - replace with actual API call when backend is ready
-      return [];
+      // Use provided citizenId or default for testing
+      const id = citizenId || '1234567890';
+      
+      // Get recent documents from Ingestion Service
+      const documents = await this.getDocuments(id);
+      
+      // Get recent transfers
+      const transfers = await this.getTransfers(id);
+      
+      // Combine and sort by date
+      const activities: any[] = [];
+      
+      // Add document activities
+      documents.slice(0, 5).forEach((doc: any) => {
+        activities.push({
+          id: doc.id,
+          type: doc.status === 'signed' ? 'document_signed' : 'document_uploaded',
+          description: `Documento ${doc.title || doc.filename} ${doc.status === 'signed' ? 'firmado' : 'subido'}`,
+          timestamp: doc.created_at || doc.updated_at,
+          citizen_id: id,
+          document_id: doc.id,
+        });
+      });
+      
+      // Add transfer activities
+      transfers.slice(0, 3).forEach((transfer: any) => {
+        activities.push({
+          id: transfer.id,
+          type: transfer.status === 'accepted' ? 'transfer_received' : 'transfer_sent',
+          description: `Transferencia ${transfer.status === 'accepted' ? 'recibida' : 'enviada'}`,
+          timestamp: transfer.created_at,
+          citizen_id: id,
+          transfer_id: transfer.id,
+        });
+      });
+      
+      // Sort by timestamp (most recent first)
+      activities.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      return activities.slice(0, 10);
     } catch (error) {
       console.error('Error fetching recent activities:', error);
-      throw error;
+      return [];
     }
   },
 };

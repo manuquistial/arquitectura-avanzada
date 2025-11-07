@@ -4,25 +4,6 @@
 # Generado automáticamente por Terraform
 
 ---
-# ClusterSecretStore para Azure Key Vault (acceso global)
-apiVersion: external-secrets.io/v1beta1
-kind: ClusterSecretStore
-metadata:
-  name: azure-keyvault-store
-  labels:
-    app.kubernetes.io/name: carpeta-ciudadana
-    app.kubernetes.io/part-of: carpeta-ciudadana
-    component: secrets
-spec:
-  provider:
-    azurekv:
-      vaultUrl: "${keyvault_uri}"
-      authType: "WorkloadIdentity"
-      serviceAccountRef:
-        name: "external-secrets"
-        namespace: "external-secrets-system"
-
----
 # External Secret para Base de Datos
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
@@ -36,7 +17,7 @@ metadata:
 spec:
   refreshInterval: "5m"  # Sincronizar cada 5 minutos
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: database-credentials
@@ -89,7 +70,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: azure-storage-secrets
@@ -122,7 +103,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: servicebus-secrets
@@ -151,7 +132,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: redis-secrets
@@ -188,7 +169,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: azure-b2c-secrets
@@ -225,7 +206,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: jwt-secret
@@ -250,7 +231,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: m2m-auth-secrets
@@ -283,7 +264,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: nextauth-secret
@@ -312,7 +293,7 @@ metadata:
 spec:
   refreshInterval: "5m"
   secretStoreRef:
-    name: azure-keyvault-store
+    name: azure-keyvault
     kind: ClusterSecretStore
   target:
     name: frontend-config

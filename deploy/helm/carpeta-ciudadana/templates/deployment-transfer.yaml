@@ -15,6 +15,8 @@ spec:
     metadata:
       labels:
         app: transfer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
       containers:
@@ -28,19 +30,23 @@ spec:
         # DATABASE_URL is provided by the secret database-credentials
         - name: SERVICEBUS_ENABLED
           value: "{{ .Values.serviceBus.enabled | default false }}"
+        - name: TRANSFER_EVENTS_QUEUE
+          value: "transfer-events"
         {{- if .Values.serviceBus.enabled }}
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
-              name: sb-conn
+              name: servicebus-secrets-transfer
               key: SERVICEBUS_CONNECTION_STRING
-              optional: true
+              # NOT optional: Transfer Service requires Service Bus to publish and consume events
+              # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
         {{- end }}
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
             name: database-credentials
+            optional: true  # Opcional hasta que ExternalSecrets se sincronicen correctamente
         resources:
           {{- toYaml .Values.transfer.resources | nindent 10 }}
         livenessProbe:

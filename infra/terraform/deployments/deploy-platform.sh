@@ -10,7 +10,7 @@ set -e
 echo "🚀 Deploying PLATFORM LAYER..."
 
 # Cambiar al directorio de la capa de plataforma
-cd layers/platform
+cd "$(dirname "$0")/../layers/platform"
 
 # Inicializar Terraform
 echo "📦 Initializing Terraform..."

@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         app: mintic-client
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
         {{- include "carpeta-ciudadana.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
@@ -38,8 +40,10 @@ spec:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
             name: database-credentials
+            optional: true  # Opcional hasta que ExternalSecrets se sincronicen correctamente
         - secretRef:
-            name: redis-secrets
+            name: azure-secrets
+            optional: true  # Redis secrets están en azure-secrets
         resources:
           {{- toYaml .Values.minticClient.resources | nindent 10 }}
         livenessProbe:

@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 DOCKER_USERNAME="manuelquistial"
-IMAGE_NAME="carpeta-ciudadana-ingestion"
+IMAGE_NAME="carpeta-ingestion"
 IMAGE_TAG="latest"
 FULL_IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}"
 

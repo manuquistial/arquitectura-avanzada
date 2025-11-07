@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "metadata-service"
+version = "1.0.0"
+description = "Metadata Service for managing document metadata, consuming events, and providing search/indexing"
+authors = ["Carpeta Ciudadana Team"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+pydantic = "^2.12.3"
+pydantic-settings = "^2.6.0"
+azure-servicebus = "^7.11.4"
+httpx = "^0.26.0,<0.29.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.23"}
+asyncpg = "^0.30.0"
+carpeta-common = {path = "../common", develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest-cov = "^7.0.0"
+pytest = "^7.4.3"
+pytest-asyncio = "^0.23.2"
+ruff = "^0.1.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

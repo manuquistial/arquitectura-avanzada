@@ -25,13 +25,17 @@ def create_database_engine():
     # Base configuration optimized for Azure PostgreSQL
     engine_config = {
         "echo": config.debug,  # Enable echo in debug mode
+        # Reduce connection footprint per process to avoid saturating DB
+        "pool_size": 5,
+        "max_overflow": 5,
+        "pool_pre_ping": True,
     }
     
     # Azure PostgreSQL configuration (compatible with asyncpg)
     # Based on test_pod_db_connection.py results, asyncpg works with minimal configuration
     if config.is_azure_environment():
         engine_config["connect_args"] = {
-            "ssl": "require"  # Only ssl parameter is needed for asyncpg
+            "ssl": "require"  # asyncpg honors ssl=require in URL; keep for clarity
         }
         logger.info("Using Azure PostgreSQL configuration with asyncpg")
     else:

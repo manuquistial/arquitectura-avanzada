@@ -245,7 +245,7 @@ async def publish_citizen_registered(citizen_id: int, name: str, email: str) -> 
     """Publish citizen.registered event."""
     broker = await get_message_broker()
     return await broker.publish(
-        queue_name="citizen-registered",
+        queue_name="citizen-events",  # Standardized queue name
         event_type="citizen.registered",
         data={
             "citizen_id": citizen_id,

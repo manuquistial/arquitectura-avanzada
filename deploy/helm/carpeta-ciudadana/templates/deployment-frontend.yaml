@@ -15,6 +15,8 @@ spec:
     metadata:
       labels:
         app: frontend
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
@@ -63,6 +65,18 @@ spec:
             secretKeyRef:
               name: frontend-config
               key: NEXT_PUBLIC_MINTIC_SERVICE_URL
+              optional: true
+        - name: NEXT_PUBLIC_METADATA_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_METADATA_SERVICE_URL
+              optional: true
+        - name: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
               optional: true
         - name: NEXT_PUBLIC_API_URL
           valueFrom:

@@ -33,6 +33,7 @@ resource "helm_release" "external_secrets" {
       serviceAccount = {
         annotations = {
           "azure.workload.identity/client-id" = data.terraform_remote_state.platform.outputs.aks_managed_identity_client_id
+          "azure.workload.identity/tenant-id" = data.azurerm_client_config.current.tenant_id
         }
       }
       
@@ -40,6 +41,7 @@ resource "helm_release" "external_secrets" {
         serviceAccount = {
           annotations = {
             "azure.workload.identity/client-id" = data.terraform_remote_state.platform.outputs.aks_managed_identity_client_id
+            "azure.workload.identity/tenant-id" = data.azurerm_client_config.current.tenant_id
           }
         }
       }
@@ -48,6 +50,7 @@ resource "helm_release" "external_secrets" {
         serviceAccount = {
           annotations = {
             "azure.workload.identity/client-id" = data.terraform_remote_state.platform.outputs.aks_managed_identity_client_id
+            "azure.workload.identity/tenant-id" = data.azurerm_client_config.current.tenant_id
           }
         }
       }

@@ -35,12 +35,19 @@ except ImportError:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
+    import asyncio
+    
     logger.info(f"Starting Ingestion Service in {config.environment} mode...")
     logger.info(f"Database: {config.database_host}:{config.database_port}/{config.database_name}")
     logger.info(f"Azure Storage: {config.azure_storage_account_name}")
     
-    # Initialize database
-    await init_db()
+    # Initialize database (non-blocking/with timeout to avoid probe kills)
+    try:
+        await asyncio.wait_for(init_db(), timeout=30.0)
+    except asyncio.TimeoutError:
+        logger.warning("⚠️  Database initialization timed out, continuing startup")
+    except Exception as e:
+        logger.warning(f"⚠️  Database initialization failed: {e}")
     
     yield
     

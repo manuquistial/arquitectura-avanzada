@@ -38,6 +38,8 @@ class LoginResponse(BaseModel):
     family_name: Optional[str] = None
     roles: list[str] = []
     permissions: list[str] = []
+    access_token: Optional[str] = None
+    id_token: Optional[str] = None
 
 
 class TokenRequest(BaseModel):
@@ -120,6 +122,76 @@ async def login(
                 detail="Invalid credentials"
             )
         
+        # Generate JWT tokens
+        access_token = None
+        id_token = None
+        
+        # Always generate HS256 token for Citizen Service compatibility
+        # This is the primary token needed for API calls
+        from jose import jwt as jose_jwt
+        from datetime import datetime, timedelta
+        import os
+        
+        try:
+            # Get secret key (same as Citizen Service uses)
+            citizen_jwt_secret = os.getenv("CITIZEN_JWT_SECRET_KEY") or os.getenv("JWT_SECRET_KEY") or "mock_jwt_secret_key_123"
+            
+            # Create HS256 token payload (same format as Citizen Service expects)
+            now = datetime.utcnow()
+            hs256_payload = {
+                "sub": str(user["id"]),  # User ID (must match Citizen Service user ID, ensure it's a string)
+                "email": user["email"],
+                "name": user.get("name"),
+                "given_name": user.get("given_name"),
+                "family_name": user.get("family_name"),
+                "roles": user.get("roles", []),
+                "permissions": user.get("permissions", []),
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(hours=24)).timestamp()),  # 24 hours expiration
+            }
+            
+            # Generate HS256 token for Citizen Service
+            access_token = jose_jwt.encode(
+                hs256_payload,
+                citizen_jwt_secret,
+                algorithm="HS256"
+            )
+            
+            logger.info(f"✅ Generated HS256 JWT token for user: {user['email']}")
+            
+            # Try to generate RS256 tokens for OIDC compatibility (optional)
+            try:
+                from app.services.jwt_service import get_jwt_service
+                jwt_service = get_jwt_service()
+                rs256_access_token = jwt_service.create_access_token(user)
+                id_token = jwt_service.create_id_token(user, "carpeta-ciudadana-api")
+                logger.info(f"✅ Also generated RS256 JWT tokens for OIDC compatibility")
+            except Exception as rs_error:
+                logger.debug(f"RS256 token generation skipped (optional): {rs_error}")
+                # RS256 tokens are optional, so we don't fail if they can't be generated
+                
+        except Exception as jwt_error:
+            logger.error(f"❌ JWT token generation failed: {jwt_error}", exc_info=True)
+            # Don't return None - this is critical for API access
+            # Try to generate a minimal token as fallback
+            try:
+                from jose import jwt as jose_jwt_fallback
+                from datetime import datetime, timedelta
+                import os
+                fallback_secret = os.getenv("JWT_SECRET_KEY") or "mock_jwt_secret_key_123"
+                fallback_payload = {
+                    "sub": str(user["id"]),
+                    "email": user["email"],
+                    "roles": user.get("roles", []),
+                    "iat": int(datetime.utcnow().timestamp()),
+                    "exp": int((datetime.utcnow() + timedelta(hours=24)).timestamp()),
+                }
+                access_token = jose_jwt_fallback.encode(fallback_payload, fallback_secret, algorithm="HS256")
+                logger.warning(f"⚠️ Generated fallback HS256 token due to error: {jwt_error}")
+            except Exception as fallback_error:
+                logger.error(f"❌ Even fallback token generation failed: {fallback_error}")
+                # Return None - let the response indicate no token was generated
+        
         return LoginResponse(
             id=user["id"],
             email=user["email"],
@@ -127,7 +199,9 @@ async def login(
             given_name=user["given_name"],
             family_name=user["family_name"],
             roles=user["roles"],
-            permissions=user["permissions"]
+            permissions=user["permissions"],
+            access_token=access_token,
+            id_token=id_token
         )
         
     except HTTPException:
@@ -235,7 +309,8 @@ async def token(request: TokenRequest):
             else:
                 # Fallback to local JWT tokens
                 logger.warning("⚠️ Azure AD B2C not configured, using local JWT tokens")
-                from app.services.jwt_service import jwt_service
+                from app.services.jwt_service import get_jwt_service
+                jwt_service = get_jwt_service()
                 
                 # Create mock user data for local token generation
                 user_data = {
@@ -335,7 +410,8 @@ async def userinfo(
     
     try:
         # Import JWT service for token verification
-        from app.services.jwt_service import jwt_service
+        from app.services.jwt_service import get_jwt_service
+        jwt_service = get_jwt_service()
         
         # Verify JWT token
         payload = jwt_service.verify_token(token)

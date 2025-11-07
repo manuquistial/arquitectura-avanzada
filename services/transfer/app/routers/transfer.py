@@ -373,6 +373,21 @@ async def transfer_citizen_confirm(
         transfer.confirmed_at = datetime.utcnow()
         await db.commit()
         message = f"Citizen {request.id} transfer confirmed"
+        
+        # Publish transfer.confirmed event
+        try:
+            from carpeta_common.bus import publish_transfer_confirmed
+            
+            await publish_transfer_confirmed(
+                transfer_id=transfer.id,
+                citizen_id=transfer.citizen_id,
+                success=True
+            )
+            logger.info(f"✅ Published transfer.confirmed event for transfer {transfer.id}")
+        except ImportError:
+            logger.warning("carpeta_common not installed, skipping event publishing")
+        except Exception as e:
+            logger.warning(f"Failed to publish transfer.confirmed event: {e}")
     else:
         # Failure: Mark transfer as failed
         logger.warning(f"Transfer failed for citizen {request.id}")
@@ -380,6 +395,21 @@ async def transfer_citizen_confirm(
         transfer.error_message = "Transfer rejected by destination operator"
         await db.commit()
         message = f"Citizen {request.id} transfer failed"
+        
+        # Publish transfer.confirmed event with success=False
+        try:
+            from carpeta_common.bus import publish_transfer_confirmed
+            
+            await publish_transfer_confirmed(
+                transfer_id=transfer.id,
+                citizen_id=transfer.citizen_id,
+                success=False
+            )
+            logger.info(f"✅ Published transfer.confirmed event (failed) for transfer {transfer.id}")
+        except ImportError:
+            logger.warning("carpeta_common not installed, skipping event publishing")
+        except Exception as e:
+            logger.warning(f"Failed to publish transfer.confirmed event: {e}")
 
     return TransferConfirmResponse(message=message)
 
@@ -454,14 +484,31 @@ async def initiate_transfer(
         # 4. Send transfer request to destination operator
         # 5. Update transfer status based on response
         
+        # Publish transfer.requested event to Service Bus for async processing
+        try:
+            from carpeta_common.bus import publish_transfer_requested
+            
+            await publish_transfer_requested(
+                transfer_id=int(transfer_id.split("-")[-1]) if "-" in transfer_id else 1,  # Extract numeric ID or default
+                citizen_id=request.citizen_id,
+                source_operator="carpeta-ciudadana",  # Current operator
+                destination_operator=request.destination_operator_id
+            )
+            logger.info(f"✅ Published transfer.requested event for {transfer_id}")
+        except ImportError:
+            logger.warning("carpeta_common not installed, skipping event publishing")
+        except Exception as e:
+            logger.warning(f"Failed to publish transfer.requested event: {e}")
+            # Continue without failing the request
+        
         # For now, simulate immediate success
-        # In production, this would be handled by a background worker
-        await simulate_transfer_process(transfer_id, request)
+        # In production, this would be handled by a background worker consuming the event
+        # await simulate_transfer_process(transfer_id, request)
         
         return InitiateTransferResponse(
             transfer_id=transfer_id,
             status=TransferStatus.PENDING,
-            message="Transfer initiated successfully",
+            message="Transfer initiated successfully, processing asynchronously",
             estimated_completion=now.replace(minute=(now.minute + 5) % 60),  # 5 minutes estimate
         )
         

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { apiService } from '@/lib/api';
 
 interface Document {
@@ -154,12 +155,32 @@ export default function DocumentsPage() {
             </p>
           </div>
           
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            📤 Subir Documento
-          </button>
+          <div className="flex gap-3">
+            <Link
+              href="/documents/search"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              🔍 Buscar
+            </Link>
+            <Link
+              href="/documents/metadata"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              📊 Metadata
+            </Link>
+            <Link
+              href="/documents/sign"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              ✍️ Firmar
+            </Link>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              📤 Subir
+            </button>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -214,6 +235,16 @@ export default function DocumentsPage() {
                   >
                     ⬇️ Descargar
                   </button>
+                  
+                  {doc.status !== 'signed' && doc.state !== 'SIGNED' && (
+                    <button
+                      onClick={() => router.push(`/documents/sign?document=${doc.id}`)}
+                      className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded text-sm font-medium transition-colors"
+                      title="Firmar documento"
+                    >
+                      ✍️
+                    </button>
+                  )}
                   
                   <button
                     onClick={() => handleDelete(doc.id)}

@@ -1,0 +1,102 @@
+# =============================================================================
+# PLATFORM LAYER - TERRAFORM VARIABLES EXAMPLE
+# =============================================================================
+# Copia este archivo como terraform.tfvars y configura los valores
+# =============================================================================
+
+# =============================================================================
+# VARIABLES COMPARTIDAS
+# =============================================================================
+
+# Azure Configuration
+azure_region = "westus2"
+azure_subscription_id = "f5b9ada6-2216-4ffb-8833-1f52700a2569"
+environment = "production"
+project_name = "carpeta-ciudadana"
+
+# Security Configuration
+security_contact_email = "security@carpeta-ciudadana.com"
+security_contact_phone = "+1-555-0123"
+
+# Network Configuration
+vnet_cidr = "10.0.0.0/16"
+subnet_cidrs = {
+  aks = "10.0.1.0/24"
+  db  = "10.0.2.0/24"
+}
+
+# DNS Configuration
+dns_zone_name = "carpeta-ciudadana.dev"
+app_subdomain = "app"
+
+# Domain Configuration
+domain_name = "carpeta-ciudadana.dev"
+enable_tls = false
+
+# =============================================================================
+# VARIABLES ESPECÍFICAS DE PLATFORM LAYER
+# =============================================================================
+
+# AKS Configuration
+aks_kubernetes_version = "1.31.11"
+aks_automatic_upgrade = "patch"
+aks_private_cluster = false
+aks_sku_tier = "Free"
+aks_authorized_ip_ranges = []
+aks_admin_groups = []
+aks_availability_zones = ["1", "2", "3"]
+aks_system_vm_size = "Standard_B2ms"
+aks_system_node_count = 1
+aks_system_node_min = 1
+aks_system_node_max = 2
+aks_user_vm_size = "Standard_B2ms"
+aks_user_node_min = 2
+aks_user_node_max = 3
+aks_enable_spot = true
+aks_spot_vm_size = "Standard_B2s"
+aks_spot_node_min = 1
+aks_spot_node_max = 2
+aks_spot_max_price = -1
+aks_enable_autoscaling = true
+aks_service_cidr = "10.1.0.0/16"
+aks_dns_service_ip = "10.1.0.10"
+aks_outbound_type = "loadBalancer"
+aks_maintenance_day = "Sunday"
+aks_maintenance_hours = [2, 3, 4]
+aks_node_count = 3
+aks_vm_size = "Standard_B2ms"
+
+# Database Configuration
+db_admin_username = "psqladmin"
+db_admin_password = "2KFqv4LlAiRn7oFopoRoE3xZrR3bxytj3gsCF2NgbsA="
+db_sku_name = "GP_Standard_D2s_v3"
+db_storage_mb = 32768
+
+# Redis Configuration
+redis_enabled = true
+redis_sku = "Basic"
+redis_capacity = 0
+redis_family = "C"
+redis_enable_non_ssl_port = false
+redis_minimum_tls_version = "1.2"
+redis_enable_authentication = true
+redis_maxmemory_policy = "allkeys-lru"
+redis_enable_vnet_integration = false
+redis_enable_firewall_rules = false
+redis_allow_azure_services = false
+
+# Service Bus Configuration
+servicebus_enabled = true
+servicebus_sku = "Standard"
+servicebus_capacity = 0
+servicebus_public_network_access_enabled = true
+servicebus_minimum_tls_version = "1.2"
+
+# Key Vault Configuration
+keyvault_enabled = true
+
+# Front Door Configuration (infraestructura de red/gateway)
+frontdoor_enabled = false
+#frontdoor_frontend_hostname = "app.carpeta-ciudadana.dev"
+#frontdoor_api_hostname = "api.carpeta-ciudadana.dev"
+#frontdoor_enable_waf = trueservicebus_minimum_tls_version = "1.2"

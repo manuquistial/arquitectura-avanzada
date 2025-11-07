@@ -35,11 +35,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
     logger.info("Starting Citizen Service...")
     try:
-        await init_db()
-        logger.info("Database initialized successfully")
+        import asyncio
+        await asyncio.wait_for(init_db(), timeout=30.0)
+        logger.info("Database initialized (or continued) successfully")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️  Database initialization timed out, continuing startup")
     except Exception as e:
-        logger.warning(f"Database initialization failed: {e}")
-        logger.info("Continuing without database for testing purposes")
+        logger.warning(f"⚠️  Database initialization failed: {e}")
     logger.info("Citizen Service started")
     yield
     try:

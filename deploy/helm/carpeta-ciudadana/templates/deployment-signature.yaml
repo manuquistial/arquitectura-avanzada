@@ -15,8 +15,28 @@ spec:
     metadata:
       labels:
         app: signature
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      
+      {{- if .Values.signature.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.signature.nodeSelector | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.signature.tolerations }}
+      tolerations:
+        {{- toYaml .Values.signature.tolerations | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.signature.affinity }}
+      affinity:
+        {{- toYaml .Values.signature.affinity | nindent 8 }}
+      {{- end }}
+      
+      terminationGracePeriodSeconds: {{ .Values.signature.terminationGracePeriodSeconds | default 30 }}
+      
       containers:
       - name: signature
         image: "{{ .Values.global.imageRegistry }}/{{ .Values.signature.image.repository }}:{{ .Values.signature.image.tag }}"
@@ -27,6 +47,8 @@ spec:
         env:
         - name: ENVIRONMENT
           value: {{ .Values.global.environment | default "dev" }}
+        - name: LOG_LEVEL
+          value: {{ .Values.global.logLevel }}
         # DATABASE_URL is provided by the secret database-credentials
         - name: AZURE_STORAGE_ACCOUNT_NAME
           value: {{ .Values.azure.storage.accountName | default "devstorage" | quote }}
@@ -55,15 +77,18 @@ spec:
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
-              name: sb-conn
+              name: servicebus-secrets
               key: SERVICEBUS_CONNECTION_STRING
-              optional: true
+              # NOT optional: Signature Service requires Service Bus to publish signature events
+              # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
         {{- end }}
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
             name: database-credentials
+            # NOT optional: Signature Service requires database to function
+            # Secret created by External Secrets Operator from Azure Key Vault
         resources:
           {{- toYaml .Values.signature.resources | nindent 10 }}
         livenessProbe:

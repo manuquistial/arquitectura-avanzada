@@ -18,7 +18,8 @@ class DocumentMetadata(Base):
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     citizen_id: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Title is optional - if column doesn't exist in DB, it will be skipped
+    title: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None)
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -44,7 +45,7 @@ class DocumentMetadata(Base):
     state: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        default="UNSIGNED",  # UNSIGNED (editable, TTL 30d) | SIGNED (inmutable, 5y)
+        default="UNSIGNED",  # UNSIGNED (editable, TTL 30d) | SIGNED (inmutable, ETERNAL)
         index=True
     )
     worm_locked: Mapped[bool] = mapped_column(
@@ -59,7 +60,7 @@ class DocumentMetadata(Base):
     )
     retention_until: Mapped[date | None] = mapped_column(
         Date,
-        nullable=True,  # Auto-calculated: UNSIGNED=created+30d, SIGNED=signed+5y
+        nullable=True,  # Auto-calculated: UNSIGNED=created+30d, SIGNED=NULL (ETERNAL)
         index=True
     )
     hub_signature_ref: Mapped[str | None] = mapped_column(

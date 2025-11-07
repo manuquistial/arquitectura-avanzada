@@ -85,6 +85,13 @@ redis_enable_vnet_integration = false
 redis_enable_firewall_rules = false
 redis_allow_azure_services = false
 
+# Service Bus Configuration
+servicebus_enabled = true
+servicebus_sku = "Standard"
+servicebus_capacity = 0
+servicebus_public_network_access_enabled = true
+servicebus_minimum_tls_version = "1.2"
+
 # Key Vault (gestionado en SECURITY layer)
 keyvault_enabled = true
 

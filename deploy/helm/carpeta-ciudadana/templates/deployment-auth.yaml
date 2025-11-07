@@ -15,6 +15,8 @@ spec:
     metadata:
       labels:
         app: auth
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
@@ -73,15 +75,17 @@ spec:
         - name: SERVICEBUS_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
-              name: sb-conn
+              name: servicebus-secrets
               key: SERVICEBUS_CONNECTION_STRING
-              optional: true
+              # NOT optional: Auth Service requires Service Bus when enabled
+              # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
         {{- end }}
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
         - secretRef:
             name: database-credentials
+            optional: true  # Opcional hasta que ExternalSecrets se sincronicen correctamente
         - secretRef:
             name: azure-secrets
             optional: true
@@ -91,6 +95,13 @@ spec:
         - secretRef:
             name: jwt-secret
             optional: true
+        # Citizen JWT Secret for HS256 token generation
+        - name: CITIZEN_JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: JWT_SECRET_KEY
+              optional: true
         resources:
           {{- toYaml .Values.auth.resources | nindent 10 }}
         livenessProbe:

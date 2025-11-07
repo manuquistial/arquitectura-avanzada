@@ -19,18 +19,15 @@ try:
     COMMON_AVAILABLE = True
 except ImportError:
     COMMON_AVAILABLE = False
-    logging.basicConfig(
-        level=logging.WARNING,  # Only warnings and errors
-        format='%(levelname)s: %(message)s'  # Minimal format
-    )
 
 if COMMON_AVAILABLE:
     setup_logging()
 else:
-    # Optimized logging for production
+    # Use INFO level to see startup logs
+    log_level = getattr(get_config(), 'log_level', 'INFO')
     logging.basicConfig(
-        level=logging.WARNING,  # Only warnings and errors
-        format='%(levelname)s: %(message)s'  # Minimal format
+        level=getattr(logging, log_level.upper(), logging.INFO),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
 logger = logging.getLogger(__name__)
@@ -75,10 +72,11 @@ def create_app() -> FastAPI:
         openapi_url=None,  # Disable OpenAPI schema
     )
     
-    # CORS
+    # CORS - Split comma-separated string into list
+    cors_origins = config.cors_origins.split(",") if isinstance(config.cors_origins, str) else config.cors_origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=config.cors_origins,
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

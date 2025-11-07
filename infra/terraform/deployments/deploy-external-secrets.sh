@@ -22,8 +22,8 @@ if command -v az >/dev/null 2>&1; then
       AKS_RG="$(terraform -chdir="$PLATFORM_DIR" output -raw resource_group_name)"
       AKS_NAME="$(terraform -chdir="$PLATFORM_DIR" output -raw aks_cluster_name)"
       if [ -n "$AKS_RG" ] && [ -n "$AKS_NAME" ]; then
-        # Respetar AZURE_SUBSCRIPTION_ID si está definido
-        if [ -n "${AZURE_SUBSCRIPTION_ID:-}" ]; then
+        # Respetar AZURE_SUBSCRIPTION_ID si está definido y es válido
+        if [ -n "${AZURE_SUBSCRIPTION_ID:-}" ] && [ "$AZURE_SUBSCRIPTION_ID" != "635ab07e-b29c-417e-b2b2-008bc4fc57d6" ]; then
           echo "🪪 Setting Azure subscription: $AZURE_SUBSCRIPTION_ID"
           az account set --subscription "$AZURE_SUBSCRIPTION_ID" || true
         fi
@@ -48,7 +48,7 @@ if command -v kubectl >/dev/null 2>&1; then
 fi
 
 # Cambiar al directorio de External Secrets
-cd layers/external-secrets
+cd "$(dirname "$0")/../layers/external-secrets"
 
 # Inicializar Terraform
 echo "📦 Initializing Terraform..."

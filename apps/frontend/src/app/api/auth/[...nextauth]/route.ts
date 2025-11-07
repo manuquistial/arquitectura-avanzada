@@ -65,7 +65,9 @@ const authOptions: NextAuthOptions = {
               id: user.id,
               email: user.email,
               name: user.name,
-              roles: user.roles
+              roles: user.roles,
+              hasAccessToken: !!user.access_token,
+              hasIdToken: !!user.id_token
             });
             
             const userObject = {
@@ -75,7 +77,9 @@ const authOptions: NextAuthOptions = {
               given_name: user.given_name,
               family_name: user.family_name,
               roles: user.roles || ["user"],
-              permissions: user.permissions || ["read"]
+              permissions: user.permissions || ["read"],
+              accessToken: user.access_token || null,
+              idToken: user.id_token || null
             };
             
             console.log('✅ Returning user object:', userObject);
@@ -138,11 +142,22 @@ const authOptions: NextAuthOptions = {
         token.roles = u.roles ?? ((token.roles as string[] | undefined) ?? []);
         token.permissions = u.permissions ?? ((token.permissions as string[] | undefined) ?? []);
         
+        // Store access_token and id_token from Auth Service
+        const userWithTokens = u as unknown as { accessToken?: string; idToken?: string };
+        if (userWithTokens.accessToken) {
+          token.accessToken = userWithTokens.accessToken;
+        }
+        if (userWithTokens.idToken) {
+          token.idToken = userWithTokens.idToken;
+        }
+        
         console.log('🔑 Token updated with:', {
           sub: token.sub,
           email: token.email,
           name: token.name,
-          roles: token.roles
+          roles: token.roles,
+          hasAccessToken: !!token.accessToken,
+          hasIdToken: !!token.idToken
         });
         
         console.log('🔑 Full token object:', JSON.stringify(token, null, 2));

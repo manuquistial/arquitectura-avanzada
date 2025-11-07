@@ -24,18 +24,25 @@ def create_database_engine():
     # Base configuration optimized for Azure PostgreSQL
     engine_config = {
         "echo": config.debug,  # Enable echo in debug mode
+        # Reduce connection footprint per process to avoid saturating DB
+        "pool_size": 5,
+        "max_overflow": 5,
+        "pool_pre_ping": True,
     }
     
     # Azure PostgreSQL configuration (compatible with asyncpg)
     # Based on test_pod_db_connection.py results, asyncpg works with minimal configuration
     if config.is_azure_environment():
         engine_config["connect_args"] = {
-            "ssl": "require"  # Only ssl parameter is needed for asyncpg
+            "ssl": "require",  # Only ssl parameter is needed for asyncpg
+            # Tag connections for observability without changing URL
+            "server_settings": {"application_name": "signature"}
         }
         logger.info("Using Azure PostgreSQL configuration with asyncpg")
     else:
         engine_config["connect_args"] = {
-            "ssl": "require" if config.database_sslmode == "require" else "disable"
+            "ssl": "require" if config.database_sslmode == "require" else "disable",
+            "server_settings": {"application_name": "signature"}
         }
         logger.info("Using local PostgreSQL configuration")
     
@@ -128,11 +135,12 @@ async def init_db() -> None:
     """Initialize database."""
     try:
         logger.info("Starting database initialization...")
-        logger.info(f"Database URL: {config.get_database_url()[:50]}...")
+        # Mask URL details in logs
+        masked = config.get_database_url().split('@')[0] + '@***:***'
+        logger.info(f"Database URL: {masked}")
         logger.info(f"Azure environment: {config.is_azure_environment()}")
         
-        # Test connection first
-        logger.info("Testing database connection...")
+        # Test connection first (already logs details internally)
         if not await test_connection():
             logger.error("❌ Database connection test failed")
             # Don't raise exception immediately, try to continue

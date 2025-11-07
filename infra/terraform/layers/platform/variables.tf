@@ -146,7 +146,7 @@ variable "aks_user_vm_size" {
 variable "aks_user_node_min" {
   description = "Minimum user nodes"
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "aks_user_node_max" {
@@ -168,9 +168,9 @@ variable "aks_spot_vm_size" {
 }
 
 variable "aks_spot_node_min" {
-  description = "Minimum spot nodes"
+  description = "Minimum spot nodes (increased to 1 to ensure Spot availability for metadata, notification, signature)"
   type        = number
-  default     = 0
+  default     = 1  # Increased from 0 to ensure Spot nodes are always available
 }
 
 variable "aks_spot_node_max" {
@@ -323,6 +323,37 @@ variable "redis_allow_azure_services" {
   description = "Allow Azure services access"
   type        = bool
   default     = false
+}
+
+# Service Bus Configuration
+variable "servicebus_enabled" {
+  description = "Enable Azure Service Bus"
+  type        = bool
+  default     = true
+}
+
+variable "servicebus_sku" {
+  description = "Service Bus SKU (Basic or Standard)"
+  type        = string
+  default     = "Standard"
+}
+
+variable "servicebus_capacity" {
+  description = "Service Bus capacity (only for Standard SKU)"
+  type        = number
+  default     = 0
+}
+
+variable "servicebus_public_network_access_enabled" {
+  description = "Enable public network access for Service Bus"
+  type        = bool
+  default     = true
+}
+
+variable "servicebus_minimum_tls_version" {
+  description = "Minimum TLS version for Service Bus"
+  type        = string
+  default     = "1.2"
 }
 
 # Key Vault Configuration

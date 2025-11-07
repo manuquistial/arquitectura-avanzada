@@ -98,7 +98,8 @@ module "database" {
   location            = data.terraform_remote_state.base.outputs.location
   
   # Dependencies
-  depends_on = [module.aks]
+  # Temporarily disabled depends_on to allow deployment without AKS updates
+  # depends_on = [module.aks]
   
   # Authentication
   admin_username = var.db_admin_username
@@ -188,7 +189,30 @@ module "cache" {
   # Key Vault for automatic secret management (from security layer)
   key_vault_id = var.keyvault_enabled ? data.terraform_remote_state.security.outputs.key_vault_id : ""
   
-  depends_on = [module.aks]
+  # Temporarily disabled depends_on to allow deployment without AKS updates
+  # depends_on = [module.aks]
+}
+
+# Azure Service Bus for event-driven architecture
+module "servicebus" {
+  count  = var.servicebus_enabled ? 1 : 0
+  source = "./modules/messaging/servicebus"
+
+  environment         = var.environment
+  location            = data.terraform_remote_state.base.outputs.location
+  resource_group_name = data.terraform_remote_state.base.outputs.resource_group_name
+  
+  # Service Bus configuration
+  sku                           = var.servicebus_sku
+  capacity                      = var.servicebus_capacity
+  public_network_access_enabled = var.servicebus_public_network_access_enabled
+  minimum_tls_version           = var.servicebus_minimum_tls_version
+  
+  # Key Vault for automatic secret management (from security layer)
+  key_vault_id = var.keyvault_enabled ? data.terraform_remote_state.security.outputs.key_vault_id : ""
+  
+  # Temporarily disabled depends_on to allow deployment without AKS updates
+  # depends_on = [module.aks]
 }
 
 ## Key Vault is now created in SECURITY layer

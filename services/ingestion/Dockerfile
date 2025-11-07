@@ -15,7 +15,10 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir poetry==2.2.1
 
 # Copy common package to ../common (as expected by pyproject.toml)
-COPY services/common ../common/
+# Copy pyproject.toml and poetry.lock first, then the package
+COPY services/common/pyproject.toml ../common/
+COPY services/common/poetry.lock ../common/
+COPY services/common/carpeta_common ../common/carpeta_common/
 
 # Copy poetry files
 COPY services/ingestion/pyproject.toml ./

@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     transfer_url: str = Field(default="http://localhost:8002", alias="TRANSFER_URL")
     signature_url: str = Field(default="http://localhost:8003", alias="SIGNATURE_URL")
     document_url: str = Field(default="http://localhost:8004", alias="DOCUMENT_URL")
+    metadata_url: str = Field(default="http://localhost:8004", alias="METADATA_URL")
     
     # Hub URL (alias for mintic_base_url)
     hub_url: str = Field(default="https://mock-mintic-hub.example.com", alias="HUB_URL")

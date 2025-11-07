@@ -39,7 +39,7 @@ export interface CitizenUnregister {
 // ========================================
 
 export interface UploadURLRequest {
-  citizen_id: number;
+  citizen_id: string;  // Changed from number to string - backend expects string
   filename: string;
   content_type: string;
   title: string;
@@ -134,7 +134,8 @@ export interface SearchResult {
 export interface SignDocumentRequest {
   document_id: string;
   citizen_id: string;
-  signature_data?: any;
+  signature_type: "PAdES" | "XAdES" | "CAdES";  // Required field
+  document_title: string;  // Required field
 }
 
 export interface SignDocumentResponse {

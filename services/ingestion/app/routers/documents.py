@@ -1,6 +1,7 @@
 """Documents API router - Updated for Azure."""
 
 import logging
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response
@@ -53,9 +54,18 @@ async def get_upload_url(
     )
 
     try:
+        # Convert citizen_id from string to int (storage client expects int)
+        try:
+            citizen_id_int = int(request.citizen_id)
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid citizen_id format: {request.citizen_id}. Must be a numeric string."
+            )
+        
         # Use default TTL from storage_client (SAS_TTL_MINUTES from ConfigMap)
         result = storage_client.generate_presigned_put(
-            citizen_id=request.citizen_id,
+            citizen_id=citizen_id_int,
             filename=request.filename,
             content_type=request.content_type,
             # expires_in will use sas_ttl_minutes from client config
@@ -64,21 +74,75 @@ async def get_upload_url(
         # Store metadata in database
         key = result["blob_name"]
         
+        # Create metadata object - title field is optional in DB
+        # If column doesn't exist, we'll handle it gracefully
+        # Documentos no firmados tienen retención de 30 días
+        retention_date = date.today() + timedelta(days=30)
+        
         metadata = DocumentMetadata(
             id=result["document_id"],
             citizen_id=request.citizen_id,
-            title=request.title,
             filename=request.filename,
             content_type=request.content_type,
             blob_name=key,
             storage_provider="azure",
             status="pending",
             description=request.description,
+            state="UNSIGNED",  # Estado inicial: no firmado
+            retention_until=retention_date,  # 30 días para documentos no firmados
         )
         
+        # Set title if provided (column may not exist in DB, that's OK)
+        metadata.title = request.title if request.title else request.filename
+        
         db.add(metadata)
-        await db.commit()
-        await db.refresh(metadata)
+
+        # Ensure required columns exist; on missing column errors, create column and retry
+        from sqlalchemy import text
+
+        async def ensure_column_exists(column_name: str) -> None:
+            col = column_name.lower().strip('"')
+            ddl_map = {
+                "title": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS title VARCHAR(500)",
+                "description": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS description TEXT",
+                "is_uploaded": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS is_uploaded BOOLEAN NOT NULL DEFAULT false",
+                "state": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS state VARCHAR(20) NOT NULL DEFAULT 'UNSIGNED'",
+                "worm_locked": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS worm_locked BOOLEAN NOT NULL DEFAULT false",
+                "legal_hold": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS legal_hold BOOLEAN NOT NULL DEFAULT false",
+                "lifecycle_tier": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS lifecycle_tier VARCHAR(20) NOT NULL DEFAULT 'Hot'",
+                "created_at": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW()",
+                "updated_at": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()",
+                "sha256_hash": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS sha256_hash VARCHAR(64)",
+                "size_bytes": "ALTER TABLE document_metadata ADD COLUMN IF NOT EXISTS size_bytes INTEGER",
+            }
+            if col in ddl_map:
+                await db.execute(text(ddl_map[col]))
+            else:
+                # Fallback: no action if unknown column
+                logger.warning(f"Missing column '{column_name}' not mapped for auto-DDL")
+
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                await db.commit()
+                await db.refresh(metadata)
+                break
+            except Exception as e:
+                msg = str(e)
+                # Try to detect missing column pattern: column "xxx" ... does not exist
+                if ("does not exist" in msg.lower() or "undefinedcolumn" in msg.lower()) and "column" in msg.lower():
+                    await db.rollback()
+                    import re
+                    m = re.search(r'column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation', msg)
+                    missing = m.group(1) if m else None
+                    if missing:
+                        logger.warning(f"Auto-creating missing column '{missing}' in document_metadata (attempt {attempt+1}/{max_retries})")
+                        await ensure_column_exists(missing)
+                        # Try again after DDL
+                        db.add(metadata)
+                        continue
+                # Not a missing column error or retries exhausted
+                raise
         
         logger.info(f"Document metadata stored: {metadata.id}")
         
@@ -435,13 +499,13 @@ async def list_documents(
         return [
             {
                 "id": doc.id,
-                "title": doc.title,
+                "title": doc.title or doc.filename,  # Fallback to filename if title is None
                 "filename": doc.filename,
                 "content_type": doc.content_type,
                 "status": doc.status,
                 "size_bytes": doc.size_bytes,
-                "created_at": doc.created_at.isoformat(),
-                "updated_at": doc.updated_at.isoformat(),
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
             }
             for doc in documents
         ]

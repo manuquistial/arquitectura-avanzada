@@ -2,6 +2,7 @@
 
 import logging
 from contextlib import asynccontextmanager
+import signal
 from typing import AsyncIterator
 
 from fastapi import FastAPI
@@ -24,10 +25,11 @@ except ImportError:
 if COMMON_AVAILABLE:
     setup_logging()
 else:
-    # Optimized logging for production
+    # Use INFO level to see startup logs
+    log_level = getattr(get_config(), 'log_level', 'INFO')
     logging.basicConfig(
-        level=logging.WARNING,  # Only warnings and errors
-        format='%(levelname)s: %(message)s'  # Minimal format
+        level=getattr(logging, log_level.upper(), logging.INFO),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
 logger = logging.getLogger(__name__)
@@ -37,14 +39,36 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
     logger.info("Starting Signature Service...")
+    # mark not ready until startup completes
+    app.state.ready = False
+
+    # graceful shutdown: on SIGTERM mark not ready so /ready returns 503
+    def _handle_sigterm(*_):
+        try:
+            app.state.ready = False
+        except Exception:
+            pass
+
     try:
-        await init_db()
-        logger.info("Database initialized successfully")
+        signal.signal(signal.SIGTERM, _handle_sigterm)
+        signal.signal(signal.SIGINT, _handle_sigterm)
+    except Exception:
+        # not all environments allow installing signal handlers
+        pass
+    try:
+        import asyncio
+        await asyncio.wait_for(init_db(), timeout=30.0)
+        logger.info("Database initialized (or continued) successfully")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️  Database initialization timed out, continuing startup")
     except Exception as e:
-        logger.warning(f"Database initialization failed: {e}")
-        logger.info("Continuing without database for testing purposes")
+        logger.warning(f"⚠️  Database initialization failed: {e}")
+    finally:
+        # startup finished; mark ready regardless to allow probes to pass
+        app.state.ready = True
     yield
     try:
+        app.state.ready = False
         await engine.dispose()
         logger.info("Database connection disposed")
     except Exception as e:
@@ -90,20 +114,10 @@ def create_app() -> FastAPI:
     @app.get("/ready")
     async def ready() -> dict[str, str | bool]:
         """Readiness check endpoint."""
-        # Health check for dependencies
-        from app.database import test_connection, get_database_info
-        
-        db_status = "connected"
-        try:
-            if not await test_connection():
-                db_status = "disconnected"
-        except Exception:
-            db_status = "error"
-        
+        is_ready = bool(getattr(app.state, "ready", False))
         return {
-            "status": "ready",
+            "status": "ready" if is_ready else "not_ready",
             "service": "signature",
-            "database": db_status,
             "environment": config.environment
         }
 

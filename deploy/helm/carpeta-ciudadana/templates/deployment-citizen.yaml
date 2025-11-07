@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         app: citizen
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
         {{- include "carpeta-ciudadana.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
@@ -31,6 +33,18 @@ spec:
           value: {{ .Values.global.environment | quote }}
         - name: ASPNETCORE_URLS
           value: "http://+:8000"
+        # Service Bus configuration
+        - name: SERVICEBUS_ENABLED
+          value: "{{ .Values.serviceBus.enabled | default true }}"
+        {{- if .Values.serviceBus.enabled }}
+        - name: SERVICEBUS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: servicebus-secrets
+              key: SERVICEBUS_CONNECTION_STRING
+              # NOT optional: Citizen Service requires Service Bus to publish citizen events
+              # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
+        {{- end }}
         # Database configuration
         - name: DATABASE_URL
           valueFrom:
@@ -77,6 +91,18 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+        - secretRef:
+            name: jwt-secret
+            optional: true
+        # JWT Configuration
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: JWT_SECRET_KEY
+              optional: true
+        - name: JWT_ALGORITHM
+          value: "HS256"
         resources:
           {{- toYaml .Values.citizen.resources | nindent 10 }}
 {{- end }}

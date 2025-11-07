@@ -99,6 +99,18 @@ output "redis_primary_key" {
   sensitive   = true
 }
 
+# Service Bus Outputs
+output "servicebus_namespace_name" {
+  description = "Service Bus namespace name"
+  value       = var.servicebus_enabled ? module.servicebus[0].servicebus_namespace_name : null
+}
+
+output "servicebus_connection_string" {
+  description = "Service Bus connection string"
+  value       = var.servicebus_enabled ? module.servicebus[0].servicebus_connection_string : null
+  sensitive   = true
+}
+
 # Security Outputs
 output "keyvault_id" {
   description = "ID of the Key Vault"

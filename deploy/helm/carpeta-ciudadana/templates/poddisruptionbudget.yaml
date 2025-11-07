@@ -81,24 +81,6 @@ spec:
 
 
 
-# PodDisruptionBudget for Transfer Worker (KEDA-aware)
-{{- if .Values.transferWorker.enabled }}
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "carpeta-ciudadana.fullname" . }}-transfer-worker
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: transfer-worker
-spec:
-  # For KEDA scaled workloads, allow scaling to zero
-  minAvailable: 0
-  selector:
-    matchLabels:
-      app: transfer-worker
-{{- end }}
-
 # PodDisruptionBudget for Frontend
 {{- if .Values.frontend.podDisruptionBudget.enabled }}
 ---

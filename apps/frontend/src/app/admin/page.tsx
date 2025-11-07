@@ -17,7 +17,7 @@ export default function AdminPage() {
       return;
     }
 
-    if (!session.user?.roles?.includes('mintic')) {
+    if (!session.user?.roles?.includes('admin') && !session.user?.roles?.includes('mintic')) {
       router.push('/dashboard');
       return;
     }
@@ -46,6 +46,41 @@ export default function AdminPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+              {/* Gestión de Usuarios */}
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">
+                          Gestión de Usuarios
+                        </dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          Administrar usuarios registrados
+                        </dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-5 py-3">
+                  <div className="text-sm">
+                    <Link
+                      href="/admin/users"
+                      className="font-medium text-blue-600 hover:text-blue-500"
+                    >
+                      Gestionar usuarios
+                    </Link>
+                  </div>
+                </div>
+              </div>
 
               {/* Gestión de Operadores MinTIC */}
               <div className="bg-white overflow-hidden shadow rounded-lg">

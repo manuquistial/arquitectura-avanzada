@@ -103,7 +103,7 @@ variable "user_vm_size" {
 variable "user_node_min" {
   description = "Minimum user nodes"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "user_node_max" {
@@ -128,7 +128,7 @@ variable "spot_vm_size" {
 variable "spot_node_min" {
   description = "Minimum spot nodes"
   type        = number
-  default     = 0 # Can scale to zero
+  default     = 1 # Keep at least 1 spot node for burst capacity
 }
 
 variable "spot_node_max" {

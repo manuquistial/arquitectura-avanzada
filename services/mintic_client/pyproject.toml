@@ -5,7 +5,7 @@ description = "MinTIC Hub client service"
 authors = ["Carpeta Ciudadana Team"]
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = "^3.12"
 fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
 httpx = "^0.26.0,<0.29.0"

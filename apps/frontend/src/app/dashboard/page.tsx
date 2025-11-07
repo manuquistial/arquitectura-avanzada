@@ -45,9 +45,10 @@ export default function DashboardPage() {
       if (session) {
         try {
           setLoading(true);
+          const citizenId = session.user?.id || '1234567890';
           const [stats, activities] = await Promise.all([
-            apiService.getDashboardStats(),
-            apiService.getRecentActivities()
+            apiService.getDashboardStats(citizenId),
+            apiService.getRecentActivities(citizenId)
           ]);
           setDashboardStats(stats);
           setRecentActivities(activities);

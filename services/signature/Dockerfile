@@ -1,11 +1,18 @@
-FROM python:3.13-slim
+FROM python:3.12-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app/services/signature
 
 RUN pip install --no-cache-dir poetry==2.2.1
 
 # Copy common package to ../common (as expected by pyproject.toml)
-COPY services/common ../common/
+# Copy pyproject.toml and poetry.lock first, then the package
+COPY services/common/pyproject.toml ../common/
+COPY services/common/poetry.lock ../common/
+COPY services/common/carpeta_common ../common/carpeta_common/
 
 # Copy poetry files (pyproject.toml expects ../common)
 COPY services/signature/pyproject.toml services/signature/poetry.lock* ./
@@ -25,4 +32,4 @@ USER appuser
 EXPOSE 8000
 
 # Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "warning"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]

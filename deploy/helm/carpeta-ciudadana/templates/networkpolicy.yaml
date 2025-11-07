@@ -93,7 +93,15 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: transfer-worker
+          app: metadata
+    ports:
+    - protocol: TCP
+      port: 8000
+  
+  - from:
+    - podSelector:
+        matchLabels:
+          app: notification
     ports:
     - protocol: TCP
       port: 8000

@@ -30,6 +30,10 @@ def create_database_engine():
     # Base configuration optimized for limited resources
     engine_config = {
         "echo": settings.debug,  # Disable SQL echo for production
+        # Reduce connection footprint per process to avoid saturating DB
+        "pool_size": 5,
+        "max_overflow": 5,
+        "pool_pre_ping": True,
     }
     
     # Azure PostgreSQL configuration (compatible with asyncpg)

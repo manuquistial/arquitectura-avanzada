@@ -87,8 +87,9 @@ async def jwks() -> dict[str, list]:
     Uses Kubernetes Secrets for key management
     """
     try:
-        # Import JWT service for real JWKS
-        from app.services.jwt_service import jwt_service
+        # Import JWT service for real JWKS (lazy loading)
+        from app.services.jwt_service import get_jwt_service
+        jwt_service = get_jwt_service()
         
         # Get real JWKS from JWT service
         jwks = jwt_service.get_jwks()

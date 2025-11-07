@@ -1,0 +1,139 @@
+{{- if .Values.notification.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-notification
+  labels:
+    app: notification
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.notification.replicaCount }}
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
+        azure.workload.identity/use: "{{ .Values.global.useWorkloadIdentity }}"
+      annotations:
+        {{- if .Values.notification.podAnnotations }}
+        {{- toYaml .Values.notification.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      
+      {{- if .Values.notification.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.notification.nodeSelector | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.notification.tolerations }}
+      tolerations:
+        {{- toYaml .Values.notification.tolerations | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.notification.affinity }}
+      affinity:
+        {{- toYaml .Values.notification.affinity | nindent 8 }}
+      {{- end }}
+      
+      terminationGracePeriodSeconds: {{ .Values.notification.terminationGracePeriodSeconds | default 30 }}
+      
+      containers:
+      - name: notification
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.notification.image.repository }}:{{ .Values.notification.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: ENVIRONMENT
+          value: {{ .Values.global.environment }}
+        - name: LOG_LEVEL
+          value: {{ .Values.global.logLevel }}
+        - name: SERVICEBUS_ENABLED
+          value: "{{ .Values.serviceBus.enabled | default true }}"
+        - name: CITIZEN_EVENTS_QUEUE
+          value: "{{ .Values.notification.queueName | default "citizen-events" }}"
+        - name: MAX_MESSAGES_PER_BATCH
+          value: "{{ .Values.notification.maxMessagesPerBatch | default "10" }}"
+        - name: MAX_WAIT_TIME
+          value: "{{ .Values.notification.maxWaitTime | default "60.0" }}"
+        - name: CITIZEN_SERVICE_URL
+          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
+        - name: AUTH_SERVICE_URL
+          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
+        - name: SMTP_ENABLED
+          value: "{{ .Values.notification.smtp.enabled | default "false" }}"
+        
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+        - secretRef:
+            name: servicebus-secrets
+            # NOT optional: Notification Service requires Service Bus to consume events
+            # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
+        - secretRef:
+            name: database-credentials
+            # NOT optional: Notification Service requires database to function
+            # Secret created by External Secrets Operator from Azure Key Vault
+        {{- if .Values.notification.smtp.enabled }}
+        - secretRef:
+            name: smtp-secrets
+            optional: true
+        {{- end }}
+        
+        resources:
+          {{- toYaml .Values.notification.resources | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-notification
+  labels:
+    app: notification
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.notification.service.type }}
+  ports:
+  - port: {{ .Values.notification.service.port }}
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: notification
+
+{{- end }}
+

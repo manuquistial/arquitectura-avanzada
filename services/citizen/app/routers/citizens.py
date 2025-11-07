@@ -200,12 +200,13 @@ async def register_citizen(
         
         # Publish event to Service Bus
         try:
-            from carpeta_common.message_broker import publish_citizen_registered
+            from carpeta_common.bus import publish_citizen_registered
             
             await publish_citizen_registered(
                 citizen_id=citizen.id,
                 name=citizen.name,
-                email=citizen.email
+                email=citizen.email,
+                operator_id=str(citizen.operator_id) if citizen.operator_id else "carpeta-ciudadana"
             )
             logger.info("Event published to Service Bus")
         except ImportError:

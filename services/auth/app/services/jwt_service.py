@@ -333,5 +333,23 @@ class JWTService:
             return None
 
 
-# Global JWT service instance
-jwt_service = JWTService()
+# Global JWT service instance - lazy loading to avoid loading cryptography at startup
+_jwt_service_instance = None
+
+def get_jwt_service() -> JWTService:
+    """Get JWT service instance (lazy loading).
+    
+    This prevents loading cryptography until actually needed,
+    reducing initial memory consumption.
+    """
+    global _jwt_service_instance
+    if _jwt_service_instance is None:
+        _jwt_service_instance = JWTService()
+    return _jwt_service_instance
+
+# For backward compatibility, allow direct access but defer initialization
+def __getattr__(name):
+    """Lazy loading support for backward compatibility."""
+    if name == "jwt_service":
+        return get_jwt_service()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

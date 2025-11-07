@@ -87,21 +87,27 @@ def upgrade() -> None:
         EXECUTE FUNCTION prevent_worm_update();
     """)
     
-    # Create function to auto-calculate retention for SIGNED documents (5 years)
+    # Create function to auto-calculate retention
+    # Documentos FIRMADOS (SIGNED) se retienen ETERNAMENTE (retention_until = NULL)
+    # Documentos NO FIRMADOS (UNSIGNED) tienen retención de 30 días
     op.execute("""
         CREATE OR REPLACE FUNCTION set_retention_on_sign()
         RETURNS TRIGGER AS $$
         BEGIN
-            -- When state changes to SIGNED, auto-set retention if not set
+            -- When state changes to SIGNED, set retention to NULL (ETERNAL)
             IF NEW.state = 'SIGNED' AND OLD.state != 'SIGNED' THEN
-                IF NEW.retention_until IS NULL THEN
-                    NEW.retention_until := CURRENT_DATE + INTERVAL '5 years';
-                END IF;
+                -- Documentos firmados se retienen ETERNAMENTE
+                NEW.retention_until := NULL;
                 
                 -- Auto-set signed_at if not set
                 IF NEW.signed_at IS NULL THEN
                     NEW.signed_at := NOW();
                 END IF;
+            END IF;
+            
+            -- When state is UNSIGNED and retention is not set, set to 30 days
+            IF NEW.state = 'UNSIGNED' AND NEW.retention_until IS NULL THEN
+                NEW.retention_until := CURRENT_DATE + INTERVAL '30 days';
             END IF;
             
             RETURN NEW;

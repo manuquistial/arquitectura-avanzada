@@ -5,7 +5,7 @@ description = "Document signature and authentication service"
 authors = []
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = "^3.12"
 fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
 azure-storage-blob = "^12.19.0"

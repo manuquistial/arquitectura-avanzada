@@ -21,6 +21,7 @@ resource "helm_release" "external_secrets" {
       serviceAccount = {
         annotations = {
           "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
+          "azure.workload.identity/tenant-id" = var.tenant_id
         }
       }
       
@@ -28,6 +29,7 @@ resource "helm_release" "external_secrets" {
         serviceAccount = {
           annotations = {
             "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
+            "azure.workload.identity/tenant-id" = var.tenant_id
           }
         }
       }
@@ -36,6 +38,7 @@ resource "helm_release" "external_secrets" {
         serviceAccount = {
           annotations = {
             "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
+            "azure.workload.identity/tenant-id" = var.tenant_id
           }
         }
       }

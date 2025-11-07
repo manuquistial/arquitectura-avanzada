@@ -1,4 +1,10 @@
 resource "azurerm_kubernetes_cluster" "main" {
+  lifecycle {
+    ignore_changes = [
+      # Ignore spot node pool changes temporarily to avoid SKU availability issues
+      default_node_pool[0].vm_size,
+    ]
+  }
   name                = var.cluster_name
   location            = var.location
   resource_group_name = var.resource_group_name

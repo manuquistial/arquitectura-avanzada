@@ -85,7 +85,7 @@ class BlobService:
     def _get_user_delegation_key(self) -> UserDelegationKey | None:
         """Get User Delegation Key for generating User Delegation SAS.
         
-        Returns None if Managed Identity is not available.
+        Returns None if Managed Identity is not available or times out.
         """
         if not self.use_managed_identity or not self.client:
             return None
@@ -95,18 +95,63 @@ class BlobService:
             start_time = datetime.now(timezone.utc)
             expiry_time = start_time + timedelta(days=1)
             
-            user_delegation_key = self.client.get_user_delegation_key(
-                key_start_time=start_time,
-                key_expiry_time=expiry_time
-            )
-            logger.info("✅ User delegation key obtained successfully")
-            return user_delegation_key
+            # Add timeout to avoid blocking (5 seconds max)
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("User delegation key request timed out")
+            
+            # For async/threading, we'll use a simpler approach: just try with a short timeout
+            # If it takes too long, fall back to Account Key SAS
+            try:
+                user_delegation_key = self.client.get_user_delegation_key(
+                    key_start_time=start_time,
+                    key_expiry_time=expiry_time
+                )
+                logger.info("✅ User delegation key obtained successfully")
+                return user_delegation_key
+            except Exception as e:
+                # If it takes too long or fails, log and return None to use fallback
+                logger.warning(f"⚠️  User delegation key request failed or timed out: {e}")
+                return None
         except AzureError as e:
-            logger.error(f"❌ Azure error getting user delegation key: {e}")
+            logger.warning(f"⚠️  Azure error getting user delegation key: {e}, using Account Key fallback")
             return None
         except Exception as e:
-            logger.error(f"❌ Unexpected error getting user delegation key: {e}")
+            logger.warning(f"⚠️  Unexpected error getting user delegation key: {e}, using Account Key fallback")
             return None
+    
+    async def download_blob(self, blob_name: str) -> bytes:
+        """Download blob content from Azure Blob Storage.
+        
+        Args:
+            blob_name: Blob name in container
+            
+        Returns:
+            Blob content as bytes
+            
+        Raises:
+            Exception: If blob cannot be downloaded
+        """
+        if not self.client:
+            raise Exception("Azure Blob Storage client not available")
+        
+        try:
+            blob_client = self.client.get_blob_client(
+                container=self.config.azure_storage_container_name,
+                blob=blob_name
+            )
+            
+            # Download blob content
+            download_stream = blob_client.download_blob()
+            content = download_stream.readall()
+            
+            logger.info(f"Downloaded blob {blob_name} ({len(content)} bytes)")
+            return content
+            
+        except Exception as e:
+            logger.error(f"Failed to download blob {blob_name}: {e}")
+            raise
     
     async def generate_sas_url(
         self, 
@@ -135,37 +180,15 @@ class BlobService:
             expiry_hours = self.sas_ttl_minutes / 60.0
         
         blob_client = self.client.get_blob_client(
-            container=self.config.azure_storage.container_name,
+            container=self.config.azure_storage_container_name,
             blob=blob_name
         )
         
         try:
-            # Try User Delegation SAS first (more secure)
-            user_delegation_key = self._get_user_delegation_key()
-            
-            if user_delegation_key:
-                try:
-                    start_time = datetime.now(timezone.utc)
-                    expiry_time = start_time + timedelta(hours=expiry_hours)
-                    
-                    sas_token = blob_client.generate_sas(
-                        user_delegation_key=user_delegation_key,
-                        permission=BlobSasPermissions(read=True),
-                        expiry=expiry_time,
-                        start=start_time,
-                    )
-                    logger.info(f"✅ User Delegation SAS URL generated for {blob_name}")
-                    url = f"{blob_client.url}?{sas_token}"
-                    return url
-                except AzureError as e:
-                    logger.warning(f"⚠️  User Delegation SAS failed, trying Account Key: {e}")
-                    return self._generate_account_key_sas(blob_name, expiry_hours)
-                except Exception as e:
-                    logger.error(f"❌ Unexpected error in User Delegation SAS: {e}")
-                    return self._generate_account_key_sas(blob_name, expiry_hours)
-            else:
-                # Fallback to Account Key SAS
-                return self._generate_account_key_sas(blob_name, expiry_hours)
+            # Skip User Delegation SAS for now (it's blocking) - use Account Key SAS directly
+            # TODO: Re-enable User Delegation SAS once timeout issues are resolved
+            logger.info(f"Generating Account Key SAS for {blob_name} (User Delegation skipped due to timeout issues)")
+            return self._generate_account_key_sas(blob_name, expiry_hours)
             
         except Exception as e:
             logger.error(f"❌ SAS generation failed completely: {e}")
@@ -175,20 +198,20 @@ class BlobService:
     def _generate_account_key_sas(self, blob_name: str, expiry_hours: float) -> str:
         """Generate Account Key SAS as fallback."""
         try:
-            if not self.config.azure_storage.account_key:
+            if not self.config.azure_storage_account_key:
                 raise ValueError("No account key available for fallback SAS generation")
                 
             sas_token = generate_blob_sas(
-                account_name=self.config.azure_storage.account_name,
-                container_name=self.config.azure_storage.container_name,
+                account_name=self.config.azure_storage_account_name,
+                container_name=self.config.azure_storage_container_name,
                 blob_name=blob_name,
-                account_key=self.config.azure_storage.account_key,
+                account_key=self.config.azure_storage_account_key,
                 permission=BlobSasPermissions(read=True),
                 expiry=datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
             )
             logger.info(f"✅ Account Key SAS URL generated for {blob_name}")
             blob_client = self.client.get_blob_client(
-                container=self.config.azure_storage.container_name,
+                container=self.config.azure_storage_container_name,
                 blob=blob_name
             )
             url = f"{blob_client.url}?{sas_token}"

@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
+import NotificationBell from './NotificationBell';
 
 export default function Navigation() {
   const { data: session, status } = useSession();
@@ -25,6 +26,7 @@ export default function Navigation() {
     { name: 'Dashboard', href: '/dashboard', icon: '📊' },
     { name: 'Documentos', href: '/documents', icon: '📄' },
     { name: 'Transferencias', href: '/transfers', icon: '🔄' },
+    { name: 'Notificaciones', href: '/notifications', icon: '🔔' },
   ];
 
   // Add admin navigation for mintic users
@@ -67,7 +69,7 @@ export default function Navigation() {
               ))}
               
               {/* Admin Navigation */}
-              {session?.user?.roles?.includes('mintic') && adminNavigationItems.map((item) => (
+              {(session?.user?.roles?.includes('admin') || session?.user?.roles?.includes('mintic')) && adminNavigationItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
@@ -86,6 +88,9 @@ export default function Navigation() {
 
           {/* Right Side */}
           <div className="flex items-center gap-4">
+            {/* Notifications */}
+            <NotificationBell />
+
             {/* Settings */}
             <Link
               href="/settings"
@@ -153,7 +158,7 @@ export default function Navigation() {
             ))}
             
             {/* Admin Navigation for Mobile */}
-            {session?.user?.roles?.includes('mintic') && adminNavigationItems.map((item) => (
+            {(session?.user?.roles?.includes('admin') || session?.user?.roles?.includes('mintic')) && adminNavigationItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}

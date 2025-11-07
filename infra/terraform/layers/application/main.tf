@@ -149,18 +149,61 @@ resource "kubernetes_manifest" "cluster_secret_store" {
         azurekv = {
           tenantId = data.azurerm_client_config.current.tenant_id
           vaultUrl = data.terraform_remote_state.platform.outputs.key_vault_uri
-          authSecretRef = {
-            clientId = {
-              name = "azure-credentials"
-              key  = "client-id"
-            }
-            clientSecret = {
-              name = "azure-credentials"
-              key  = "client-secret"
-            }
+          authType = "WorkloadIdentity"
+          serviceAccountRef = {
+            name      = "external-secrets"
+            namespace = var.external_secrets_namespace
           }
         }
       }
+    }
+  }
+}
+
+# External Secret para Service Bus
+resource "kubernetes_manifest" "servicebus_secrets" {
+  depends_on = [
+    kubernetes_manifest.cluster_secret_store
+  ]
+  
+  manifest = {
+    apiVersion = "external-secrets.io/v1beta1"
+    kind       = "ExternalSecret"
+    metadata = {
+      name      = "servicebus-secrets"
+      namespace = "carpeta-ciudadana"
+      labels = {
+        "app.kubernetes.io/name"     = "carpeta-ciudadana"
+        "app.kubernetes.io/part-of"  = "carpeta-ciudadana"
+        "component"                  = "servicebus"
+      }
+    }
+    spec = {
+      refreshInterval = "5m"
+      secretStoreRef = {
+        name = "azure-keyvault-store"
+        kind = "SecretStore"
+      }
+      target = {
+        name           = "servicebus-secrets"
+        creationPolicy = "Owner"
+      }
+      data = [
+        {
+          secretKey = "SERVICEBUS_CONNECTION_STRING"
+          remoteRef = {
+            key      = "servicebus"
+            property = "connection-string"
+          }
+        },
+        {
+          secretKey = "SERVICEBUS_NAMESPACE"
+          remoteRef = {
+            key      = "servicebus"
+            property = "namespace"
+          }
+        }
+      ]
     }
   }
 }

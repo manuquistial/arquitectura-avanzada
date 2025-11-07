@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     servicebus_namespace: Optional[str] = Field(default=None, alias="SERVICEBUS_NAMESPACE", description="Service Bus namespace")
     servicebus_enabled: bool = Field(default=False, alias="SERVICEBUS_ENABLED", description="Enable Service Bus integration")
     
+    # Queue names for event consumption
+    transfer_events_queue: str = Field(default="transfer-events", alias="TRANSFER_EVENTS_QUEUE", description="Queue for transfer events")
+    transfer_notifications_queue: str = Field(default="transfer-notifications", alias="TRANSFER_NOTIFICATIONS_QUEUE", description="Queue for transfer notifications")
+    max_messages_per_batch: int = Field(default=10, alias="MAX_MESSAGES_PER_BATCH", description="Max messages per batch")
+    max_wait_time: float = Field(default=60.0, alias="MAX_WAIT_TIME", description="Max wait time for messages")
+    
     # Azure Cache for Redis Configuration
     redis_host: str = Field(default="", alias="REDIS_HOST", description="Azure Cache for Redis hostname")
     redis_port: int = Field(default=6380, alias="REDIS_PORT", description="Azure Cache for Redis TLS port")
@@ -71,6 +77,9 @@ class Settings(BaseSettings):
     pod_name: Optional[str] = Field(default=None, alias="POD_NAME", description="Kubernetes pod name")
     pod_namespace: Optional[str] = Field(default=None, alias="POD_NAMESPACE", description="Kubernetes namespace")
     node_name: Optional[str] = Field(default=None, alias="NODE_NAME", description="Kubernetes node name")
+    
+    # Metadata Service URL
+    metadata_service_url: str = Field(default="http://localhost:8004", alias="METADATA_URL", description="Metadata Service URL")
     
     # Azure Workload Identity
     azure_client_id: Optional[str] = Field(default=None, alias="AZURE_CLIENT_ID", description="Azure client ID")

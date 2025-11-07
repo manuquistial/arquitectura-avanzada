@@ -71,6 +71,11 @@ class TransferSaga:
         self.destination_operator = destination_operator
         self.destination_url = destination_url
         
+        # Get metadata service URL from settings
+        from app.config import get_settings
+        settings = get_settings()
+        self.metadata_service_url = settings.metadata_service_url
+        
         # State
         self.state = SagaState.RUNNING
         self.current_step = SagaStep.STARTED

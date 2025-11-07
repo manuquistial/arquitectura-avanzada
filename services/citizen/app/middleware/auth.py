@@ -45,18 +45,48 @@ class AuthMiddleware:
                     detail="Invalid token: missing user ID"
                 )
             
-            # Get user from database
-            from sqlalchemy import select
+            # Get user from database using raw SQL to avoid ORM issues with missing columns
+            from sqlalchemy import text
+            # Select only columns that definitely exist (based on migration 002_create_users)
+            # Avoid email_verified, operator_id, last_login_at, etc. that might not exist
             result = await db.execute(
-                select(User).where(User.id == user_id)
+                text("""
+                    SELECT id, email, name, given_name, family_name, 
+                           roles, permissions, is_active, is_verified,
+                           created_at, updated_at
+                    FROM users
+                    WHERE id = :user_id
+                """),
+                {"user_id": user_id}
             )
-            user = result.scalar_one_or_none()
             
-            if user is None:
+            row = result.fetchone()
+            
+            if not row:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found"
                 )
+            
+            # Create User-like object from row
+            from types import SimpleNamespace
+            # Create user object with only columns we selected
+            user = SimpleNamespace(
+                id=row.id,
+                email=row.email,
+                name=row.name if hasattr(row, 'name') else None,
+                given_name=row.given_name if hasattr(row, 'given_name') else None,
+                family_name=row.family_name if hasattr(row, 'family_name') else None,
+                roles=row.roles if hasattr(row, 'roles') and row.roles else [],
+                permissions=row.permissions if hasattr(row, 'permissions') and row.permissions else [],
+                is_active=row.is_active if hasattr(row, 'is_active') else True,
+                is_verified=row.is_verified if hasattr(row, 'is_verified') else False,
+                email_verified=False,  # Default value if column doesn't exist
+                operator_id=None,  # Default value if column doesn't exist
+                created_at=row.created_at if hasattr(row, 'created_at') else None,
+                updated_at=row.updated_at if hasattr(row, 'updated_at') else None,
+                last_login_at=None  # Default value if column doesn't exist
+            )
             
             return user
             

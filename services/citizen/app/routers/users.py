@@ -179,13 +179,21 @@ async def get_user_by_id(
 async def update_user(
     user_id: str,
     user_update: UserUpdate,
+    current_user: User = Depends(AuthMiddleware.get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update user (admin only)
     
-    TODO: Add admin role check
+    Requires admin role to update other users.
+    Users can update their own profile (limited fields).
     """
+    # Check if user has admin role or is updating their own profile
+    if user_id != current_user.id and "admin" not in current_user.roles and "mintic" not in current_user.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Admin role required to update other users."
+        )
     result = await db.execute(
         select(User).where(User.id == user_id)
     )
@@ -225,21 +233,82 @@ async def update_user(
 async def list_users(
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(AuthMiddleware.get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     List all users (admin only)
     
-    TODO: Add admin role check
-    TODO: Add filtering by roles, status, etc.
+    Requires admin role to access.
     """
-    result = await db.execute(
-        select(User)
-        .where(User.deleted_at.is_(None))
-        .offset(skip)
-        .limit(limit)
-    )
-    users = result.scalars().all()
+    # Check if user has admin role
+    if "admin" not in current_user.roles and "mintic" not in current_user.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Admin role required."
+        )
+    
+    # Use raw SQL to avoid issues with missing columns (like azure_b2c_object_id)
+    from sqlalchemy import text
+    
+    # Query with only columns that should exist in most cases
+    # Try with deleted_at filter first
+    query = text("""
+        SELECT 
+            id, email, name, given_name, family_name,
+            roles, permissions, is_active, is_verified, email_verified,
+            operator_id, created_at, updated_at, last_login_at
+        FROM users
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT :limit OFFSET :skip
+    """)
+    
+    try:
+        result = await db.execute(query, {"limit": limit, "skip": skip})
+        rows = result.fetchall()
+    except Exception as e:
+        # If deleted_at doesn't exist, query without it
+        query = text("""
+            SELECT 
+                id, email, name, given_name, family_name,
+                roles, permissions, is_active, is_verified, email_verified,
+                operator_id, created_at, updated_at, last_login_at
+            FROM users
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :skip
+        """)
+        result = await db.execute(query, {"limit": limit, "skip": skip})
+        rows = result.fetchall()
+    
+    # Convert rows to User-like objects
+    users = []
+    for row in rows:
+        user_dict = {
+            'id': row.id,
+            'email': row.email,
+            'name': row.name,
+            'given_name': row.given_name,
+            'family_name': row.family_name,
+            'roles': row.roles or [],
+            'permissions': row.permissions or [],
+            'is_active': row.is_active,
+            'is_verified': row.is_verified,
+            'email_verified': row.email_verified,
+            'operator_id': row.operator_id,
+            'created_at': row.created_at,
+            'updated_at': row.updated_at,
+            'last_login_at': row.last_login_at,
+            'azure_b2c_object_id': None,
+            'idp': None,
+            'preferred_language': None,
+            'timezone': None,
+            'deleted_at': None,
+        }
+        # Create a SimpleNamespace object that behaves like a User
+        from types import SimpleNamespace
+        user_obj = SimpleNamespace(**user_dict)
+        users.append(user_obj)
     
     return users
 

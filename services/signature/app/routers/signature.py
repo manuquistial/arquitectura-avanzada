@@ -42,13 +42,15 @@ async def sign_document(
     """Sign document and authenticate with hub.
     
     Flow:
-    1. Fetch document from blob
-    2. Calculate SHA-256
-    3. Sign hash
-    4. Generate SAS URL
-    5. Authenticate with hub
-    6. Save record to DB
-    7. Publish event
+    1. Fetch document metadata from DB to get blob_name
+    2. Download document from Blob Storage
+    3. Calculate SHA-256 of actual document
+    4. Sign hash
+    5. Generate SAS URL for hub
+    6. Authenticate with hub
+    7. Save signature record to DB
+    8. Update document metadata (WORM)
+    9. Publish events
     """
     logger.info(f"Signing document {request.document_id} for citizen {request.citizen_id}")
     
@@ -56,27 +58,53 @@ async def sign_document(
     # idempotency_key = f"authdoc:{request.citizen_id}:{request.document_id}"
     
     try:
-        # 1. Fetch document (simplified - assume we have the data)
-        # In production: fetch from ingestion service or blob
-        document_data = f"DOCUMENT_CONTENT_{request.document_id}".encode()
+        # 1. Fetch document metadata from database to get blob_name
+        document_result = await db.execute(
+            select(DocumentMetadata).where(DocumentMetadata.id == request.document_id)
+        )
+        document_metadata = document_result.scalar_one_or_none()
         
-        # 2. Calculate SHA-256
+        if not document_metadata:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {request.document_id} not found"
+            )
+        
+        # Check if document is already signed
+        if document_metadata.state == "SIGNED" or document_metadata.worm_locked:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Document {request.document_id} is already signed and WORM-locked"
+            )
+        
+        # 2. Fetch document from Blob Storage using blob_name
+        try:
+            document_data = await _blob.download_blob(document_metadata.blob_name)
+            logger.info(f"Downloaded document {request.document_id} from blob {document_metadata.blob_name} ({len(document_data)} bytes)")
+        except Exception as e:
+            logger.error(f"Failed to download document {request.document_id} from blob {document_metadata.blob_name}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to download document from storage: {str(e)}"
+            )
+        
+        # 3. Calculate SHA-256 of the actual document
         sha256_hash = await _crypto.calculate_sha256(document_data)
         
-        # 3. Sign hash
+        # 4. Sign hash
         signature_b64, algorithm = await _crypto.sign_hash(sha256_hash)
         
-        # 4. Generate SAS URL for hub (GET-only, short expiration from ConfigMap)
+        # 5. Generate SAS URL for hub (GET-only, short expiration from ConfigMap)
         # Hub solo necesita acceso temporal para validar/autenticar
         # NO almacena ni canaliza binarios, solo valida metadata
         # Uses SAS_TTL_MINUTES from ConfigMap (default: 15 minutes)
         # User Delegation SAS if Managed Identity available
         sas_url = await _blob.generate_sas_url(
-            request.document_id
+            document_metadata.blob_name  # Use actual blob_name from metadata
             # expiry_hours will use sas_ttl_minutes from config
         )
         
-        # 5. Authenticate with hub via direct MinTIC Hub API
+        # 6. Authenticate with hub via direct MinTIC Hub API
         hub_result = {"success": False, "message": "Not authenticated"}  # Default to failure
         
         try:
@@ -117,7 +145,7 @@ async def sign_document(
             logger.error(f"❌ Unexpected error calling MinTIC Hub: {e}")
             hub_result = {"success": False, "message": str(e)}
         
-        # 6. Save signature record to database
+        # 7. Save signature record to database
         try:
             record = SignatureRecord(
                 document_id=request.document_id,
@@ -142,19 +170,21 @@ async def sign_document(
                 detail=f"Failed to create signature record: {str(e)}"
             )
         
-        # 6b. UPDATE DOCUMENT METADATA WITH WORM (REQUERIMIENTO CRÍTICO)
+        # 8. UPDATE DOCUMENT METADATA WITH WORM (REQUERIMIENTO CRÍTICO)
         # Solo si hub authentication fue exitosa
         if hub_result["success"]:
             logger.info(f"🔒 Activating WORM for document {request.document_id}")
             
-            # Calcular retention (5 años desde firma)
-            retention_date = date.today() + timedelta(days=365 * 5)
+            # Documentos firmados se retienen ETERNAMENTE (retention_until = None)
+            # Los documentos no firmados tienen retención de 30 días
+            # retention_until = None significa retención permanente
             
             # Extraer hub signature ref del response
             hub_sig_ref = hub_result.get("signature_ref", f"hub-sig-{request.document_id[:8]}")
             
             try:
                 # Actualizar document_metadata a SIGNED con WORM
+                # retention_until = None para retención eterna
                 update_stmt = (
                     update(DocumentMetadata)
                     .where(DocumentMetadata.id == request.document_id)
@@ -162,7 +192,7 @@ async def sign_document(
                         state="SIGNED",
                         worm_locked=True,
                         signed_at=datetime.utcnow(),
-                        retention_until=retention_date,
+                        retention_until=None,  # ETERNAMENTE - documentos firmados no expiran
                         hub_signature_ref=hub_sig_ref,
                         status="authenticated"  # Also update old status field
                     )
@@ -171,7 +201,7 @@ async def sign_document(
                 
                 logger.info(
                     f"✅ WORM activated: doc={request.document_id}, "
-                    f"retention_until={retention_date.isoformat()}"
+                    f"retention_until=ETERNAL (None)"
                 )
                 
                 # Azure Storage blob tags update
@@ -202,7 +232,7 @@ async def sign_document(
                 detail=f"Failed to commit transaction: {str(e)}"
             )
         
-        # 7. Publish events (use common message broker)
+        # 9. Publish events (use common message broker)
         try:
             from carpeta_common.message_broker import publish_document_authenticated
             

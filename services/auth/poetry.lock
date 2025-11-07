@@ -47,6 +47,7 @@ files = [
 [package.dependencies]
 idna = ">=2.8"
 sniffio = ">=1.1"
+typing_extensions = {version = ">=4.5", markers = "python_version < \"3.13\""}
 
 [package.extras]
 trio = ["trio (>=0.31.0)"]
@@ -188,7 +189,7 @@ name = "carpeta-common"
 version = "0.1.0"
 description = "Shared utilities for Carpeta Ciudadana microservices"
 optional = true
-python-versions = "^3.13"
+python-versions = "^3.12"
 groups = ["main"]
 markers = "extra == \"common\""
 files = []
@@ -1658,6 +1659,7 @@ files = [
 
 [package.dependencies]
 psycopg-binary = {version = "3.2.11", optional = true, markers = "implementation_name != \"pypy\" and extra == \"binary\""}
+typing-extensions = {version = ">=4.6", markers = "python_version < \"3.13\""}
 tzdata = {version = "*", markers = "sys_platform == \"win32\""}
 
 [package.extras]
@@ -2843,5 +2845,5 @@ common = ["carpeta-common"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.13"
-content-hash = "e2fe645eae051003dee9d3a14cc57cb614435c8e30beb78c93f6ec9161c1b817"
+python-versions = "^3.12"
+content-hash = "37debc824da2f1fbc1eb66390b77a1b4251905d7070b5facd275d9349b008282"

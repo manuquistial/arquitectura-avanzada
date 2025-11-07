@@ -27,13 +27,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Get settings directly
     settings = Settings()
     
-    # Initialize database
+    # Initialize database (non-blocking/with timeout to avoid probe kills)
     try:
-        await init_db()
-        logger.info("Database initialized successfully")
+        import asyncio
+        await asyncio.wait_for(init_db(), timeout=30.0)
+        logger.info("Database initialized (or continued) successfully")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️  Database initialization timed out, continuing startup")
     except Exception as e:
-        logger.warning(f"Database initialization failed: {e}")
-        logger.info("Continuing without database for testing purposes")
+        logger.warning(f"⚠️  Database initialization failed: {e}")
     
     # Initialize Redis connection (if enabled)
     if settings.redis_enabled:

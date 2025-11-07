@@ -1,0 +1,138 @@
+{{- if .Values.metadata.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-metadata
+  labels:
+    app: metadata
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.metadata.replicaCount }}
+  selector:
+    matchLabels:
+      app: metadata
+  template:
+    metadata:
+      labels:
+        app: metadata
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ include "carpeta-ciudadana.name" . }}
+        azure.workload.identity/use: "{{ .Values.global.useWorkloadIdentity }}"
+      annotations:
+        {{- if .Values.metadata.podAnnotations }}
+        {{- toYaml .Values.metadata.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
+      
+      {{- if .Values.metadata.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.metadata.nodeSelector | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.metadata.tolerations }}
+      tolerations:
+        {{- toYaml .Values.metadata.tolerations | nindent 8 }}
+      {{- end }}
+      
+      {{- if .Values.metadata.affinity }}
+      affinity:
+        {{- toYaml .Values.metadata.affinity | nindent 8 }}
+      {{- end }}
+      
+      terminationGracePeriodSeconds: {{ .Values.metadata.terminationGracePeriodSeconds | default 30 }}
+      
+      containers:
+      - name: metadata
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.metadata.image.repository }}:{{ .Values.metadata.image.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: ENVIRONMENT
+          value: {{ .Values.global.environment }}
+        - name: LOG_LEVEL
+          value: {{ .Values.global.logLevel }}
+        - name: SERVICEBUS_ENABLED
+          value: "{{ .Values.serviceBus.enabled | default true }}"
+        - name: DOCUMENT_EVENTS_QUEUE
+          value: "{{ .Values.metadata.queueName | default "document-events" }}"
+        - name: MAX_MESSAGES_PER_BATCH
+          value: "{{ .Values.metadata.maxMessagesPerBatch | default "10" }}"
+        - name: MAX_WAIT_TIME
+          value: "{{ .Values.metadata.maxWaitTime | default "60.0" }}"
+        - name: INGESTION_SERVICE_URL
+          value: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
+        - name: REDIS_ENABLED
+          value: "{{ .Values.redis.enabled | default true }}"
+        
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+        - secretRef:
+            name: servicebus-secrets-metadata
+            # Queue-scoped SAS for document-events
+        - secretRef:
+            name: servicebus-secrets
+            # NOT optional: Metadata Service requires Service Bus to consume events
+            # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
+        - secretRef:
+            name: database-credentials
+            # NOT optional: Metadata Service requires database to function
+            # Secret created by External Secrets Operator from Azure Key Vault
+        - secretRef:
+            name: redis-auth
+            optional: true
+        
+        resources:
+          {{- toYaml .Values.metadata.resources | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carpeta-ciudadana.fullname" . }}-metadata
+  labels:
+    app: metadata
+    {{- include "carpeta-ciudadana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.metadata.service.type }}
+  ports:
+  - port: {{ .Values.metadata.service.port }}
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: metadata
+
+{{- end }}
+

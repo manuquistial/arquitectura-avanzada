@@ -103,6 +103,8 @@ services=(
     "$RELEASE_NAME-transfer:8003:8000:Transfer Service"
     "$RELEASE_NAME-signature:8004:8000:Signature Service"
     "$RELEASE_NAME-mintic-client:8005:8000:MinTIC Client Service"
+    "$RELEASE_NAME-metadata:8007:8000:Metadata Service"
+    "$RELEASE_NAME-notification:8008:8000:Notification Service"
     "$RELEASE_NAME-transfer-worker:8006:8012:Transfer Worker Service"
 )
 
@@ -122,6 +124,8 @@ echo -e "  📥 Ingestion Service: http://localhost:8002"
 echo -e "  🔄 Transfer Service:  http://localhost:8003"
 echo -e "  ✍️  Signature Service: http://localhost:8004"
 echo -e "  🏛️  MinTIC Client:     http://localhost:8005"
+echo -e "  📊 Metadata Service:   http://localhost:8007"
+echo -e "  📧 Notification Service: http://localhost:8008"
 echo -e "  ⚙️  Transfer Worker:   http://localhost:8006"
 echo
 echo -e "${YELLOW}💡 Now you can run your frontend locally:${NC}"

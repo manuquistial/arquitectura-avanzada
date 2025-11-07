@@ -66,10 +66,12 @@ export default function TransfersPage() {
     
     try {
       const formData = new FormData(event.currentTarget);
+      const destinationOperatorId = 'mintic';
       const transferData = {
-        document_id: formData.get('document_id') as string,
-        to_email: formData.get('to_email') as string,
-        message: formData.get('message') as string,
+        destination_operator_id: destinationOperatorId,
+        citizen_id: String(session?.user?.id || ''),
+        citizen_email: String(session?.user?.email || ''),
+        citizen_name: String(session?.user?.name || ''),
       };
 
       await apiService.createTransfer(transferData);

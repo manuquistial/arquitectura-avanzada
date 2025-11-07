@@ -18,7 +18,8 @@ global:
 keyvault:
   enabled: true
   vaultUrl: ""  # Will be set via Terraform outputs
-  clientId: ""  # Will be set via Terraform outputs (External Secrets Managed Identity)
+  tenantId: ""  # Will be set via Terraform outputs (Azure Tenant ID)
+  clientId: ""  # Will be set via Terraform outputs (AKS Managed Identity Client ID)
 
 # Migrations configuration
 migrations:
@@ -77,11 +78,11 @@ frontend:
     targetPort: 3000
   resources:
     requests:
-      memory: "64Mi"    # Optimized for Next.js production build
-      cpu: "10m"        # Optimized for Next.js production build
+      memory: "32Mi"    # Mínimo para frontend Next.js
+      cpu: "5m"         # Mínimo para frontend Next.js
     limits:
-      memory: "128Mi"   # Optimized for Next.js production build
-      cpu: "20m"        # Optimized for Next.js production build
+      memory: "128Mi"   # Límite máximo para frontend
+      cpu: "20m"        # Límite máximo para frontend
   autoscaling:
     enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
@@ -118,11 +119,11 @@ citizen:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Increased to prevent OOMKilled
-      cpu: "10m"        # Increased for stability
+      memory: "32Mi"    # Mínimo para API ligero
+      cpu: "5m"         # Mínimo para API ligero
     limits:
-      memory: "256Mi"   # Increased to prevent OOMKilled
-      cpu: "50m"        # Increased for stability
+      memory: "128Mi"   # Límite para API ligero
+      cpu: "20m"        # Límite para API ligero
   autoscaling:
     enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
@@ -143,11 +144,11 @@ ingestion:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Increased to prevent OOMKilled
-      cpu: "10m"        # Increased for stability
+      memory: "32Mi"    # Mínimo para API ligero
+      cpu: "5m"         # Mínimo para API ligero
     limits:
-      memory: "256Mi"   # Increased to prevent OOMKilled
-      cpu: "50m"        # Increased for stability
+      memory: "128Mi"   # Límite para API ligero
+      cpu: "20m"        # Límite para API ligero
   autoscaling:
     enabled: false       # Habilitado para servicios ligeros
     minReplicas: 1
@@ -158,44 +159,61 @@ ingestion:
 
 # Signature Service - Alto CPU (criptografía)
 signature:
-    enabled: true
-    replicaCount: 1  # Reducido para ahorrar recursos
-    image:
-      repository: carpeta-signature
-      tag: latest
-    service:
-      type: ClusterIP  # Interno - acceso vía Azure API Management
+  enabled: true
+  replicaCount: 1  # Reducido para ahorrar recursos
+  image:
+    repository: carpeta-signature
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía Azure API Management
+    port: 8000
+  resources:
+    requests:
+      memory: "512Mi"   # Reducido para permitir scheduling
+      cpu: "400m"       # Reducido para permitir scheduling
+    limits:
+      memory: "2048Mi"  # 2Gi para picos
+      cpu: "1500m"      # 1.5 vCPU
+  # Spot node pool configuration (70% cost savings)
+  # NOTE: Signature can tolerate evictions if state is in DB
+  tolerations:
+    - key: "kubernetes.azure.com/scalesetpriority"
+      operator: "Equal"
+      value: "spot"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: nodepool
+                operator: In
+                values:
+                  - spot
+  livenessProbe:
+    httpGet:
+      path: /health
       port: 8000
-    resources:
-      requests:
-        memory: "128Mi"   # Optimized for limited environments
-        cpu: "50m"        # Optimized for limited environments
-      limits:
-        memory: "256Mi"   # Optimized for limited environments
-        cpu: "100m"       # Optimized for limited environments
-    livenessProbe:
-      httpGet:
-        path: /health
-        port: 8000
-      initialDelaySeconds: 60  # Increased from 20s
-      timeoutSeconds: 10        # Increased from 3s
-      periodSeconds: 30         # Increased from 10s
-      failureThreshold: 3       # Reduced from 3
-    readinessProbe:
-      httpGet:
-        path: /health
-        port: 8000
-      initialDelaySeconds: 45   # Increased from 15s
-      timeoutSeconds: 10        # Increased from 2s
-      periodSeconds: 15         # Increased from 5s
-      failureThreshold: 3       # Reduced from 2
-    autoscaling:
-      enabled: false     # Deshabilitado para servicios críticos
-      minReplicas: 1
-      maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
-      targetCPUUtilizationPercentage: 70
-    podDisruptionBudget:
-      minAvailable: 1
+    initialDelaySeconds: 60  # Increased from 20s
+    timeoutSeconds: 10        # Increased from 3s
+    periodSeconds: 30         # Increased from 10s
+    failureThreshold: 3       # Reduced from 3
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 45   # Increased from 15s
+    timeoutSeconds: 10        # Increased from 2s
+    periodSeconds: 15         # Increased from 5s
+    failureThreshold: 3       # Reduced from 2
+  autoscaling:
+    enabled: false     # Deshabilitado para servicios críticos
+    minReplicas: 1
+    maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
 
 
 # Transfer Service - Saga pattern, transaccional
@@ -210,11 +228,11 @@ transfer:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"   # Increased for Python + SQLAlchemy
-      cpu: "50m"        # Increased for stability
+      memory: "64Mi"    # Mínimo para servicio pesado
+      cpu: "10m"        # Mínimo para servicio pesado
     limits:
-      memory: "512Mi"   # Increased for Python + SQLAlchemy
-      cpu: "200m"       # Increased for stability
+      memory: "512Mi"   # Límite para servicio pesado
+      cpu: "100m"       # Límite para servicio pesado
   livenessProbe:
     httpGet:
       path: /health
@@ -240,9 +258,98 @@ transfer:
     minAvailable: 1  # Critical for saga orchestration
 
 
-# Notification Service - DISABLED - not required by reference document
-# notification:
-#   enabled: false
+# Metadata Service - Consumes document events and manages metadata
+metadata:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-metadata
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía Azure API Management
+    port: 8000
+  resources:
+    requests:
+      memory: "384Mi"  # Más memoria para lotes
+      cpu: "400m"      # Más CPU para procesamiento
+    limits:
+      memory: "1024Mi" # 1Gi en picos
+      cpu: "800m"      # 0.8 vCPU
+  queueName: "document-events"
+  maxMessagesPerBatch: 10
+  maxWaitTime: 60.0
+  consumeSignatureEvents: false  # Opcional: habilitar para consumir signature-events
+  signatureEventsQueue: "signature-events"
+  # Spot node pool configuration (70% cost savings)
+  tolerations:
+    - key: "kubernetes.azure.com/scalesetpriority"
+      operator: "Equal"
+      value: "spot"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: nodepool
+                operator: In
+                values:
+                  - spot
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+  podDisruptionBudget:
+    minAvailable: 1
+
+
+# Notification Service - Consumes citizen events and sends notifications
+notification:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: carpeta-notification
+    tag: latest
+  service:
+    type: ClusterIP  # Interno - acceso vía Azure API Management
+    port: 8000
+  resources:
+    requests:
+      memory: "384Mi"  # Más memoria para mensajería
+      cpu: "300m"      # Más CPU para parsing/SMTP
+    limits:
+      memory: "1024Mi" # 1Gi
+      cpu: "600m"      # 0.6 vCPU
+  queueName: "citizen-events"
+  maxMessagesPerBatch: 10
+  maxWaitTime: 60.0
+  smtp:
+    enabled: false  # Habilitar cuando SMTP esté configurado
+  # Spot node pool configuration (70% cost savings)
+  tolerations:
+    - key: "kubernetes.azure.com/scalesetpriority"
+      operator: "Equal"
+      value: "spot"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: nodepool
+                operator: In
+                values:
+                  - spot
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+  podDisruptionBudget:
+    minAvailable: 1
 
 # MinTIC Client Service - Rate limiter + Hub calls
 minticClient:
@@ -256,11 +363,11 @@ minticClient:
     port: 8000
   resources:
     requests:
-      memory: "256Mi"  # Increased for Python + SQLAlchemy
-      cpu: "50m"        # Increased for stability
+      memory: "64Mi"   # Mínimo para servicio pesado
+      cpu: "10m"       # Mínimo para servicio pesado
     limits:
-      memory: "512Mi"   # Increased for Python + SQLAlchemy
-      cpu: "200m"        # Increased for stability
+      memory: "512Mi"  # Límite para servicio pesado
+      cpu: "100m"      # Límite para servicio pesado
   autoscaling:
     enabled: false      # Habilitado para servicios ligeros
     minReplicas: 1
@@ -306,11 +413,11 @@ auth:
     port: 8000
   resources:
     requests:
-      memory: "128Mi"   # Optimized for limited environments
-      cpu: "50m"        # Optimized for limited environments
+      memory: "128Mi"   # Aumentado: necesita más memoria para funcionar correctamente
+      cpu: "100m"       # Aumentado: necesita más CPU para inicialización y operaciones
     limits:
-      memory: "256Mi"   # Optimized for limited environments
-      cpu: "100m"       # Optimized for limited environments
+      memory: "512Mi"   # Aumentado: suficiente para operaciones normales y picos de JWT
+      cpu: "300m"      # Aumentado: permite mejor rendimiento
   livenessProbe:
     httpGet:
       path: /health
@@ -333,89 +440,9 @@ auth:
     maxReplicas: 1     # Fijo en 1 réplica para servicios críticos
     targetCPUUtilizationPercentage: 70
 
-# Transfer Worker - Dedicated consumer for transfers (KEDA auto-scaling)
-transferWorker:
-  enabled: true  # Enabled now that KEDA is installed
-  replicaCount: 0  # KEDA controls replicas (scales from 0)
-  image:
-    repository: carpeta-transfer-worker
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - solo métricas
-    port: 8012
-  
-  # Worker configuration
-  queueName: "transfers"
-  maxConcurrent: 10  # Max concurrent messages per pod
-  prefetchCount: 20  # Prefetch messages for performance
-  maxWaitTime: 60    # Max seconds to wait for messages
-  
-  # Resources (ultra-optimized for limited environments)
-  resources:
-    requests:
-      memory: "128Mi"  # Ultra-optimized for limited environments
-      cpu: "10m"       # Ultra-optimized for limited environments
-    limits:
-      memory: "256Mi"  # Keep limit to prevent OOM
-      cpu: "25m"       # Keep CPU for message processing
-  
-  # KEDA auto-scaling configuration
-  keda:
-    enabled: false  # Disabled for Azure for Students
-    pollingInterval: 30  # Check queue every 30 seconds
-    cooldownPeriod: 300   # Wait 5 minutes before scaling down
-    minReplicas: 0        # Scale to zero when queue is empty
-    maxReplicas: 30       # Maximum replicas under load
-    fallbackReplicas: 3   # Fallback if metrics unavailable
-    scaleDownStabilization: 300  # Wait 5 min before scale down
-    
-    # Queue metrics
-    queueName: "transfers"
-    targetQueueLength: 5  # Target 5 messages per pod
-    activationThreshold: 1  # Activate from 0 when 1+ messages
-    triggerAuthName: "azure-servicebus-auth"
-    
-    # Additional triggers (optional)
-    cpuTrigger:
-      enabled: false
-      targetUtilization: 70
-    memoryTrigger:
-      enabled: false
-      targetUtilization: 80
-  
-  # Node selector for spot instances
-  nodeSelector:
-    workload: "workers"
-    kubernetes.azure.com/scalesetpriority: "spot"
-  
-  # Tolerations for spot instances
-  tolerations:
-  - key: "kubernetes.azure.com/scalesetpriority"
-    operator: "Equal"
-    value: "spot"
-    effect: "NoSchedule"
-  
-  # Anti-affinity (spread across nodes)
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-            - key: app
-              operator: In
-              values:
-              - transfer-worker
-          topologyKey: kubernetes.io/hostname
-
-  
-  # Autoscaling configuration
-  autoscaling:
-    enabled: false     # Deshabilitado temporalmente por problemas de métricas
-    minReplicas: 1
-    maxReplicas: 5
-    targetCPUUtilizationPercentage: 70
+# Transfer Worker - REMOVED: Transfer worker consumer is now integrated in Transfer Service
+# The consumer for transfer-events and transfer-notifications is handled directly
+# by the Transfer Service itself, following the same pattern as Metadata Service.
 
 # PostgreSQL Configuration (Azure Database for PostgreSQL) - Values will be set via Kubernetes secrets
 database:

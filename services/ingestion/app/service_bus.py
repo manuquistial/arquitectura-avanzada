@@ -109,8 +109,27 @@ class ServiceBusEventPublisher:
     ) -> bool:
         """Publish event to Service Bus queue."""
         try:
-            async with ServiceBusClient.from_connection_string(self.connection_string) as client:
-                async with client.get_queue_sender(queue_name=self.queue_name) as sender:
+            # Extract EntityPath from connection string if present
+            # Azure Service Bus connection strings may include EntityPath=queue-name
+            # If EntityPath is present, we must use it and not specify queue_name
+            connection_string = self.connection_string
+            queue_name = self.queue_name
+            
+            # Check if connection string contains EntityPath
+            if "EntityPath=" in connection_string:
+                # Extract EntityPath from connection string
+                import re
+                entity_path_match = re.search(r'EntityPath=([^;]+)', connection_string)
+                if entity_path_match:
+                    queue_name_from_conn = entity_path_match.group(1)
+                    logger.debug(f"Found EntityPath in connection string: {queue_name_from_conn}")
+                    # Remove EntityPath from connection string to avoid conflict
+                    connection_string = re.sub(r';?EntityPath=[^;]+', '', connection_string)
+                    # Use the queue name from EntityPath
+                    queue_name = queue_name_from_conn
+            
+            async with ServiceBusClient.from_connection_string(connection_string) as client:
+                async with client.get_queue_sender(queue_name=queue_name) as sender:
                     message = ServiceBusMessage(
                         body=json.dumps(event).encode('utf-8'),
                         content_type="application/json",
@@ -125,7 +144,7 @@ class ServiceBusEventPublisher:
                     }
                     
                     await sender.send_messages(message)
-                    logger.info(f"Published {event['event_type']} event for document {document_id}")
+                    logger.info(f"Published {event['event_type']} event for document {document_id} to queue {queue_name}")
                     return True
                     
         except Exception as e:

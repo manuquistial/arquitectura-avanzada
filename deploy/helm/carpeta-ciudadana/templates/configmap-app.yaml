@@ -28,6 +28,8 @@ data:
   AUTH_SERVICE_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
   CITIZEN_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-citizen:8000"
   INGESTION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-ingestion:8000"
+  METADATA_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-metadata:8000"
+  NOTIFICATION_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-notification:8000"
   TRANSFER_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-transfer:8000"
   SIGNATURE_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-signature:8000"
   MINTIC_CLIENT_URL: "http://{{ include "carpeta-ciudadana.fullname" . }}-mintic-client:8000"
