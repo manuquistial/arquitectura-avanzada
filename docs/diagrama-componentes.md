@@ -2,8 +2,7 @@
 
 > En este documento está el diagrama de componentes del sistema.
 
-![Diagrama de Componentes](./img/componentes.png)
-
+![Diagrama de Componentes](https://github.com/user-attachments/assets/243b7d15-dbc5-44a7-861c-897ce6dc12f9)
 
 ## Alcance
 Arquitectura actual expuesta por **Ingress NGINX** (LoadBalancer + Ingress). Microservicios activos: **auth**, **citizen**, **metadata**, **ingestion**, **mintic_client**, **signature**, **notification**, **transfer**.
