@@ -116,6 +116,27 @@ resource "azurerm_key_vault_secret" "api_keys" {
   }
 }
 
+# Mailjet secret (optional)
+resource "azurerm_key_vault_secret" "mailjet" {
+  count        = var.mailjet_enabled ? 1 : 0
+  name         = "mailjet"
+  value        = jsonencode({
+    "api-key"    = var.mailjet_api_key
+    "secret-key" = var.mailjet_secret_key
+    "from-email" = var.mailjet_from_email
+    "from-name"  = var.mailjet_from_name
+    "template-id" = var.mailjet_template_id
+  })
+  key_vault_id = var.key_vault_id
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Layer       = "Application"
+    Service     = "Mailjet"
+  }
+}
+
 # Frontend configuration secret
 resource "azurerm_key_vault_secret" "frontend_config" {
   name         = "frontend-config"

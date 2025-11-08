@@ -88,12 +88,6 @@ spec:
               name: database-credentials
               key: DB_SSLMODE
               optional: true
-        envFrom:
-        - configMapRef:
-            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
-        - secretRef:
-            name: jwt-secret
-            optional: true
         # JWT Configuration
         - name: JWT_SECRET_KEY
           valueFrom:
@@ -103,6 +97,12 @@ spec:
               optional: true
         - name: JWT_ALGORITHM
           value: "HS256"
+        envFrom:
+        - configMapRef:
+            name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
+        - secretRef:
+            name: jwt-secret
+            optional: true
         resources:
           {{- toYaml .Values.citizen.resources | nindent 10 }}
 {{- end }}

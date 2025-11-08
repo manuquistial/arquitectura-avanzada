@@ -278,7 +278,7 @@ metadata:
   queueName: "document-events"
   maxMessagesPerBatch: 10
   maxWaitTime: 60.0
-  consumeSignatureEvents: false  # Opcional: habilitar para consumir signature-events
+  consumeSignatureEvents: true  # Habilitar consumo de eventos de firma para sincronizar estados
   signatureEventsQueue: "signature-events"
   # Spot node pool configuration (70% cost savings)
   tolerations:
@@ -327,6 +327,11 @@ notification:
   maxWaitTime: 60.0
   smtp:
     enabled: false  # Habilitar cuando SMTP esté configurado
+  mailjet:
+    enabled: true
+    fromEmail: "manuel.quistialj@gmail.com"
+    fromName: "Carpeta Ciudadana"
+    templateId: null  # Opcional: ID de plantilla transaccional
   # Spot node pool configuration (70% cost savings)
   tolerations:
     - key: "kubernetes.azure.com/scalesetpriority"

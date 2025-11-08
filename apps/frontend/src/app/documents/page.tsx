@@ -2,11 +2,13 @@
 
 import {
   FormEvent,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  CSSProperties,
 } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -45,7 +47,6 @@ import {
 } from "@/components/ui/Table";
 import { SearchField } from "@/components/ui/SearchField";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 interface Document {
@@ -244,7 +245,7 @@ function getStatus(doc: Document) {
   };
 }
 
-export default function DocumentsPage() {
+function DocumentsPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1015,5 +1016,26 @@ export default function DocumentsPage() {
       </div>
       ) : null}
     </>
+  );
+}
+
+function DocumentsPageFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary-100 border-t-primary-500" />
+        <p className="text-sm text-[var(--text-tertiary)]">
+          Cargando documentos...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function DocumentsPage() {
+  return (
+    <Suspense fallback={<DocumentsPageFallback />}>
+      <DocumentsPageContent />
+    </Suspense>
   );
 }

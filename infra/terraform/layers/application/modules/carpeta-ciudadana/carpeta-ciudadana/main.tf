@@ -84,7 +84,9 @@ resource "helm_release" "carpeta_ciudadana" {
         enabled = var.migrations_enabled
       }
 
-      # servicebus - REMOVED
+      serviceBus = {
+        enabled = true
+      }
 
       corsOrigins = var.cors_origins
 

@@ -80,6 +80,13 @@ spec:
               # NOT optional: Auth Service requires Service Bus when enabled
               # Secret created by APPLICATION LAYER (Terraform) before this Helm chart
         {{- end }}
+        # Citizen JWT Secret for HS256 token generation
+        - name: CITIZEN_JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: JWT_SECRET_KEY
+              optional: true
         envFrom:
         - configMapRef:
             name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
@@ -95,13 +102,6 @@ spec:
         - secretRef:
             name: jwt-secret
             optional: true
-        # Citizen JWT Secret for HS256 token generation
-        - name: CITIZEN_JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: jwt-secret
-              key: JWT_SECRET_KEY
-              optional: true
         resources:
           {{- toYaml .Values.auth.resources | nindent 10 }}
         livenessProbe:

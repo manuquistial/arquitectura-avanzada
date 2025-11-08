@@ -108,7 +108,13 @@ module "application_secrets" {
 
   key_vault_id = data.terraform_remote_state.platform.outputs.key_vault_id
   environment  = var.environment
-  nextauth_url = "https://app.carpeta-ciudadana.dev"
+  nextauth_url = var.nextauth_url
+  mailjet_enabled    = var.mailjet_enabled
+  mailjet_api_key    = var.mailjet_api_key
+  mailjet_secret_key = var.mailjet_secret_key
+  mailjet_from_email = var.mailjet_from_email
+  mailjet_from_name  = var.mailjet_from_name
+  mailjet_template_id = var.mailjet_template_id
 
   depends_on = [data.terraform_remote_state.platform]
 }
@@ -166,6 +172,11 @@ resource "kubernetes_manifest" "servicebus_secrets" {
     kubernetes_manifest.cluster_secret_store
   ]
   
+  field_manager {
+    name            = "terraform"
+    force_conflicts = true
+  }
+
   manifest = {
     apiVersion = "external-secrets.io/v1beta1"
     kind       = "ExternalSecret"
@@ -181,8 +192,8 @@ resource "kubernetes_manifest" "servicebus_secrets" {
     spec = {
       refreshInterval = "5m"
       secretStoreRef = {
-        name = "azure-keyvault-store"
-        kind = "SecretStore"
+        name = "azure-keyvault"
+        kind = "ClusterSecretStore"
       }
       target = {
         name           = "servicebus-secrets"
@@ -201,6 +212,78 @@ resource "kubernetes_manifest" "servicebus_secrets" {
           remoteRef = {
             key      = "servicebus"
             property = "namespace"
+          }
+        }
+      ]
+    }
+  }
+}
+
+# External Secret para Mailjet
+resource "kubernetes_manifest" "mailjet_secrets" {
+  count = var.mailjet_enabled ? 1 : 0
+
+  depends_on = [
+    kubernetes_manifest.cluster_secret_store,
+    module.application_secrets
+  ]
+
+  manifest = {
+    apiVersion = "external-secrets.io/v1beta1"
+    kind       = "ExternalSecret"
+    metadata = {
+      name      = "mailjet-secrets"
+      namespace = "carpeta-ciudadana"
+      labels = {
+        "app.kubernetes.io/name"     = "carpeta-ciudadana"
+        "app.kubernetes.io/part-of"  = "carpeta-ciudadana"
+        "component"                  = "mailjet"
+      }
+    }
+    spec = {
+      refreshInterval = "5m"
+      secretStoreRef = {
+        name = "azure-keyvault"
+        kind = "ClusterSecretStore"
+      }
+      target = {
+        name           = "mailjet-secrets"
+        creationPolicy = "Owner"
+      }
+      data = [
+        {
+          secretKey = "MAILJET_API_KEY"
+          remoteRef = {
+            key      = "mailjet"
+            property = "api-key"
+          }
+        },
+        {
+          secretKey = "MAILJET_SECRET_KEY"
+          remoteRef = {
+            key      = "mailjet"
+            property = "secret-key"
+          }
+        },
+        {
+          secretKey = "MAILJET_FROM_EMAIL"
+          remoteRef = {
+            key      = "mailjet"
+            property = "from-email"
+          }
+        },
+        {
+          secretKey = "MAILJET_FROM_NAME"
+          remoteRef = {
+            key      = "mailjet"
+            property = "from-name"
+          }
+        },
+        {
+          secretKey = "MAILJET_TEMPLATE_ID"
+          remoteRef = {
+            key      = "mailjet"
+            property = "template-id"
           }
         }
       ]

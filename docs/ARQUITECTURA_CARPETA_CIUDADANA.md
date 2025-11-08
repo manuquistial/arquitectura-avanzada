@@ -218,7 +218,7 @@ graph TD
     MetadataMS["metadata (FastAPI + PostgreSQL)"]
     SignatureMS["signature (FastAPI + Crypto)"]
     MinticMS["mintic_client (FastAPI + CircuitBreaker)"]
-    NotificationMS["notification (FastAPI + SendGrid/Webhooks)"]
+    NotificationMS["notification (FastAPI + Mailjet/Webhooks)"]
     TransferMS["transfer (FastAPI + Saga)"]
     TransferWorker["transfer_worker (Async worker via KEDA)"]
     CommonLib[":common library (Pydantic utils)"]
@@ -434,7 +434,7 @@ graph LR
   AllPods --> Monitor
 
   MinticPod -- REST/JSON + MTLS --> HubAPI["VPN/Private Endpoint -> Hub MinTIC"]
-  NotificationPod -- HTTPS/SMTP --> ExternalServices["SendGrid / Notificaciones"]
+  NotificationPod -- HTTPS --> ExternalServices["Mailjet / Notificaciones"]
 ```
 
 **Protocolos y formatos**
@@ -468,9 +468,16 @@ graph LR
 | `metadata` | Catálogo de documentos, índices de búsqueda, retención | `postgres`, `ingestion`, `signature` |
 | `signature` | Firma digital, autenticación Hub, WORM, auditoría | Azure Blob, `postgres`, `mintic_client`, Service Bus |
 | `mintic_client` | Gateway seguro hacia Hub MinTIC, circuit breaker, logging legal | VPN/ExpressRoute, Hub API |
-| `notification` | Emails, webhooks, colas push, plantillas regulatorias | Service Bus, SendGrid/Azure Communication Services |
+| `notification` | Emails, webhooks, colas push, plantillas regulatorias | Service Bus, Mailjet (REST API) |
 | `transfer` + `transfer_worker` | Orquestación de intercambios P2P, sagas, compensaciones | Service Bus, `citizen`, `metadata`, `notification` |
 | `common` | Librería compartida: validaciones, modelos Pydantic, utilidades | Consumido por todos los servicios Python |
+
+### 7.1 Mailjet (Email transaccional)
+
+- **Credenciales**: se administran vía `Key Vault` con el secreto `mailjet` (creado por Terraform cuando `mailjet_enabled = true`). Requiere `mailjet_api_key`, `mailjet_secret_key`, `mailjet_from_email`, nombre opcional y `mailjet_template_id` si se usa plantilla transaccional.
+- **Terraform**: definir los valores en `infra/terraform/layers/application/terraform.tfvars` y ejecutar `terraform apply` en la capa `application` para propagar los secretos a Kubernetes mediante `ExternalSecret` (`mailjet-secrets`).
+- **Helm**: en `deploy/helm/carpeta-ciudadana/values.yaml` (o overrides por ambiente), activar `notification.mailjet.enabled = true` y ajustar remitente/nombre/plantilla. El `Deployment` del servicio inyecta automáticamente las variables `MAILJET_*`.
+- **Servicio notification**: utiliza la API REST v3.1 de Mailjet; valida que las variables estén presentes y envía correos al recibir `citizen.registered`. Errores de Mailjet registran `RuntimeError` para observabilidad.
 
 ## 8. Implementación de Flujos Solicitados
 

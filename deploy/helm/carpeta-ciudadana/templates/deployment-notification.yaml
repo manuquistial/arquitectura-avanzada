@@ -71,6 +71,8 @@ spec:
           value: "http://{{ include "carpeta-ciudadana.fullname" . }}-auth:8000"
         - name: SMTP_ENABLED
           value: "{{ .Values.notification.smtp.enabled | default "false" }}"
+        - name: MAILJET_ENABLED
+          value: "{{ .Values.notification.mailjet.enabled | default "false" }}"
         
         envFrom:
         - configMapRef:
@@ -83,10 +85,10 @@ spec:
             name: database-credentials
             # NOT optional: Notification Service requires database to function
             # Secret created by External Secrets Operator from Azure Key Vault
-        {{- if .Values.notification.smtp.enabled }}
+        {{- if .Values.notification.mailjet.enabled }}
         - secretRef:
-            name: smtp-secrets
-            optional: true
+            name: mailjet-secrets
+            optional: false
         {{- end }}
         
         resources:

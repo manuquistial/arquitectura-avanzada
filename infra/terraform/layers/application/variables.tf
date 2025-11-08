@@ -170,6 +170,44 @@ variable "nextauth_url" {
   default     = "https://app.carpeta-ciudadana.dev"
 }
 
+variable "mailjet_enabled" {
+  description = "Enable Mailjet integration"
+  type        = bool
+  default     = false
+}
+
+variable "mailjet_api_key" {
+  description = "Mailjet API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "mailjet_secret_key" {
+  description = "Mailjet secret key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "mailjet_from_email" {
+  description = "Mailjet sender email (must be verified)"
+  type        = string
+  default     = ""
+}
+
+variable "mailjet_from_name" {
+  description = "Mailjet sender display name"
+  type        = string
+  default     = "Carpeta Ciudadana"
+}
+
+variable "mailjet_template_id" {
+  description = "Mailjet transactional template ID (optional)"
+  type        = number
+  default     = null
+}
+
 
 # cert-manager Configuration - Variables faltantes
 variable "cert_manager_version" {

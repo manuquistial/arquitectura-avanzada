@@ -35,6 +35,14 @@ cert_manager_version = "v1.13.0"
 cert_manager_namespace = "cert-manager"
 cert_manager_replica_count = 1
 
+# Mailjet configuration
+mailjet_enabled = false
+mailjet_api_key = ""
+mailjet_secret_key = ""
+mailjet_from_email = "notificaciones@carpeta-ciudadana.dev"
+mailjet_from_name  = "Carpeta Ciudadana"
+mailjet_template_id = null
+
 # Front Door Configuration - MOVED TO PLATFORM LAYER
 # Front Door es infraestructura de red y se gestiona en PLATFORM layer
 # Ver: infra/terraform/layers/platform/terraform.tfvars.example

@@ -45,13 +45,21 @@ class Settings(BaseSettings):
     # Legacy support for DATABASE_URL
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL", description="Full database URL")
     
-    # Email/SMTP configuration (future - for sending emails)
+    # Email/SMTP configuration (legacy fallback)
     smtp_enabled: bool = Field(default=False, alias="SMTP_ENABLED", description="Enable SMTP for email notifications")
     smtp_host: Optional[str] = Field(default=None, alias="SMTP_HOST", description="SMTP server hostname")
     smtp_port: int = Field(default=587, alias="SMTP_PORT", description="SMTP server port")
     smtp_user: Optional[str] = Field(default=None, alias="SMTP_USER", description="SMTP username")
     smtp_password: Optional[str] = Field(default=None, alias="SMTP_PASSWORD", description="SMTP password")
     smtp_from: Optional[str] = Field(default=None, alias="SMTP_FROM", description="From email address")
+
+    # Mailjet configuration
+    mailjet_enabled: bool = Field(default=False, alias="MAILJET_ENABLED", description="Enable Mailjet email delivery")
+    mailjet_api_key: Optional[str] = Field(default=None, alias="MAILJET_API_KEY", description="Mailjet API key")
+    mailjet_secret_key: Optional[str] = Field(default=None, alias="MAILJET_SECRET_KEY", description="Mailjet secret key")
+    mailjet_from_email: Optional[str] = Field(default=None, alias="MAILJET_FROM_EMAIL", description="Sender email registered in Mailjet")
+    mailjet_from_name: Optional[str] = Field(default=None, alias="MAILJET_FROM_NAME", description="Sender name for emails")
+    mailjet_template_id: Optional[int] = Field(default=None, alias="MAILJET_TEMPLATE_ID", description="Mailjet transactional template ID (optional)")
     
     # Citizen Service URL (for API calls if needed)
     citizen_service_url: str = Field(default="http://localhost:8000", alias="CITIZEN_SERVICE_URL")
@@ -83,6 +91,16 @@ class Settings(BaseSettings):
         if v.upper() not in valid_levels:
             raise ValueError(f"Invalid log level: {v}. Must be one of {valid_levels}")
         return v.upper()
+
+    @validator("mailjet_template_id", pre=True)
+    def parse_mailjet_template_id(cls, v):
+        """Allow optional Mailjet template id to be unset or convertible to int."""
+        if v is None or v == "" or (isinstance(v, str) and v.strip().lower() == "null"):
+            return None
+        try:
+            return int(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("MAILJET_TEMPLATE_ID must be an integer or empty") from exc
     
     @validator("cors_origins", pre=True)
     def parse_cors_origins(cls, v):
