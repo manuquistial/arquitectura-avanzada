@@ -43,7 +43,7 @@ output "storage_defender_id" {
 
 output "security_center_pricing_tier" {
   description = "Security Center pricing tier for Storage"
-  value       = "Standard"  # Configured manually via Azure CLI
+  value       = "Standard" # Configured manually via Azure CLI
 }
 
 output "storage_network_rules_enabled" {

@@ -110,7 +110,7 @@ resource "helm_release" "carpeta_ciudadana" {
 
       # Database configuration - Using Private Endpoint
       database = {
-        url = var.database_url
+        url         = var.database_url
         postgresUri = var.postgres_uri
       }
 

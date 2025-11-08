@@ -1,4 +1,6 @@
 {{- if .Values.ingress.enabled -}}
+{{- $whitelist := default .Values.global.frontDoorSourceRanges .Values.ingress.whitelistSourceRanges -}}
+{{- $loadBalancerIp := .Values.ingress.loadBalancerIp | default "" -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -30,6 +32,9 @@ metadata:
     # Body size limits (gateway handles requests, not file uploads)
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/client-body-buffer-size: "1m"
+    {{- if $whitelist }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ join "," $whitelist | quote }}
+    {{- end }}
     # Rate limiting
     nginx.ingress.kubernetes.io/limit-rps: "{{ .Values.ingress.rateLimitRps | default "100" }}"
     nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
@@ -39,6 +44,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if $loadBalancerIp }}
+    service.beta.kubernetes.io/azure-load-balancer-ipv4-address: {{ $loadBalancerIp | quote }}
     {{- end }}
 spec:
   {{- if .Values.ingress.className }}
@@ -65,6 +73,63 @@ spec:
       paths:
       # Frontend routes (Next.js app)
       - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      # NextAuth routes (handled by Next.js)
+      - path: /api/auth/providers
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/signin
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/signout
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/session
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/csrf
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/callback
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/verify-request
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-frontend
+            port:
+              number: 80
+      - path: /api/auth/_log
         pathType: Prefix
         backend:
           service:
@@ -149,4 +214,3 @@ spec:
               number: 8000
   {{- end }}
 {{- end }}
-

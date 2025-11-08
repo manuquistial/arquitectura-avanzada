@@ -11,7 +11,7 @@ resource "kubernetes_namespace" "carpeta_ciudadana" {
   metadata {
     name = var.namespace
     labels = {
-      app = "carpeta-ciudadana"
+      app        = "carpeta-ciudadana"
       managed-by = "terraform"
     }
   }
@@ -19,12 +19,12 @@ resource "kubernetes_namespace" "carpeta_ciudadana" {
 
 # Helm Release for Carpeta Ciudadana
 resource "helm_release" "carpeta_ciudadana" {
-  name       = "carpeta-ciudadana"
-  chart      = var.chart_path
-  version    = var.chart_version
-  namespace  = var.namespace
-  create_namespace = false  # Namespace ya creado por kubernetes_namespace
-  timeout    = var.timeout
+  name             = "carpeta-ciudadana"
+  chart            = var.chart_path
+  version          = var.chart_version
+  namespace        = var.namespace
+  create_namespace = false # Namespace ya creado por kubernetes_namespace
+  timeout          = var.timeout
 
   values = [
     file("${var.chart_path}/values.yaml")
@@ -92,7 +92,7 @@ data "kubernetes_service" "frontend_lb" {
 # Update frontend URL after LoadBalancer is ready
 resource "null_resource" "update_frontend_url" {
   count = var.frontend_url == "" ? 1 : 0
-  
+
   triggers = {
     service_ready = data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip
   }

@@ -148,6 +148,16 @@ output "frontdoor_waf_policy_id" {
   value       = var.frontdoor_enabled ? module.frontdoor[0].frontdoor_waf_policy_id : null
 }
 
+output "ingress_private_link_service_id" {
+  description = "ID of the ingress Private Link Service"
+  value       = var.private_link_service_enabled && length(azurerm_private_link_service.ingress) > 0 ? azurerm_private_link_service.ingress[0].id : null
+}
+
+output "ingress_private_link_service_alias" {
+  description = "Alias of the ingress Private Link Service"
+  value       = var.private_link_service_enabled && length(azurerm_private_link_service.ingress) > 0 ? azurerm_private_link_service.ingress[0].alias : null
+}
+
 # Managed Identity outputs
 output "aks_managed_identity_client_id" {
   description = "Client ID of the AKS Managed Identity"

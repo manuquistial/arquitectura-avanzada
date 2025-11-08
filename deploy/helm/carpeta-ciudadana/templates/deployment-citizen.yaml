@@ -23,7 +23,7 @@ spec:
       serviceAccountName: {{ include "carpeta-ciudadana.serviceAccountName" . }}
       containers:
       - name: citizen
-        image: {{ printf "%s/%s:%s" .Values.global.imageRegistry "carpeta-citizen" .Values.global.imageTag | default "latest" }}
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.citizen.image.repository }}:{{ .Values.citizen.image.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
         - containerPort: 8000

@@ -4,15 +4,26 @@ Unit tests for Auth service endpoints
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch
 
 from app.main import app
+from app.services.session_store import InMemorySessionStore
+from app.config import get_config
 
 
 @pytest.fixture
 def client():
     """Test client."""
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def override_session_store(monkeypatch):
+    """Use in-memory session store for tests."""
+    ttl_seconds = get_config().session_ttl_minutes * 60
+    store = InMemorySessionStore(ttl_seconds)
+    monkeypatch.setattr("app.services.session_store.session_store", store)
+    monkeypatch.setattr("app.routers.sessions.session_store", store)
+    yield
 
 
 def test_health_endpoint(client):
@@ -177,7 +188,9 @@ def test_create_session(client):
     session_data = {
         "user_id": "user-123",
         "email": "user@example.com",
-        "roles": ["user"]
+        "roles": ["user"],
+        "permissions": ["read"],
+        "name": "Demo User"
     }
     
     response = client.post("/api/sessions", json=session_data)
@@ -186,29 +199,57 @@ def test_create_session(client):
     data = response.json()
     assert "session_id" in data
     assert data["user_id"] == "user-123"
+    assert data["is_active"] is True
 
 
 def test_get_session(client):
     """Test getting session by ID."""
-    response = client.get("/api/sessions/test-session-id")
+    session_data = {
+        "user_id": "user-123",
+        "email": "user@example.com",
+        "roles": ["user"]
+    }
+    create_response = client.post("/api/sessions", json=session_data)
+    session_id = create_response.json()["session_id"]
+
+    response = client.get(f"/api/sessions/{session_id}")
     
     assert response.status_code == 200
     data = response.json()
     assert "session_id" in data
+    assert data["session_id"] == session_id
 
 
 def test_delete_session(client):
     """Test deleting session."""
-    response = client.delete("/api/sessions/test-session-id")
+    session_data = {
+        "user_id": "user-123",
+        "email": "user@example.com",
+        "roles": ["user"]
+    }
+    session_id = client.post("/api/sessions", json=session_data).json()["session_id"]
+
+    response = client.delete(f"/api/sessions/{session_id}")
     
     assert response.status_code == 200
+    # Deleting again should return 404
+    response_missing = client.delete(f"/api/sessions/{session_id}")
+    assert response_missing.status_code == 404
 
 
 def test_refresh_session(client):
     """Test refreshing session."""
-    response = client.post("/api/sessions/test-session-id/refresh")
+    session_data = {
+        "user_id": "user-123",
+        "email": "user@example.com",
+        "roles": ["user"]
+    }
+    session_id = client.post("/api/sessions", json=session_data).json()["session_id"]
+
+    response = client.post(f"/api/sessions/{session_id}/refresh")
     
     assert response.status_code == 200
     data = response.json()
     assert data["message"] == "Session refreshed"
+    assert data["session_id"] == session_id
 

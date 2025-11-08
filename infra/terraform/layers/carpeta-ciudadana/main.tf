@@ -29,7 +29,7 @@ data "azurerm_client_config" "current" {}
 # Depends on Platform Layer (Service Bus) and External Secrets Layer (ExternalSecret sync)
 module "carpeta_ciudadana" {
   source = "./modules/carpeta-ciudadana"
-  
+
   # Explicit dependency on Platform Layer outputs (Service Bus must exist)
   depends_on = [
     data.terraform_remote_state.platform,
@@ -51,10 +51,10 @@ module "carpeta_ciudadana" {
 
   # Configuración de la base de datos
   # Usar try() para manejar outputs que pueden no existir si los recursos no se desplegaron
-  database_url    = try(data.terraform_remote_state.platform.outputs.database_connection_string, "")
-  postgres_uri    = try(data.terraform_remote_state.platform.outputs.database_connection_string, "")
-  m2m_secret_key  = var.m2m_secret_key
-  
+  database_url   = try(data.terraform_remote_state.platform.outputs.database_connection_string, "")
+  postgres_uri   = try(data.terraform_remote_state.platform.outputs.database_connection_string, "")
+  m2m_secret_key = var.m2m_secret_key
+
   # Variables adicionales de base de datos
   database_host     = try(data.terraform_remote_state.platform.outputs.database_fqdn, "")
   database_name     = try(data.terraform_remote_state.platform.outputs.database_name, "carpeta_ciudadana")
@@ -67,10 +67,10 @@ module "carpeta_ciudadana" {
   redis_password = try(data.terraform_remote_state.platform.outputs.redis_primary_key, "")
 
   # Configuración de Azure Storage
-  azure_storage_account_name    = data.terraform_remote_state.platform.outputs.storage_account_name
-  azure_storage_account_key     = data.terraform_remote_state.platform.outputs.storage_account_key
-  azure_storage_container_name  = "documents"
-  
+  azure_storage_account_name   = data.terraform_remote_state.platform.outputs.storage_account_name
+  azure_storage_account_key    = data.terraform_remote_state.platform.outputs.storage_account_key
+  azure_storage_container_name = "documents"
+
   # Variables adicionales de storage
   storage_account_name = data.terraform_remote_state.platform.outputs.storage_account_name
   storage_account_key  = data.terraform_remote_state.platform.outputs.storage_account_key
@@ -81,8 +81,8 @@ module "carpeta_ciudadana" {
   key_vault_uri  = data.terraform_remote_state.platform.outputs.key_vault_uri
 
   # Configuración de External Secrets
-  external_secrets_namespace    = data.terraform_remote_state.external_secrets.outputs.external_secrets_namespace
-  cluster_secret_store_name     = data.terraform_remote_state.external_secrets.outputs.cluster_secret_store_name
+  external_secrets_namespace = data.terraform_remote_state.external_secrets.outputs.external_secrets_namespace
+  cluster_secret_store_name  = data.terraform_remote_state.external_secrets.outputs.cluster_secret_store_name
 
   # Configuración de Ingress
   domain_name = var.domain_name
@@ -95,8 +95,8 @@ module "carpeta_ciudadana" {
   # Configuración de Front Door
   frontdoor_enabled           = var.frontdoor_enabled
   frontdoor_frontend_hostname = var.frontdoor_frontend_hostname
-  frontdoor_api_hostname       = var.frontdoor_api_hostname
-  frontdoor_enable_waf         = var.frontdoor_enable_waf
+  frontdoor_api_hostname      = var.frontdoor_api_hostname
+  frontdoor_enable_waf        = var.frontdoor_enable_waf
 
   # Configuración de CORS
   cors_origins = var.cors_origins

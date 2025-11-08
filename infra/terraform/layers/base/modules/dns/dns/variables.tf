@@ -14,8 +14,15 @@ variable "app_subdomain" {
 }
 
 variable "ingress_ip" {
-  description = "Ingress controller IP address"
+  description = "Ingress controller public IP address (leave empty when using Private Link)"
   type        = string
+  default     = ""
+}
+
+variable "ingress_alias" {
+  description = "Private Link Service alias used by Front Door (e.g., pls-alias.privatelinkservice)"
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

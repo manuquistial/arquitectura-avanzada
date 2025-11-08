@@ -28,7 +28,7 @@ ALL_SERVICES=(
     "transfer"      # Modified (event consumers)
     "citizen"       # Modified (event publishing)
     "ingestion"     # Modified (consumers.py added, uses carpeta_common)
-    "mintic-client" # Modified (uses carpeta_common.message_broker)
+    "mintic_client" # Modified (uses carpeta_common.message_broker)
     "metadata"      # New
     "notification"  # New
 )

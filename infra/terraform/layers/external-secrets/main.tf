@@ -29,14 +29,14 @@ resource "helm_release" "external_secrets" {
   values = [
     yamlencode({
       installCRDs = true
-      
+
       serviceAccount = {
         annotations = {
           "azure.workload.identity/client-id" = data.terraform_remote_state.platform.outputs.aks_managed_identity_client_id
           "azure.workload.identity/tenant-id" = data.azurerm_client_config.current.tenant_id
         }
       }
-      
+
       webhook = {
         serviceAccount = {
           annotations = {
@@ -45,7 +45,7 @@ resource "helm_release" "external_secrets" {
           }
         }
       }
-      
+
       certController = {
         serviceAccount = {
           annotations = {
@@ -60,7 +60,7 @@ resource "helm_release" "external_secrets" {
   depends_on = [
     data.terraform_remote_state.platform
   ]
-  
+
   # Configurar para esperar a que esté completamente listo
   wait    = true
   timeout = 900

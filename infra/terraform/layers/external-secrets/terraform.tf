@@ -4,7 +4,7 @@
 
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -36,10 +36,10 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
-  
-  use_oidc = true
+
+  use_oidc                        = true
   resource_provider_registrations = "none"
-  subscription_id = var.azure_subscription_id
+  subscription_id                 = var.azure_subscription_id
 }
 
 provider "helm" {

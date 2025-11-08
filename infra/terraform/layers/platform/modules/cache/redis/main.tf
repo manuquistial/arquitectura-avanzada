@@ -6,15 +6,15 @@ resource "azurerm_redis_cache" "main" {
   capacity            = var.capacity
   family              = var.family
   sku_name            = var.sku_name
-  
+
   # Security configuration - TLS only for production
   minimum_tls_version = var.minimum_tls_version
-  
+
   # Redis configuration
   redis_configuration {
     maxmemory_policy = var.maxmemory_policy
   }
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -47,7 +47,7 @@ resource "azurerm_private_dns_zone" "redis" {
   count               = var.enable_vnet_integration ? 1 : 0
   name                = "privatelink.redis.cache.windows.net"
   resource_group_name = var.resource_group_name
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -62,7 +62,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
   private_dns_zone_name = azurerm_private_dns_zone.redis[0].name
   virtual_network_id    = var.vnet_id
   registration_enabled  = false
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -76,19 +76,19 @@ resource "azurerm_private_endpoint" "redis" {
   location            = var.location
   resource_group_name = var.resource_group_name
   subnet_id           = var.private_endpoint_subnet_id
-  
+
   private_service_connection {
     name                           = "${var.environment}-redis-psc"
     private_connection_resource_id = azurerm_redis_cache.main.id
     subresource_names              = ["redisCache"]
     is_manual_connection           = false
   }
-  
+
   private_dns_zone_group {
     name                 = "${var.environment}-redis-dns-zone-group"
     private_dns_zone_ids = [azurerm_private_dns_zone.redis[0].id]
   }
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"

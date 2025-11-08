@@ -107,3 +107,19 @@ frontdoor_enabled = false  # Deshabilitado - usando LoadBalancer de Kubernetes
 frontdoor_frontend_hostname = ""  # Solo necesario si frontdoor_enabled = true
 frontdoor_api_hostname = ""       # Solo necesario si frontdoor_enabled = true
 frontdoor_enable_waf = false      # Solo necesario si frontdoor_enabled = true
+frontdoor_sku_name = "Premium_AzureFrontDoor"
+frontdoor_frontend_origin_group_name = ""
+frontdoor_api_origin_group_name      = ""
+
+# Private Link Service (Ingress) - Deshabilitado por defecto
+private_link_service_enabled                       = false
+private_link_service_name                          = ""   # Opcional: "${project}-${environment}-ingress-pls"
+private_link_load_balancer_name                    = ""   # Ej: "kubernetes"
+private_link_load_balancer_resource_group          = ""   # Por defecto usa el node resource group del AKS
+private_link_frontend_ip_configuration_name        = "kubernetes"
+private_link_frontend_ip_configuration_id          = ""   # Opcional: ID completo del frontend IP configuration
+private_link_visibility_subscription_ids           = []
+private_link_auto_approval_subscription_ids        = []
+private_link_fqdns                                 = []
+private_link_request_message                       = "Azure Front Door access request"
+private_link_target_type                           = "sites"

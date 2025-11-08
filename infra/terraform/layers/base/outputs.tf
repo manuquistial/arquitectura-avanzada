@@ -36,6 +36,11 @@ output "aks_subnet_id" {
   value       = module.networking.aks_subnet_id
 }
 
+output "aks_network_security_group_id" {
+  description = "ID of the AKS subnet Network Security Group"
+  value       = module.networking.aks_network_security_group_id
+}
+
 output "db_subnet_id" {
   description = "ID of the database subnet"
   value       = module.networking.db_subnet_id

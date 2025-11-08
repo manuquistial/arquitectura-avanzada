@@ -17,14 +17,14 @@ resource "helm_release" "external_secrets" {
   values = [
     yamlencode({
       installCRDs = true
-      
+
       serviceAccount = {
         annotations = {
           "azure.workload.identity/client-id" = var.aks_managed_identity_client_id
           "azure.workload.identity/tenant-id" = var.tenant_id
         }
       }
-      
+
       webhook = {
         serviceAccount = {
           annotations = {
@@ -33,7 +33,7 @@ resource "helm_release" "external_secrets" {
           }
         }
       }
-      
+
       certController = {
         serviceAccount = {
           annotations = {
@@ -55,7 +55,7 @@ resource "time_sleep" "wait_for_crds" {
   depends_on = [
     helm_release.external_secrets
   ]
-  
+
   create_duration = "30s"
 }
 
@@ -64,7 +64,7 @@ resource "kubernetes_manifest" "cluster_secret_store" {
   depends_on = [
     time_sleep.wait_for_crds
   ]
-  
+
   manifest = {
     apiVersion = "external-secrets.io/v1beta1"
     kind       = "ClusterSecretStore"
@@ -93,7 +93,7 @@ resource "kubernetes_manifest" "azure_keyvault_secrets" {
     time_sleep.wait_for_crds,
     kubernetes_manifest.cluster_secret_store
   ]
-  
+
   manifest = yamldecode(templatefile("${path.module}/templates/azure-keyvault-secrets.yaml.tpl", {
     keyvault_uri = "https://${var.keyvault_name}.vault.azure.net/"
   }))

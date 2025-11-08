@@ -4,18 +4,20 @@ Handles user sessions stored in Redis
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
-import uuid
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from app.config import get_config
+from app.services.session_store import (
+    SessionNotFound,
+    SessionStoreError,
+    session_store,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-config = get_config()
 
 
 # ========================================
@@ -48,6 +50,22 @@ class SessionResponse(BaseModel):
 # Endpoints
 # ========================================
 
+
+def _to_response(record) -> SessionResponse:
+    """Convert SessionRecord to response model."""
+    return SessionResponse(
+        session_id=record.session_id,
+        user_id=record.user_id,
+        email=record.email,
+        name=record.name,
+        roles=record.roles,
+        permissions=record.permissions,
+        created_at=record.created_at if isinstance(record.created_at, datetime) else datetime.fromisoformat(str(record.created_at)),
+        expires_at=record.expires_at if isinstance(record.expires_at, datetime) else datetime.fromisoformat(str(record.expires_at)),
+        is_active=record.is_active,
+    )
+
+
 @router.post("/", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(data: SessionCreate):
     """
@@ -55,29 +73,17 @@ async def create_session(data: SessionCreate):
     
     Sessions are stored in Redis with TTL
     """
-    session_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    expires_at = created_at + timedelta(hours=24)
-    
-    # Redis session storage
-    #     f"session:{session_id}",
-    #     86400,  # 24 hours
-    #     json.dumps({...})
-    # )
-    
-    logger.info(f"Session created: {session_id} for user {data.user_id}")
-    
-    return SessionResponse(
-        session_id=session_id,
-        user_id=data.user_id,
-        email=data.email,
-        name=data.name,
-        roles=data.roles,
-        permissions=data.permissions,
-        created_at=created_at,
-        expires_at=expires_at,
-        is_active=True
-    )
+    try:
+        record = await session_store.create_session(data.model_dump())
+    except SessionStoreError as exc:
+        logger.error("Failed to create session: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to create session",
+        ) from exc
+
+    logger.info("Session %s created for user %s", record.session_id, data.user_id)
+    return _to_response(record)
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
@@ -85,22 +91,21 @@ async def get_session(session_id: str):
     """
     Get session by ID
     """
-    # Redis session retrieval
-    
-    logger.info(f"Get session: {session_id}")
-    
-    # Mock response
-    return SessionResponse(
-        session_id=session_id,
-        user_id="user-123",
-        email="user@example.com",
-        name="Demo User",
-        roles=["user"],
-        permissions=["read:own_documents"],
-        created_at=datetime.utcnow() - timedelta(hours=1),
-        expires_at=datetime.utcnow() + timedelta(hours=23),
-        is_active=True
-    )
+    try:
+        record = await session_store.get_session(session_id)
+        return _to_response(record)
+    except SessionNotFound as exc:
+        logger.debug("Session %s not found", session_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        ) from exc
+    except SessionStoreError as exc:
+        logger.error("Error retrieving session %s: %s", session_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve session",
+        ) from exc
 
 
 @router.delete("/{session_id}")
@@ -108,10 +113,22 @@ async def delete_session(session_id: str):
     """
     Delete session (logout)
     """
-    # Redis session deletion
-    
-    logger.info(f"Session deleted: {session_id}")
-    
+    try:
+        await session_store.delete_session(session_id)
+    except SessionNotFound as exc:
+        logger.debug("Attempted to delete missing session %s", session_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        ) from exc
+    except SessionStoreError as exc:
+        logger.error("Error deleting session %s: %s", session_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to delete session",
+        ) from exc
+
+    logger.info("Session %s deleted", session_id)
     return {"message": "Session deleted", "session_id": session_id}
 
 
@@ -120,13 +137,25 @@ async def refresh_session(session_id: str):
     """
     Refresh session (extend TTL)
     """
-    # Redis session TTL extension
-    
-    logger.info(f"Session refreshed: {session_id}")
-    
+    try:
+        record = await session_store.refresh_session(session_id)
+    except SessionNotFound as exc:
+        logger.debug("Attempted to refresh missing session %s", session_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        ) from exc
+    except SessionStoreError as exc:
+        logger.error("Error refreshing session %s: %s", session_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to refresh session",
+        ) from exc
+
+    logger.info("Session %s refreshed", session_id)
     return {
         "message": "Session refreshed",
         "session_id": session_id,
-        "expires_at": (datetime.utcnow() + timedelta(hours=24)).isoformat()
+        "expires_at": record.expires_at.isoformat(),
     }
 

@@ -28,6 +28,8 @@ subnet_cidrs = {
 # DNS Configuration
 dns_zone_name = "carpeta-ciudadana.dev"
 app_subdomain = "app"
+ingress_ip    = ""
+ingress_alias = ""
 
 # Domain Configuration
 domain_name = "carpeta-ciudadana.dev"

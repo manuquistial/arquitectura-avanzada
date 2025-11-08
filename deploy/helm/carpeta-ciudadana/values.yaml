@@ -8,6 +8,8 @@ global:
   logLevel: INFO
   useWorkloadIdentity: true
   highAvailability: true  # Habilitar alta disponibilidad
+  frontDoorEndpoint: "https://production-carpeta-endpoint-czh6asc2fagng0b7.z01.azurefd.net"
+  frontDoorSourceRanges: []
   workloadIdentity:
     clientId: ""  # Will be set via Azure Key Vault
     tenantId: ""   # Will be set via Azure Key Vault
@@ -69,12 +71,13 @@ m2mAuth:
 frontend:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
-  publicBaseUrl: "http://172.193.163.188"
+  useProxy: true
+  publicBaseUrl: "https://production-carpeta-endpoint-czh6asc2fagng0b7.z01.azurefd.net"
   image:
-    repository: carpeta-frontend
+    repository: carpeta-ciudadana-frontend
     tag: latest
   service:
-    type: LoadBalancer  # Público - acceso directo
+    type: ClusterIP
     port: 80
     targetPort: 3000
   resources:
@@ -113,7 +116,7 @@ citizen:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
   image:
-    repository: carpeta-citizen
+    repository: carpeta-ciudadana-citizen
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management
@@ -138,7 +141,7 @@ ingestion:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
   image:
-    repository: carpeta-ingestion
+    repository: carpeta-ciudadana-ingestion
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management
@@ -163,7 +166,7 @@ signature:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
   image:
-    repository: carpeta-signature
+    repository: carpeta-ciudadana-signature
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management
@@ -222,7 +225,7 @@ transfer:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
   image:
-    repository: carpeta-transfer
+    repository: carpeta-ciudadana-transfer
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management (cambiar de LoadBalancer)
@@ -264,7 +267,7 @@ metadata:
   enabled: true
   replicaCount: 1
   image:
-    repository: carpeta-metadata
+    repository: carpeta-ciudadana-metadata
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management
@@ -311,7 +314,7 @@ notification:
   enabled: true
   replicaCount: 1
   image:
-    repository: carpeta-notification
+    repository: carpeta-ciudadana-notification
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management
@@ -362,7 +365,7 @@ minticClient:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
   image:
-    repository: carpeta-mintic_client
+    repository: carpeta-ciudadana-mintic_client
     tag: latest
   service:
     type: ClusterIP  # Interno - llamado por otros servicios
@@ -387,7 +390,7 @@ auth:
   enabled: true
   replicaCount: 1
   image:
-    repository: carpeta-auth
+    repository: carpeta-ciudadana-auth
     tag: latest
   service:
     type: ClusterIP  # Interno - acceso vía Azure API Management
@@ -515,6 +518,8 @@ podDisruptionBudget:
 ingress:
   enabled: true
   className: nginx  # Use 'nginx' for cert-manager
+  loadBalancerIp: "48.192.9.91"  # IP estática creada para el ingress-nginx
+  whitelistSourceRanges: []  # Lista de CIDRs permitidos; por defecto se usan los definidos en global.frontDoorSourceRanges
   annotations:
     # Azure Load Balancer annotations
     service.beta.kubernetes.io/azure-load-balancer-internal: "false"

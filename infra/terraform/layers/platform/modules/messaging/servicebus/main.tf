@@ -8,7 +8,7 @@ resource "azurerm_servicebus_namespace" "main" {
 
   # Security configuration
   public_network_access_enabled = var.public_network_access_enabled
-  minimum_tls_version            = var.minimum_tls_version
+  minimum_tls_version           = var.minimum_tls_version
 
   tags = {
     Environment = var.environment
@@ -29,8 +29,8 @@ resource "azurerm_servicebus_namespace_authorization_rule" "main" {
 
 # Queue for citizen events
 resource "azurerm_servicebus_queue" "citizen_events" {
-  name                = var.citizen_events_queue_name
-  namespace_id        = azurerm_servicebus_namespace.main.id
+  name                  = var.citizen_events_queue_name
+  namespace_id          = azurerm_servicebus_namespace.main.id
   max_size_in_megabytes = 1024
 }
 

@@ -24,9 +24,9 @@ provider "azurerm" {
     }
   }
 
-  use_oidc                         = true
+  use_oidc                        = true
   resource_provider_registrations = "none"
-  subscription_id                  = var.azure_subscription_id
+  subscription_id                 = var.azure_subscription_id
 }
 
 provider "azuread" {

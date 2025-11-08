@@ -4,7 +4,7 @@
 
 terraform {
   required_version = ">= 1.7"
-  
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -19,7 +19,7 @@ terraform {
       version = "~> 2.24"
     }
   }
-  
+
   # Backend configuration (opcional)
   # backend "azurerm" {
   #   resource_group_name  = "terraform-state-rg"
@@ -36,13 +36,13 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
-  
+
   # Usar OIDC (Federated Identity) para autenticación en GitHub Actions
   use_oidc = true
-  
+
   # Deshabilitar registro automático de Resource Providers
   resource_provider_registrations = "none"
-  
+
   # Subscription ID
   subscription_id = var.azure_subscription_id
 }

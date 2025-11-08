@@ -2,12 +2,12 @@
 
 import logging
 from datetime import datetime, date, timedelta
-from typing import Annotated
+from typing import Annotated, Optional, Tuple
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 
 from app.config import get_config
 from app.database import get_db
@@ -34,6 +34,131 @@ _blob = BlobService(config)
 _events = EventService(config)
 
 
+async def _resolve_citizen_document_id(
+    db: AsyncSession,
+    identifier: Optional[str],
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Resolve the incoming identifier (user id, citizen id, email, etc.)
+    to a 10-digit citizen document number.
+    Returns (resolved_id, issue_message).
+    """
+    if not identifier:
+        return None, "Citizen identifier not provided."
+
+    identifier = identifier.strip()
+
+    # Already a 10-digit document number
+    if identifier.isdigit() and len(identifier) == 10:
+        return identifier, None
+
+    # 1. Does the identifier already match a citizen record?
+    try:
+        citizen_lookup = await db.execute(
+            text(
+                """
+                SELECT id
+                FROM citizens
+                WHERE CAST(id AS TEXT) = CAST(:cid AS TEXT)
+                LIMIT 1
+                """
+            ),
+            {"cid": identifier},
+        )
+        citizen_row = citizen_lookup.scalar_one_or_none()
+        if citizen_row:
+            return str(citizen_row), None
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to query citizens table: {e}")
+
+    # 2. Resolve via users table (user.id -> citizen_id/email)
+    user_row = None
+    try:
+        user_lookup = await db.execute(
+            text(
+                """
+                SELECT citizen_id, email
+                FROM users
+                WHERE CAST(id AS TEXT) = CAST(:uid AS TEXT)
+                LIMIT 1
+                """
+            ),
+            {"uid": identifier},
+        )
+        user_row = user_lookup.fetchone()
+    except Exception as e:
+        issue = f"Failed querying users table: {e}"
+        logger.warning(f"⚠️  {issue}")
+        return None, issue
+
+    if user_row:
+        citizen_val = getattr(user_row, "citizen_id", None)
+        if citizen_val:
+            citizen_val = str(citizen_val).strip()
+            if citizen_val.isdigit() and len(citizen_val) == 10:
+                logger.info(
+                    f"✅ Resolved user identifier '{identifier}' to citizen.id '{citizen_val}'"
+                )
+                return citizen_val, None
+            if citizen_val:
+                logger.info(
+                    f"⚠️  User {identifier} is linked to citizen_id '{citizen_val}' "
+                    "which is not a 10-digit document. Attempting recursive resolution..."
+                )
+                return await _resolve_citizen_document_id(db, citizen_val)
+
+        email_val = getattr(user_row, "email", None)
+        if email_val:
+            try:
+                email_lookup = await db.execute(
+                    text(
+                        """
+                        SELECT id
+                        FROM citizens
+                        WHERE LOWER(email) = LOWER(:email)
+                        LIMIT 1
+                        """
+                    ),
+                    {"email": email_val},
+                )
+                email_row = email_lookup.fetchone()
+                if email_row and email_row.id:
+                    logger.info(
+                        f"✅ Resolved user '{identifier}' via email to citizen.id '{email_row.id}'"
+                    )
+                    return str(email_row.id), None
+            except Exception as e:
+                logger.warning(f"⚠️  Failed resolving citizen via email lookup: {e}")
+        return None, (
+            f"User {identifier} exists but does not have a citizen linked (citizen_id/email missing)."
+        )
+
+    # 3. Identifier might be an email directly
+    if "@" in identifier:
+        try:
+            email_lookup = await db.execute(
+                text(
+                    """
+                    SELECT id
+                    FROM citizens
+                    WHERE LOWER(email) = LOWER(:email)
+                    LIMIT 1
+                    """
+                ),
+                {"email": identifier},
+            )
+            email_row = email_lookup.fetchone()
+            if email_row and email_row.id:
+                logger.info(
+                    f"✅ Resolved email '{identifier}' to citizen.id '{email_row.id}'"
+                )
+                return str(email_row.id), None
+        except Exception as e:
+            logger.warning(f"⚠️  Failed resolving citizen via direct email: {e}")
+
+    return None, f"Identifier '{identifier}' could not be mapped to a citizen document number."
+
+
 @router.post("/sign", response_model=SignDocumentResponse)
 async def sign_document(
     request: SignDocumentRequest,
@@ -54,45 +179,19 @@ async def sign_document(
     """
     logger.info(f"Signing document {request.document_id} for citizen {request.citizen_id}")
     
-    # Resolve citizen_id: if it's a user.id (not a 10-digit document), get the real citizen_id
-    # MinTIC Hub requires the citizen.id (10-digit document number), not user.id
-    citizen_id_for_mintic = request.citizen_id
-    
-    # Check if citizen_id is a 10-digit number (citizen.id) or something else (user.id)
-    # citizen.id is always a 10-digit string (document number)
-    if not (citizen_id_for_mintic.isdigit() and len(citizen_id_for_mintic) == 10):
-        logger.info(f"⚠️  Received citizen_id '{citizen_id_for_mintic}' which doesn't look like a 10-digit document. Resolving from user.id...")
-        try:
-            # This is likely a user.id, need to get citizen_id from users table
-            # Both services share the same database, so we can query directly
-            from sqlalchemy import text
-            user_query = text("""
-                SELECT citizen_id FROM users 
-                WHERE CAST(id AS TEXT) = CAST(:user_id AS TEXT)
-                LIMIT 1
-            """)
-            user_result = await db.execute(user_query, {"user_id": citizen_id_for_mintic})
-            user_row = user_result.fetchone()
-            
-            if user_row and user_row.citizen_id:
-                citizen_id_for_mintic = str(user_row.citizen_id)
-                logger.info(f"✅ Resolved user.id '{request.citizen_id}' to citizen.id '{citizen_id_for_mintic}'")
-            else:
-                logger.warning(f"⚠️  User {request.citizen_id} not found or does not have a citizen_id linked")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User {request.citizen_id} does not have a citizen linked. Cannot sign document."
-                )
-        except HTTPException:
-            raise  # Re-raise HTTP exceptions
-        except Exception as e:
-            logger.error(f"❌ Error resolving user.id to citizen.id: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to resolve user.id to citizen.id: {str(e)}"
-            )
-    
-    logger.info(f"Using citizen_id '{citizen_id_for_mintic}' for MinTIC Hub authentication")
+    # Resolve citizen identifier to the actual citizen document (10 digits)
+    citizen_id_for_mintic, user_resolution_issue = await _resolve_citizen_document_id(
+        db, request.citizen_id
+    )
+    if citizen_id_for_mintic:
+        logger.info(
+            f"Using citizen_id '{citizen_id_for_mintic}' for MinTIC Hub authentication"
+        )
+    else:
+        logger.warning(
+            f"⚠️  Unable to resolve citizen document number from identifier '{request.citizen_id}' yet; "
+            "will attempt using document metadata."
+        )
     
     # Check Redis idempotency (simplified, should use redis_client from common)
     # idempotency_key = f"authdoc:{citizen_id_for_mintic}:{request.document_id}"
@@ -127,6 +226,33 @@ async def sign_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=detail
             )
+        
+        if not citizen_id_for_mintic:
+            metadata_citizen = (document_metadata.citizen_id or "").strip()
+            citizen_id_for_mintic, metadata_issue = await _resolve_citizen_document_id(
+                db, metadata_citizen
+            )
+            if citizen_id_for_mintic:
+                logger.info(
+                    f"✅ Resolved citizen document number using document metadata: {citizen_id_for_mintic}"
+                )
+            else:
+                detail_parts = [
+                    "Unable to determine citizen document number for signature request.",
+                    f"Identifier from request: '{request.citizen_id}'.",
+                ]
+                if user_resolution_issue:
+                    detail_parts.append(user_resolution_issue)
+                if metadata_issue:
+                    detail_parts.append(metadata_issue)
+                else:
+                    detail_parts.append(
+                        "Document metadata does not contain a valid citizen_id."
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=" ".join(detail_parts),
+                )
         
         # Check if document is already signed
         if document_metadata.state == "SIGNED" or document_metadata.worm_locked:

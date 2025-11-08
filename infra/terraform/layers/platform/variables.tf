@@ -170,7 +170,7 @@ variable "aks_spot_vm_size" {
 variable "aks_spot_node_min" {
   description = "Minimum spot nodes (increased to 1 to ensure Spot availability for metadata, notification, signature)"
   type        = number
-  default     = 1  # Increased from 0 to ensure Spot nodes are always available
+  default     = 1 # Increased from 0 to ensure Spot nodes are always available
 }
 
 variable "aks_spot_node_max" {
@@ -437,4 +437,89 @@ variable "frontdoor_enable_waf" {
   description = "Enable Web Application Firewall (WAF) for Front Door (only if frontdoor_enabled = true)"
   type        = bool
   default     = false
+}
+
+variable "frontdoor_frontend_origin_group_name" {
+  description = "Optional name for the Front Door origin group used by the frontend origin"
+  type        = string
+  default     = ""
+}
+
+variable "frontdoor_api_origin_group_name" {
+  description = "Optional name for the Front Door origin group used by the API origin"
+  type        = string
+  default     = ""
+}
+
+variable "frontdoor_sku_name" {
+  description = "Azure Front Door SKU (Standard_AzureFrontDoor or Premium_AzureFrontDoor)"
+  type        = string
+  default     = "Premium_AzureFrontDoor"
+}
+
+# Private Link Service configuration
+variable "private_link_service_enabled" {
+  description = "Enable Azure Private Link Service for the ingress controller"
+  type        = bool
+  default     = false
+}
+
+variable "private_link_service_name" {
+  description = "Name for the Private Link Service (defaults to <project>-<env>-ingress-pls)"
+  type        = string
+  default     = ""
+}
+
+variable "private_link_load_balancer_name" {
+  description = "Name of the Load Balancer exposing the ingress controller"
+  type        = string
+  default     = ""
+}
+
+variable "private_link_load_balancer_resource_group" {
+  description = "Resource group of the ingress Load Balancer (defaults to AKS node resource group)"
+  type        = string
+  default     = ""
+}
+
+variable "private_link_frontend_ip_configuration_name" {
+  description = "Frontend IP configuration name in the ingress Load Balancer"
+  type        = string
+  default     = "kubernetes"
+}
+
+variable "private_link_frontend_ip_configuration_id" {
+  description = "Explicit frontend IP configuration ID in the ingress Load Balancer"
+  type        = string
+  default     = ""
+}
+
+variable "private_link_visibility_subscription_ids" {
+  description = "Subscription IDs that can request the Private Link Service"
+  type        = list(string)
+  default     = []
+}
+
+variable "private_link_auto_approval_subscription_ids" {
+  description = "Subscription IDs auto-approved for Private Link connections"
+  type        = list(string)
+  default     = []
+}
+
+variable "private_link_fqdns" {
+  description = "Optional FQDNs advertised by the Private Link Service"
+  type        = list(string)
+  default     = []
+}
+
+variable "private_link_request_message" {
+  description = "Optional message displayed when approving Private Link connections"
+  type        = string
+  default     = "Azure Front Door access request"
+}
+
+variable "private_link_target_type" {
+  description = "Private Link target type (e.g., sites, web, blob, Gateway)"
+  type        = string
+  default     = "sites"
 }

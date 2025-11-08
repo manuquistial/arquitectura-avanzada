@@ -37,18 +37,18 @@ resource "azurerm_network_security_group" "postgresql" {
 
 # PostgreSQL Flexible Server con acceso público
 resource "azurerm_postgresql_flexible_server" "main" {
-  name                   = "${var.environment}-psql-${random_string.pgsfx.result}"
-  location               = var.location
-  resource_group_name    = var.resource_group_name
-  version                = var.postgresql_version
-  sku_name              = var.sku_name
-  storage_mb            = var.storage_mb
-  
+  name                = "${var.environment}-psql-${random_string.pgsfx.result}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  version             = var.postgresql_version
+  sku_name            = var.sku_name
+  storage_mb          = var.storage_mb
+
   administrator_login    = var.admin_username
   administrator_password = var.admin_password
 
   # Public network configuration - SIMPLIFIED for public access
-  public_network_access_enabled = true  # Enable public access
+  public_network_access_enabled = true # Enable public access
 
   # Configuración de backup
   backup_retention_days        = var.backup_retention_days

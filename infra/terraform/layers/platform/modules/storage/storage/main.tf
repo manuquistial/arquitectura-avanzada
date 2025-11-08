@@ -11,10 +11,10 @@ resource "azurerm_storage_account" "main" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
   min_tls_version          = "TLS1_2"
-  
+
   # Enable infrastructure encryption for additional security
   infrastructure_encryption_enabled = var.enable_infrastructure_encryption
-  
+
   # Enable cross-tenant replication for backup
   cross_tenant_replication_enabled = var.enable_cross_tenant_replication
 
@@ -24,9 +24,9 @@ resource "azurerm_storage_account" "main" {
     delete_retention_policy {
       days = var.blob_delete_retention_days
     }
-    
+
     # Enable change feed for audit
-    change_feed_enabled = var.enable_change_feed
+    change_feed_enabled           = var.enable_change_feed
     change_feed_retention_in_days = var.enable_change_feed ? var.change_feed_retention_days : null
 
     # CORS restrictivo - Solo orígenes específicos en producción
@@ -57,10 +57,10 @@ resource "azurerm_storage_container" "documents" {
 # Microsoft Defender for Storage - Storage Account Protection
 resource "azurerm_security_center_storage_defender" "main" {
   count = var.enable_defender_for_storage ? 1 : 0
-  
-  storage_account_id = azurerm_storage_account.main.id
-  malware_scanning_on_upload_enabled = var.enable_malware_scanning
-  sensitive_data_discovery_enabled   = var.enable_sensitive_data_discovery
+
+  storage_account_id                     = azurerm_storage_account.main.id
+  malware_scanning_on_upload_enabled     = var.enable_malware_scanning
+  sensitive_data_discovery_enabled       = var.enable_sensitive_data_discovery
   override_subscription_settings_enabled = var.override_subscription_settings
 }
 
@@ -79,9 +79,9 @@ resource "azurerm_security_center_storage_defender" "main" {
 # Storage Account Network Rules for Enhanced Security
 resource "azurerm_storage_account_network_rules" "main" {
   count = var.enable_storage_network_rules ? 1 : 0
-  
+
   storage_account_id = azurerm_storage_account.main.id
-  
+
   default_action             = "Deny"
   ip_rules                   = var.allowed_ip_addresses
   virtual_network_subnet_ids = var.allowed_subnet_ids

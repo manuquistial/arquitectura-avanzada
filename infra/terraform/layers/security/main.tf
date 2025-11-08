@@ -27,18 +27,18 @@ locals {
 module "keyvault" {
   source = "../platform/modules/security/keyvault"
 
-  keyvault_name                = var.keyvault_name
-  location                     = data.terraform_remote_state.base.outputs.location
-  resource_group_name          = data.terraform_remote_state.base.outputs.resource_group_name
-  environment                  = var.environment
-  sku_name                     = var.keyvault_sku_name
-  purge_protection_enabled     = var.keyvault_purge_protection_enabled
-  soft_delete_retention_days   = var.keyvault_soft_delete_retention_days
-  network_acls_default_action  = var.keyvault_network_acls_default_action
-  network_acls_bypass          = var.keyvault_network_acls_bypass
-  allowed_subnet_ids           = [data.terraform_remote_state.base.outputs.aks_subnet_id]
+  keyvault_name               = var.keyvault_name
+  location                    = data.terraform_remote_state.base.outputs.location
+  resource_group_name         = data.terraform_remote_state.base.outputs.resource_group_name
+  environment                 = var.environment
+  sku_name                    = var.keyvault_sku_name
+  purge_protection_enabled    = var.keyvault_purge_protection_enabled
+  soft_delete_retention_days  = var.keyvault_soft_delete_retention_days
+  network_acls_default_action = var.keyvault_network_acls_default_action
+  network_acls_bypass         = var.keyvault_network_acls_bypass
+  allowed_subnet_ids          = [data.terraform_remote_state.base.outputs.aks_subnet_id]
   # Use fixed list if provided, otherwise detected current IP
-  allowed_ip_rules             = local.resolved_kv_allow_ips
+  allowed_ip_rules = local.resolved_kv_allow_ips
 
   # No AKS yet in this layer; leave defaults (module must be conditional for AKS roles)
   aks_managed_identity_principal_id = ""

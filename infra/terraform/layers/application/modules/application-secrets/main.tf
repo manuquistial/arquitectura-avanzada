@@ -51,11 +51,11 @@ resource "azurerm_key_vault_secret" "application_secrets" {
 
 # M2M Authentication secret
 resource "azurerm_key_vault_secret" "m2m_auth" {
-  name         = "m2m-auth"
-  value        = jsonencode({
-    "secret-key" = "m2m-secret-key-${random_id.m2m_suffix.hex}"
+  name = "m2m-auth"
+  value = jsonencode({
+    "secret-key"        = "m2m-secret-key-${random_id.m2m_suffix.hex}"
     "max-timestamp-age" = "300"
-    "nonce-ttl" = "600"
+    "nonce-ttl"         = "600"
   })
   key_vault_id = var.key_vault_id
 
@@ -69,8 +69,8 @@ resource "azurerm_key_vault_secret" "m2m_auth" {
 
 # JWT secret
 resource "azurerm_key_vault_secret" "jwt" {
-  name         = "jwt"
-  value        = jsonencode({
+  name = "jwt"
+  value = jsonencode({
     "secret-key" = "jwt-secret-key-${random_id.jwt_suffix.hex}"
   })
   key_vault_id = var.key_vault_id
@@ -85,8 +85,8 @@ resource "azurerm_key_vault_secret" "jwt" {
 
 # NextAuth secret
 resource "azurerm_key_vault_secret" "nextauth" {
-  name         = "nextauth"
-  value        = jsonencode({
+  name = "nextauth"
+  value = jsonencode({
     "secret" = "nextauth-secret-${random_id.nextauth_suffix.hex}"
     "url"    = var.nextauth_url
   })
@@ -102,8 +102,8 @@ resource "azurerm_key_vault_secret" "nextauth" {
 
 # API Keys secret
 resource "azurerm_key_vault_secret" "api_keys" {
-  name         = "api-keys"
-  value        = jsonencode({
+  name = "api-keys"
+  value = jsonencode({
     "operator-api-key" = "operator-api-key-${random_id.api_suffix.hex}"
   })
   key_vault_id = var.key_vault_id
@@ -118,13 +118,13 @@ resource "azurerm_key_vault_secret" "api_keys" {
 
 # Mailjet secret (optional)
 resource "azurerm_key_vault_secret" "mailjet" {
-  count        = var.mailjet_enabled ? 1 : 0
-  name         = "mailjet"
-  value        = jsonencode({
-    "api-key"    = var.mailjet_api_key
-    "secret-key" = var.mailjet_secret_key
-    "from-email" = var.mailjet_from_email
-    "from-name"  = var.mailjet_from_name
+  count = var.mailjet_enabled ? 1 : 0
+  name  = "mailjet"
+  value = jsonencode({
+    "api-key"     = var.mailjet_api_key
+    "secret-key"  = var.mailjet_secret_key
+    "from-email"  = var.mailjet_from_email
+    "from-name"   = var.mailjet_from_name
     "template-id" = var.mailjet_template_id
   })
   key_vault_id = var.key_vault_id
@@ -139,15 +139,15 @@ resource "azurerm_key_vault_secret" "mailjet" {
 
 # Frontend configuration secret
 resource "azurerm_key_vault_secret" "frontend_config" {
-  name         = "frontend-config"
-  value        = jsonencode({
-    "auth-service-url"     = "/api/auth"
-    "citizen-service-url"  = "/api/citizens"
+  name = "frontend-config"
+  value = jsonencode({
+    "auth-service-url"      = "/api/auth"
+    "citizen-service-url"   = "/api/citizens"
     "ingestion-service-url" = "/api/documents"
     "signature-service-url" = "/api/signature"
     "transfer-service-url"  = "/api/transfers"
     "mintic-service-url"    = "/api/mintic"
-    "api-url"              = ""
+    "api-url"               = ""
   })
   key_vault_id = var.key_vault_id
 

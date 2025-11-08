@@ -48,6 +48,18 @@ variable "app_subdomain" {
   type        = string
 }
 
+variable "ingress_ip" {
+  description = "Public IP of the ingress controller (leave empty when Front Door + Private Link is used)"
+  type        = string
+  default     = ""
+}
+
+variable "ingress_alias" {
+  description = "Private Link Service alias used by Front Door to reach the ingress"
+  type        = string
+  default     = ""
+}
+
 variable "security_contact_email" {
   description = "Security Center contact email"
   type        = string

@@ -29,7 +29,7 @@ resource "azurerm_role_assignment" "aks_to_keyvault" {
   scope                = data.terraform_remote_state.platform.outputs.key_vault_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = data.terraform_remote_state.platform.outputs.aks_managed_identity_principal_id
-  
+
   description = "Permite a AKS leer secrets del Key Vault"
 }
 
@@ -39,7 +39,7 @@ resource "azurerm_role_assignment" "aks_kubelet_to_keyvault" {
   scope                = data.terraform_remote_state.platform.outputs.key_vault_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = data.terraform_remote_state.platform.outputs.aks_kubelet_identity_principal_id
-  
+
   description = "Permite al AKS Kubelet Identity (Agent Pool) leer secrets del Key Vault para External Secrets"
 }
 
@@ -47,11 +47,11 @@ resource "azurerm_role_assignment" "aks_kubelet_to_keyvault" {
 module "keda" {
   source = "./modules/keda"
 
-  keda_version                  = var.keda_version
-  keda_namespace                = var.keda_namespace
-  app_namespace                 = "${var.project_name}-${var.environment}"
-  replica_count                 = var.keda_replica_count
-  enable_prometheus_monitoring  = false
+  keda_version                 = var.keda_version
+  keda_namespace               = var.keda_namespace
+  app_namespace                = "${var.project_name}-${var.environment}"
+  replica_count                = var.keda_replica_count
+  enable_prometheus_monitoring = false
 
   depends_on = [data.terraform_remote_state.platform]
 }
@@ -60,14 +60,14 @@ module "keda" {
 module "cert_manager" {
   source = "./modules/cert-manager"
 
-  namespace          = var.cert_manager_namespace
-  chart_version      = var.cert_manager_chart_version
-  letsencrypt_email  = var.letsencrypt_email
-  ingress_class      = var.cert_manager_ingress_class
-  cpu_request        = var.cert_manager_cpu_request
-  cpu_limit          = var.cert_manager_cpu_limit
-  memory_request     = var.cert_manager_memory_request
-  memory_limit       = var.cert_manager_memory_limit
+  namespace         = var.cert_manager_namespace
+  chart_version     = var.cert_manager_chart_version
+  letsencrypt_email = var.letsencrypt_email
+  ingress_class     = var.cert_manager_ingress_class
+  cpu_request       = var.cert_manager_cpu_request
+  cpu_limit         = var.cert_manager_cpu_limit
+  memory_request    = var.cert_manager_memory_request
+  memory_limit      = var.cert_manager_memory_limit
 
   depends_on = [data.terraform_remote_state.platform]
 }
@@ -106,14 +106,14 @@ data "terraform_remote_state" "external_secrets" {
 module "application_secrets" {
   source = "./modules/application-secrets"
 
-  key_vault_id = data.terraform_remote_state.platform.outputs.key_vault_id
-  environment  = var.environment
-  nextauth_url = var.nextauth_url
-  mailjet_enabled    = var.mailjet_enabled
-  mailjet_api_key    = var.mailjet_api_key
-  mailjet_secret_key = var.mailjet_secret_key
-  mailjet_from_email = var.mailjet_from_email
-  mailjet_from_name  = var.mailjet_from_name
+  key_vault_id        = data.terraform_remote_state.platform.outputs.key_vault_id
+  environment         = var.environment
+  nextauth_url        = var.nextauth_url
+  mailjet_enabled     = var.mailjet_enabled
+  mailjet_api_key     = var.mailjet_api_key
+  mailjet_secret_key  = var.mailjet_secret_key
+  mailjet_from_email  = var.mailjet_from_email
+  mailjet_from_name   = var.mailjet_from_name
   mailjet_template_id = var.mailjet_template_id
 
   depends_on = [data.terraform_remote_state.platform]
@@ -171,7 +171,7 @@ resource "kubernetes_manifest" "servicebus_secrets" {
   depends_on = [
     kubernetes_manifest.cluster_secret_store
   ]
-  
+
   field_manager {
     name            = "terraform"
     force_conflicts = true
@@ -184,9 +184,9 @@ resource "kubernetes_manifest" "servicebus_secrets" {
       name      = "servicebus-secrets"
       namespace = "carpeta-ciudadana"
       labels = {
-        "app.kubernetes.io/name"     = "carpeta-ciudadana"
-        "app.kubernetes.io/part-of"  = "carpeta-ciudadana"
-        "component"                  = "servicebus"
+        "app.kubernetes.io/name"    = "carpeta-ciudadana"
+        "app.kubernetes.io/part-of" = "carpeta-ciudadana"
+        "component"                 = "servicebus"
       }
     }
     spec = {
@@ -235,9 +235,9 @@ resource "kubernetes_manifest" "mailjet_secrets" {
       name      = "mailjet-secrets"
       namespace = "carpeta-ciudadana"
       labels = {
-        "app.kubernetes.io/name"     = "carpeta-ciudadana"
-        "app.kubernetes.io/part-of"  = "carpeta-ciudadana"
-        "component"                  = "mailjet"
+        "app.kubernetes.io/name"    = "carpeta-ciudadana"
+        "app.kubernetes.io/part-of" = "carpeta-ciudadana"
+        "component"                 = "mailjet"
       }
     }
     spec = {

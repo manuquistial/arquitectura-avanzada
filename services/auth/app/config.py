@@ -42,10 +42,11 @@ class Settings(BaseSettings):
     # Redis configuration
     redis_host: str = Field(default="localhost", alias="REDIS_HOST", description="Redis host")
     redis_port: int = Field(default=6379, alias="REDIS_PORT", description="Redis port")
-    redis_password: str = Field(default="mock_redis_password", alias="REDIS_PASSWORD", description="Redis password")
+    redis_password: Optional[str] = Field(default=None, alias="REDIS_PASSWORD", description="Redis password")
     redis_db: int = Field(default=1, alias="REDIS_DB", description="Redis database number")
     redis_ssl: bool = Field(default=False, alias="REDIS_SSL", description="Redis SSL enabled")
     redis_enabled: bool = Field(default=True, alias="REDIS_ENABLED", description="Enable Redis cache")
+    session_ttl_minutes: int = Field(default=24 * 60, alias="SESSION_TTL_MINUTES", description="Session TTL in minutes")
     
     # JWT configuration
     jwt_algorithm: str = Field(default="RS256", alias="JWT_ALGORITHM", description="JWT algorithm")

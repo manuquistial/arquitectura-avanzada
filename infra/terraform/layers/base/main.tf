@@ -39,8 +39,9 @@ module "dns" {
   dns_zone_name       = var.dns_zone_name
   resource_group_name = azurerm_resource_group.main.name
   app_subdomain       = var.app_subdomain
-  ingress_ip          = "135.224.5.72"  # IP del ingress controller
-  
+  ingress_ip          = var.ingress_ip
+  ingress_alias       = var.ingress_alias
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"

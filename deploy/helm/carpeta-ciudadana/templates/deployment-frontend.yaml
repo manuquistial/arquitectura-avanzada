@@ -29,11 +29,14 @@ spec:
           name: http
           protocol: TCP
         env:
-        {{- $public := .Values.frontend.publicBaseUrl | default "" }}
+        {{- $public := coalesce .Values.frontend.publicBaseUrl .Values.global.frontDoorEndpoint "" }}
         {{- $publicTrim := regexReplaceAll "\\/$" $public "" }}
+        {{- $useProxy := default false .Values.frontend.useProxy }}
         # Service URLs for frontend
         - name: NEXT_PUBLIC_AUTH_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/auth"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}/api/auth"
           {{- else }}
           valueFrom:
@@ -42,7 +45,9 @@ spec:
               key: AUTH_URL
           {{- end }}
         - name: NEXT_PUBLIC_CITIZEN_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/citizen"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}/api/citizens"
           {{- else }}
           valueFrom:
@@ -51,7 +56,9 @@ spec:
               key: CITIZEN_URL
           {{- end }}
         - name: NEXT_PUBLIC_INGESTION_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/ingestion"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}"
           {{- else }}
           valueFrom:
@@ -60,7 +67,9 @@ spec:
               key: INGESTION_URL
           {{- end }}
         - name: NEXT_PUBLIC_SIGNATURE_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/signature"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}"
           {{- else }}
           valueFrom:
@@ -69,7 +78,9 @@ spec:
               key: SIGNATURE_URL
           {{- end }}
         - name: NEXT_PUBLIC_TRANSFER_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/transfer"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}/api/transfers"
           {{- else }}
           valueFrom:
@@ -78,7 +89,9 @@ spec:
               key: TRANSFER_URL
           {{- end }}
         - name: NEXT_PUBLIC_MINTIC_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/mintic"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}/api/mintic"
           {{- else }}
           valueFrom:
@@ -87,7 +100,9 @@ spec:
               key: MINTIC_CLIENT_URL
           {{- end }}
         - name: NEXT_PUBLIC_METADATA_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/metadata"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}"
           {{- else }}
           valueFrom:
@@ -96,7 +111,9 @@ spec:
               key: METADATA_URL
           {{- end }}
         - name: NEXT_PUBLIC_NOTIFICATION_SERVICE_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy/notification"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}"
           {{- else }}
           valueFrom:
@@ -105,7 +122,9 @@ spec:
               key: NOTIFICATION_URL
           {{- end }}
         - name: NEXT_PUBLIC_API_URL
-          {{- if $publicTrim }}
+          {{- if $useProxy }}
+          value: "/api/proxy"
+          {{- else if $publicTrim }}
           value: "{{ $publicTrim }}"
           {{- else }}
           valueFrom:
@@ -113,6 +132,10 @@ spec:
               name: {{ include "carpeta-ciudadana.fullname" . }}-app-config
               key: FRONTEND_URL
           {{- end }}
+        - name: NEXT_PUBLIC_USE_PROXY
+          value: {{ if $useProxy }}"true"{{ else }}"false"{{ end }}
+        - name: USE_PROXY
+          value: {{ if $useProxy }}"true"{{ else }}"false"{{ end }}
         - name: NODE_ENV
           value: "production"
         # NextAuth Configuration - from Kubernetes secrets

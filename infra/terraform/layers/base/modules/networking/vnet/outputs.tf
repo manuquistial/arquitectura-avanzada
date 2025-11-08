@@ -13,6 +13,11 @@ output "aks_subnet_id" {
   value       = azurerm_subnet.aks.id
 }
 
+output "aks_network_security_group_id" {
+  description = "AKS subnet Network Security Group ID"
+  value       = azurerm_network_security_group.aks.id
+}
+
 output "db_subnet_id" {
   description = "Database subnet ID"
   value       = azurerm_subnet.db.id

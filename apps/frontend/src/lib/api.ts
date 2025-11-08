@@ -30,18 +30,34 @@ import type {
   APIError
 } from '../types/api';
 
-// Service URLs - from environment variables (configured via Kubernetes)
-const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL;
-const CITIZEN_SERVICE_URL = process.env.NEXT_PUBLIC_CITIZEN_SERVICE_URL;
-const INGESTION_SERVICE_URL = process.env.NEXT_PUBLIC_INGESTION_SERVICE_URL;
-const SIGNATURE_SERVICE_URL = process.env.NEXT_PUBLIC_SIGNATURE_SERVICE_URL;
-const TRANSFER_SERVICE_URL = process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL;
-const MINTIC_SERVICE_URL = process.env.NEXT_PUBLIC_MINTIC_SERVICE_URL;
-const METADATA_SERVICE_URL = process.env.NEXT_PUBLIC_METADATA_SERVICE_URL;
-const NOTIFICATION_SERVICE_URL = process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_URL;
+// Service URL helpers - prefer same-origin ingress paths by default
+const isProxyMode = process.env.NEXT_PUBLIC_USE_PROXY === 'true';
+
+const normalizeBase = (value: string): string => {
+  if (!value) {
+    return value;
+  }
+  return value.endsWith('/') ? value.slice(0, -1) : value;
+};
+
+const buildServiceUrl = (serviceBase: string | undefined, defaultPath: string): string => {
+  const base = serviceBase && serviceBase.trim().length > 0 ? normalizeBase(serviceBase) : '';
+  return `${base}${defaultPath}`;
+};
+
+const AUTH_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_AUTH_SERVICE_URL, '/api/auth');
+const CITIZEN_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_CITIZEN_SERVICE_URL, '/api');
+const INGESTION_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_INGESTION_SERVICE_URL, '/api/documents');
+const SIGNATURE_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_SIGNATURE_SERVICE_URL, '/api/signature');
+const TRANSFER_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL, '/api/transfers');
+const MINTIC_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_MINTIC_SERVICE_URL, '/api/mintic');
+const METADATA_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_METADATA_SERVICE_URL, '/api/metadata');
+const NOTIFICATION_API_BASE = buildServiceUrl(process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_URL, '/api/notifications');
+
+const API_BASE_URL = isProxyMode ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -108,7 +124,7 @@ export const apiService = {
         return [];
       }
       // Send citizen_id as string to backend
-      const response = await api.get(`${INGESTION_SERVICE_URL}/api/documents/`, {
+      const response = await api.get(`${INGESTION_API_BASE}/`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -120,7 +136,7 @@ export const apiService = {
 
   async getUploadUrl(filename: string, contentType: string, title: string, citizenId: string) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/upload-url`, {
+      const response = await api.post(`${INGESTION_API_BASE}/upload-url`, {
         filename,
         content_type: contentType,
         title,
@@ -135,7 +151,7 @@ export const apiService = {
 
   async confirmUpload(documentId: string, sha256: string, size: number) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/confirm-upload`, {
+      const response = await api.post(`${INGESTION_API_BASE}/confirm-upload`, {
         document_id: documentId,
         sha256,
         size
@@ -149,7 +165,7 @@ export const apiService = {
 
   async getDownloadUrl(documentId: string) {
     try {
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/download-url`, {
+      const response = await api.post(`${INGESTION_API_BASE}/download-url`, {
         document_id: documentId
       });
       return response.data;
@@ -161,7 +177,7 @@ export const apiService = {
 
   async downloadDocument(documentId: string, filename: string) {
     try {
-      const response = await api.get(`${INGESTION_SERVICE_URL}/api/documents/download/${documentId}`, {
+      const response = await api.get(`${INGESTION_API_BASE}/download/${documentId}`, {
         responseType: 'blob'
       });
       
@@ -183,7 +199,7 @@ export const apiService = {
 
   async deleteDocument(documentId: string, citizenId: string) {
     try {
-      const response = await api.delete(`${INGESTION_SERVICE_URL}/api/documents/${documentId}`, {
+      const response = await api.delete(`${INGESTION_API_BASE}/${documentId}`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -203,7 +219,7 @@ export const apiService = {
         formData.append('description', description);
       }
 
-      const response = await api.post(`${INGESTION_SERVICE_URL}/api/documents/upload-direct`, formData, {
+      const response = await api.post(`${INGESTION_API_BASE}/upload-direct`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -218,11 +234,7 @@ export const apiService = {
   // Metadata Service API calls
   async getDocumentMetadata(citizenId: string) {
     try {
-      if (!METADATA_SERVICE_URL) {
-        console.warn('NEXT_PUBLIC_METADATA_SERVICE_URL not configured');
-        return [];
-      }
-      const response = await api.get(`${METADATA_SERVICE_URL}/api/metadata/documents/citizen/${citizenId}`);
+      const response = await api.get(`${METADATA_API_BASE}/documents/citizen/${citizenId}`);
       // The response is an object with 'documents' array, not a direct array
       if (response.data && Array.isArray(response.data.documents)) {
         return response.data.documents;
@@ -239,11 +251,7 @@ export const apiService = {
 
   async searchDocuments(query: string, citizenId?: string) {
     try {
-      if (!METADATA_SERVICE_URL) {
-        console.warn('NEXT_PUBLIC_METADATA_SERVICE_URL not configured');
-        return { documents: [], total: 0 };
-      }
-      const response = await api.post(`${METADATA_SERVICE_URL}/api/metadata/search`, {
+      const response = await api.post(`${METADATA_API_BASE}/search`, {
         query,
         citizen_id: citizenId,
       });
@@ -260,7 +268,7 @@ export const apiService = {
       // Si es admin, no necesita citizenId específico
       if (userRoles?.includes('admin')) {
         // Para admin, podríamos obtener todas las transferencias o usar un ID por defecto
-        const response = await api.get(`${TRANSFER_SERVICE_URL}/api`, {
+        const response = await api.get(`${TRANSFER_API_BASE}/`, {
           params: { citizen_id: citizenId || '1234567890' }
         });
         return response.data;
@@ -270,7 +278,7 @@ export const apiService = {
         console.warn('No citizenId provided for getTransfers');
         return [];
       }
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/api`, {
+      const response = await api.get(`${TRANSFER_API_BASE}/`, {
         params: { citizen_id: citizenId }
       });
       return response.data;
@@ -282,7 +290,7 @@ export const apiService = {
 
   async createTransfer(transferData: any) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/initiate`, transferData);
+      const response = await api.post(`${TRANSFER_API_BASE}/initiate`, transferData);
       return response.data;
     } catch (error) {
       console.error('Error creating transfer:', error);
@@ -292,7 +300,7 @@ export const apiService = {
 
   async getTransferStatus(transferId: string) {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/api/status/${transferId}`);
+      const response = await api.get(`${TRANSFER_API_BASE}/status/${transferId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting transfer status:', error);
@@ -302,7 +310,7 @@ export const apiService = {
 
   async acceptTransfer(transferId: string) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/${transferId}/accept`);
+      const response = await api.post(`${TRANSFER_API_BASE}/${transferId}/accept`);
       return response.data;
     } catch (error) {
       console.error('Error accepting transfer:', error);
@@ -312,7 +320,7 @@ export const apiService = {
 
   async rejectTransfer(transferId: string) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/api/${transferId}/reject`);
+      const response = await api.post(`${TRANSFER_API_BASE}/${transferId}/reject`);
       return response.data;
     } catch (error) {
       console.error('Error rejecting transfer:', error);
@@ -323,11 +331,7 @@ export const apiService = {
   // Notification Service API calls
   async getNotificationStats() {
     try {
-      if (!NOTIFICATION_SERVICE_URL) {
-        console.warn('NEXT_PUBLIC_NOTIFICATION_SERVICE_URL not configured');
-        return { total_notifications: 0 };
-      }
-      const response = await api.get(`${NOTIFICATION_SERVICE_URL}/api/notifications/stats`);
+      const response = await api.get(`${NOTIFICATION_API_BASE}/stats`);
       return response.data;
     } catch (error) {
       console.error('Error fetching notification stats:', error);
@@ -337,11 +341,7 @@ export const apiService = {
 
   async getUserNotifications(citizenId: string) {
     try {
-      if (!NOTIFICATION_SERVICE_URL) {
-        console.warn('NEXT_PUBLIC_NOTIFICATION_SERVICE_URL not configured');
-        return [];
-      }
-      const response = await api.get(`${NOTIFICATION_SERVICE_URL}/api/notifications/user/${citizenId}`);
+      const response = await api.get(`${NOTIFICATION_API_BASE}/user/${citizenId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching user notifications:', error);
@@ -352,7 +352,7 @@ export const apiService = {
   // Signature API calls - using Signature service
   async signDocument(documentId: string, signatureData: SignDocumentRequest) {
     try {
-      const response = await api.post(`${SIGNATURE_SERVICE_URL}/api/signature/sign`, {
+      const response = await api.post(`${SIGNATURE_API_BASE}/sign`, {
         document_id: documentId,
         citizen_id: signatureData.citizen_id,
         signature_type: signatureData.signature_type || "PAdES",
@@ -378,7 +378,7 @@ export const apiService = {
 
   async verifySignature(documentId: string) {
     try {
-      const response = await api.post(`${SIGNATURE_SERVICE_URL}/api/signature/verify`, {
+      const response = await api.post(`${SIGNATURE_API_BASE}/verify`, {
         signed_document_id: documentId  // Backend expects signed_document_id
       });
       return response.data;
@@ -392,7 +392,7 @@ export const apiService = {
   // Citizen API calls - using Citizen service
   async registerCitizen(citizenData: CitizenCreate): Promise<CitizenResponse> {
     try {
-      const response = await api.post(`${CITIZEN_SERVICE_URL}/api/citizens/register`, citizenData);
+      const response = await api.post(`${CITIZEN_API_BASE}/citizens/register`, citizenData);
       return response.data;
     } catch (error) {
       console.error('Error registering citizen:', error);
@@ -402,7 +402,7 @@ export const apiService = {
 
   async getCitizen(citizenId: string): Promise<CitizenResponse> {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/citizens/${citizenId}`);
+      const response = await api.get(`${CITIZEN_API_BASE}/citizens/${citizenId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching citizen:', error);
@@ -413,7 +413,7 @@ export const apiService = {
   async unregisterCitizen(citizenData: CitizenUnregister): Promise<void> {
     try {
       // For DELETE requests with body, Axios needs the data in the config
-      const response = await api.delete(`${CITIZEN_SERVICE_URL}/api/citizens/unregister`, {
+      const response = await api.delete(`${CITIZEN_API_BASE}/citizens/unregister`, {
         data: citizenData,
         headers: {
           'Content-Type': 'application/json'
@@ -434,7 +434,7 @@ export const apiService = {
   // User management API calls
   async getCurrentUser() {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/me`);
+      const response = await api.get(`${CITIZEN_API_BASE}/users/me`);
       return response.data;
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -444,7 +444,7 @@ export const apiService = {
 
   async getAllUsers(skip: number = 0, limit: number = 100) {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/`, {
+      const response = await api.get(`${CITIZEN_API_BASE}/users/`, {
         params: { skip, limit }
       });
       return response.data;
@@ -460,7 +460,7 @@ export const apiService = {
 
   async getUserById(userId: string) {
     try {
-      const response = await api.get(`${CITIZEN_SERVICE_URL}/api/users/${userId}`);
+      const response = await api.get(`${CITIZEN_API_BASE}/users/${userId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching user:', error);
@@ -470,7 +470,7 @@ export const apiService = {
 
   async updateUser(userId: string, userData: any) {
     try {
-      const response = await api.patch(`${CITIZEN_SERVICE_URL}/api/users/${userId}`, userData);
+      const response = await api.patch(`${CITIZEN_API_BASE}/users/${userId}`, userData);
       return response.data;
     } catch (error) {
       console.error('Error updating user:', error);
@@ -481,7 +481,7 @@ export const apiService = {
   // MinTIC Hub API calls - using MinTIC Client service
   async syncDocumentsWithHub(citizenId: string, documentIds?: string[], syncType = 'full') {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/sync/documents`, {
+      const response = await api.post(`${MINTIC_API_BASE}/sync/documents`, {
         citizen_id: citizenId,
         document_ids: documentIds,
         sync_type: syncType
@@ -495,7 +495,7 @@ export const apiService = {
 
   async getSyncStatus(citizenId: string) {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/sync/status/${citizenId}`);
+      const response = await api.get(`${MINTIC_API_BASE}/sync/status/${citizenId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting sync status:', error);
@@ -505,7 +505,7 @@ export const apiService = {
 
   async validateDocumentWithHub(documentId: string, documentHash: string, citizenId: string) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/authenticate-document`, {
+      const response = await api.post(`${MINTIC_API_BASE}/authenticate-document`, {
         document_id: documentId,
         document_hash: documentHash,
         citizen_id: citizenId
@@ -520,7 +520,7 @@ export const apiService = {
 
   async registerCitizenWithHub(citizenData: any) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/register-citizen`, citizenData);
+      const response = await api.post(`${MINTIC_API_BASE}/register-citizen`, citizenData);
       return response.data;
     } catch (error) {
       console.error('Error registering citizen with hub:', error);
@@ -530,7 +530,7 @@ export const apiService = {
 
   async authenticateDocumentWithHub(documentData: any) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/authenticate-document`, documentData);
+      const response = await api.post(`${MINTIC_API_BASE}/authenticate-document`, documentData);
       return response.data;
     } catch (error) {
       console.error('Error authenticating document with hub:', error);
@@ -541,7 +541,7 @@ export const apiService = {
   // Auth service calls
   async registerUser(userData: RegisterRequest): Promise<RegisterResponse> {
     try {
-      const response = await api.post(`${AUTH_SERVICE_URL}/register`, userData);
+      const response = await api.post(`${AUTH_API_BASE}/register`, userData);
       return response.data;
     } catch (error) {
       console.error('Error registering user:', error);
@@ -551,7 +551,7 @@ export const apiService = {
 
   async loginUser(credentials: LoginRequest): Promise<LoginResponse> {
     try {
-      const response = await api.post(`${AUTH_SERVICE_URL}/login`, credentials);
+      const response = await api.post(`${AUTH_API_BASE}/login`, credentials);
       return response.data;
     } catch (error) {
       console.error('Error logging in user:', error);
@@ -562,7 +562,7 @@ export const apiService = {
   // Operator management API calls - using Transfer service
   async getOperators() {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/operators`);
+      const response = await api.get(`${TRANSFER_API_BASE}/operators`);
       return response.data;
     } catch (error) {
       console.error('Error fetching operators:', error);
@@ -572,7 +572,7 @@ export const apiService = {
 
   async registerOperator(operatorData: any) {
     try {
-      const response = await api.post(`${TRANSFER_SERVICE_URL}/register-operator`, operatorData);
+      const response = await api.post(`${TRANSFER_API_BASE}/register-operator`, operatorData);
       return response.data;
     } catch (error) {
       console.error('Error registering operator:', error);
@@ -582,7 +582,7 @@ export const apiService = {
 
   async getOperator(operatorId: string) {
     try {
-      const response = await api.get(`${TRANSFER_SERVICE_URL}/operators/${operatorId}`);
+      const response = await api.get(`${TRANSFER_API_BASE}/operators/${operatorId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching operator:', error);
@@ -598,7 +598,7 @@ export const apiService = {
     participants: string[];
   }) {
     try {
-      const response = await api.post(`${MINTIC_SERVICE_URL}/register-operator`, operatorData);
+      const response = await api.post(`${MINTIC_API_BASE}/register-operator`, operatorData);
       return response.data;
     } catch (error) {
       console.error('Error registering MinTIC operator:', error);
@@ -608,7 +608,7 @@ export const apiService = {
 
   async getMinTICOperators() {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/operators/local`);
+      const response = await api.get(`${MINTIC_API_BASE}/operators/local`);
       return response.data;
     } catch (error) {
       console.error('Error fetching MinTIC operators:', error);
@@ -618,7 +618,7 @@ export const apiService = {
 
   async getMinTICOperator(operatorId: number) {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/operators/local/${operatorId}`);
+      const response = await api.get(`${MINTIC_API_BASE}/operators/local/${operatorId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching MinTIC operator:', error);
@@ -628,7 +628,7 @@ export const apiService = {
 
   async deactivateMinTICOperator(operatorId: number) {
     try {
-      const response = await api.put(`${MINTIC_SERVICE_URL}/operators/local/${operatorId}/deactivate`);
+      const response = await api.put(`${MINTIC_API_BASE}/operators/local/${operatorId}/deactivate`);
       return response.data;
     } catch (error) {
       console.error('Error deactivating MinTIC operator:', error);
@@ -638,7 +638,7 @@ export const apiService = {
 
   async deleteMinTICOperator(operatorId: number) {
     try {
-      const response = await api.delete(`${MINTIC_SERVICE_URL}/operators/local/${operatorId}`);
+      const response = await api.delete(`${MINTIC_API_BASE}/operators/local/${operatorId}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting MinTIC operator:', error);
@@ -649,7 +649,7 @@ export const apiService = {
   // System Configuration
   async getSystemOperatorConfig() {
     try {
-      const response = await api.get(`${MINTIC_SERVICE_URL}/api/mintic/system-config/operator`);
+      const response = await api.get(`${MINTIC_API_BASE}/system-config/operator`);
       return response.data;
     } catch (error) {
       console.error('Error fetching system operator config:', error);
@@ -659,7 +659,7 @@ export const apiService = {
 
   async updateSystemOperatorConfig(operatorId: string, operatorName: string, updatedBy?: string) {
     try {
-      const response = await api.put(`${MINTIC_SERVICE_URL}/api/mintic/system-config/operator`, {
+      const response = await api.put(`${MINTIC_API_BASE}/system-config/operator`, {
         operator_id: operatorId,
         operator_name: operatorName,
         updated_by: updatedBy

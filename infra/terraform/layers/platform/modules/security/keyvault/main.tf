@@ -24,26 +24,26 @@ resource "azurerm_key_vault" "main" {
   resource_group_name = var.resource_group_name
   tenant_id           = data.azurerm_client_config.current.tenant_id
   sku_name            = var.sku_name
-  
+
   # Security configuration
   purge_protection_enabled   = var.purge_protection_enabled
   soft_delete_retention_days = var.soft_delete_retention_days
-  
+
   # HABILITAR RBAC (más moderno y seguro que access policies)
   rbac_authorization_enabled = true
-  
+
   # Network access
   network_acls {
     default_action = var.network_acls_default_action
     bypass         = var.network_acls_bypass
-    
+
     # Permitir acceso desde AKS
     virtual_network_subnet_ids = var.allowed_subnet_ids
-    
+
     # Permitir acceso desde IPs específicas
     ip_rules = var.allowed_ip_rules
   }
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -56,7 +56,7 @@ resource "azurerm_user_assigned_identity" "external_secrets" {
   name                = "${var.keyvault_name}-external-secrets"
   resource_group_name = var.resource_group_name
   location            = var.location
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -73,7 +73,7 @@ resource "azurerm_role_assignment" "terraform_user_secrets_officer" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = data.azurerm_client_config.current.object_id
-  
+
   description = "Permite a Terraform gestionar secrets en Key Vault"
 }
 
@@ -82,7 +82,7 @@ resource "azurerm_role_assignment" "external_secrets_secrets_user" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.external_secrets.principal_id
-  
+
   description = "Permite a External Secrets Operator leer secrets"
 }
 
@@ -91,44 +91,44 @@ resource "azurerm_role_assignment" "external_secrets_secrets_officer" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = azurerm_user_assigned_identity.external_secrets.principal_id
-  
+
   description = "Permite a External Secrets Operator gestionar secrets completamente"
 }
 
 # Asignar rol "Key Vault Secrets User" al Managed Identity del AKS
 # (usado por External Secrets Operator)
 resource "azurerm_role_assignment" "aks_managed_identity_secrets_user" {
-  count               = var.aks_managed_identity_principal_id != "" ? 1 : 0
-  scope               = azurerm_key_vault.main.id
+  count                = var.aks_managed_identity_principal_id != "" ? 1 : 0
+  scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets User"
-  principal_id        = var.aks_managed_identity_principal_id
-  
+  principal_id         = var.aks_managed_identity_principal_id
+
   description = "Permite al AKS Managed Identity (External Secrets Operator) leer secrets"
 }
 
 # Asignar rol "Key Vault Secrets Officer" al Managed Identity del AKS
 # (para gestión completa de secrets)
 resource "azurerm_role_assignment" "aks_managed_identity_secrets_officer" {
-  count               = var.aks_managed_identity_principal_id != "" ? 1 : 0
-  scope               = azurerm_key_vault.main.id
+  count                = var.aks_managed_identity_principal_id != "" ? 1 : 0
+  scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id        = var.aks_managed_identity_principal_id
-  
+  principal_id         = var.aks_managed_identity_principal_id
+
   description = "Permite al AKS Managed Identity (External Secrets Operator) gestionar secrets completamente"
 }
 
 # Crear secrets iniciales en Key Vault (opcional)
 resource "azurerm_key_vault_secret" "initial_secrets" {
   for_each = var.initial_secrets
-  
+
   name         = each.key
   value        = each.value
   key_vault_id = azurerm_key_vault.main.id
-  
+
   depends_on = [
     azurerm_key_vault.main
   ]
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -138,12 +138,12 @@ resource "azurerm_key_vault_secret" "initial_secrets" {
 # Federated Identity Credential para External Secrets Operator
 resource "azuread_application" "external_secrets" {
   display_name = "${var.keyvault_name}-external-secrets-app"
-  
+
   # Configuración para Workload Identity
   web {
     redirect_uris = []
   }
-  
+
   tags = [
     "External Secrets",
     var.environment

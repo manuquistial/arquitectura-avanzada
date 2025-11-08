@@ -46,7 +46,7 @@ variable "sku_name" {
   default     = "GP_Standard_D2s_v5"
   validation {
     # Patrones válidos por familia: Burstable (B), General Purpose (GP), Memory Optimized (MO)
-    condition = can(regex("^(B_Standard_B\\w+|GP_Standard_D\\w+|MO_Standard_E\\w+)$", var.sku_name))
+    condition     = can(regex("^(B_Standard_B\\w+|GP_Standard_D\\w+|MO_Standard_E\\w+)$", var.sku_name))
     error_message = "SKU must look like: B_Standard_B*, GP_Standard_D*, or MO_Standard_E* (e.g., GP_Standard_D2s_v5)."
   }
 }
