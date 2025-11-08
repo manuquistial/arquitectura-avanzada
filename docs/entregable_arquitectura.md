@@ -4,35 +4,27 @@
 
 ## 1. Diagrama de Casos de Uso o Historias de Usuario
 
-- **Diagrama de casos de uso**: disponible como imagen en `docs/casos_uso.png`. Representa actores `Ciudadano`, `Operador`, `Hub MinTIC` y `Servicios Externos`, junto con los casos `Registrar ciudadano`, `Autenticarse`, `Cargar documentos`, `Autenticar documento` y `Recibir notificaciones`.
-- **Historias de usuario**: no hay un documento dedicado dentro de `docs/` que las detalle; el insumo principal en este repositorio es el diagrama mencionado.
+- **Diagrama de casos de uso**: disponible como imagen en [casos_uso.png](./casos_uso.png). Representa actores `Ciudadano`, `Operador`, `Hub MinTIC` y `Servicios Externos`, junto con los casos `Registrar ciudadano`, `Autenticarse`, `Cargar documentos`, `Autenticar documento` y `Recibir notificaciones`.
+- **Especificaciones de casos de uso**: cada caso del diagrama cuenta con descripción de flujo principal, alternativas y reglas de negocio en [diagramas-secuencia.md](./diagramas-secuencia.md):
+  - `Registro de ciudadano`: participantes, pasos, manejo de duplicados y evento `citizen.registered`.
+  - `Autenticación de ciudadano`: verificación de credenciales, respuesta `401` en fallos.
+  - `Carga de documento`: generación de SAS, confirmación y evento `document.uploaded`.
+  - `Autenticación de documento`: verificación de integridad, firma y aplicación de WORM.
+  - `Publicación y manejo de eventos`: consumo desde Service Bus con reintentos y DLQ.
+- **Historias de usuario**: no hay narrativa textual dentro de `docs/`; el insumo funcional disponible es el diagrama más las especificaciones anteriores.
 
-## 2. Casos de Uso con Especificaciones
+## 2. Diagrama de Componentes (Lógicos y Técnicos)
 
-Los siguientes insumos dentro de `docs/` cubren la información solicitada:
-
-- **CU1 Registrar ciudadano**: descrito en `docs/diagramas-secuencia.md` (sección “Registro de ciudadano”), con participantes, flujo principal, alternativas y evento `citizen.registered`.
-- **CU2 Autenticarse en el operador**: `docs/diagramas-secuencia.md` (sección “Autenticación de ciudadano”) detalla el uso de `auth`, verificación en PostgreSQL y manejo de credenciales inválidas.
-- **CU3 Cargar documentos**: `docs/diagramas-secuencia.md` (sección “Carga de documento”) explica la generación de SAS URL, confirmación al backend y publicación del evento `document.uploaded`.
-- **CU4 Autenticación Gov**: `docs/diagramas-secuencia.md` (sección “Autenticación de documento”) cubre la interacción con `signature`, `mintic_client`, Hub MinTIC y la aplicación de WORM.
-- **CU5 Notificaciones de eventos**: `docs/diagramas-secuencia.md` (sección “Publicación y manejo de eventos”) describe el flujo de Service Bus hacia `notification`, con reintentos y DLQ.
-
-## 3. Historias de Usuario y Escenarios
-
-No se encontraron historias de usuario textuales dentro de `docs/`. El repositorio aporta únicamente el diagrama de casos de uso y los diagramas de secuencia para comprender los escenarios principales.
-
-## 4. Diagrama de Componentes (Lógicos y Técnicos)
-
-- **Vista lógica**: disponible en `docs/diagrama-componentes.md`, donde se describen los dominios (Experiencia de Usuario, Gestión de Identidad, Gestión Documental e Integraciones) y el evento central `Azure Service Bus`.
+- **Vista lógica**: disponible en [diagrama-componentes.md](./diagrama-componentes.md), donde se describen los dominios (Experiencia de Usuario, Gestión de Identidad, Gestión Documental e Integraciones) y el evento central `Azure Service Bus`.
 - **Vista técnica**: el mismo documento referencia la topología en AKS y cómo cada microservicio (`auth`, `citizen`, `ingestion`, `metadata`, `signature`, `notification`, `transfer`, `mintic_client`) se conecta a PostgreSQL, Blob Storage, Key Vault, Redis y Service Bus.
 
-## 5. Diagramas de Secuencia de al menos 3 Operaciones
+## 3. Diagramas de Secuencia de al menos 3 Operaciones
 
-`docs/diagramas-secuencia.md` contiene cinco diagramas (Registro, Autenticación, Carga de documento, Autenticación Gov y Manejo de eventos). Cada uno incluye participantes, flujo principal y alternativas; satisfacen el requisito de “al menos 3” (se entregan 4+).
+[diagramas-secuencia.md](./diagramas-secuencia.md) contiene cinco diagramas (Registro, Autenticación, Carga de documento, Autenticación Gov y Manejo de eventos). Cada uno incluye participantes, flujo principal y alternativas; satisfacen el requisito de “al menos 3” (se entregan 4+).
 
-## 6. Diagrama de Despliegue con Tecnologías, Protocolos y Mensajería
+## 4. Diagrama de Despliegue con Tecnologías, Protocolos y Mensajería
 
-- **Diagrama**: `docs/Despliegue_microservicios_arquitecturas_avanzadas.png`.
+- **Diagrama**: [Despliegue_microservicios_arquitecturas_avanzadas.png](./Despliegue_microservicios_arquitecturas_avanzadas.png).
 - **Descripción**: El propio diagrama y la documentación adjunta indican:
   - Azure Load Balancer + NGINX Ingress (HTTP actual, pendiente TLS).
   - AKS como plataforma de contenedores para todos los microservicios.
@@ -40,16 +32,24 @@ No se encontraron historias de usuario textuales dentro de `docs/`. El repositor
   - Integraciones externas: Hub MinTIC (REST/JSON sobre VPN) y Mailjet (HTTPS).
   - Protocolos y formatos (HTTP/HTTPS, AMQP 1.0 + JSON, SQL/JSONB, claves en Key Vault).
 
-## 7. Decisiones de Arquitectura
+## 5. Decisiones de Arquitectura para Despliegue (nube / on-premise)
 
-Las decisiones de arquitectura se pueden consultar en las presentaciones y diagramas dentro de `docs/`:
+- **Criterios de despliegue**: [Despliegue_microservicios_arquitecturas_avanzadas.png](./Despliegue_microservicios_arquitecturas_avanzadas.png) y el PDF [DECISIONES DE DESPLIEGUE EN LA NUBE.pdf](./DECISIONES%20DE%20DESPLIEGUE%20EN%20LA%20NUBE.pdf) documentan el uso de AKS con Ingress, servicios gestionados (PostgreSQL, Blob, Service Bus, Key Vault), integración privada al Hub y Redis opcional, junto con alternativas evaluadas para escenarios en la nube y on-premise.
 
-- **Criterios de despliegue**: `docs/Despliegue_microservicios_arquitecturas_avanzadas.png` y el PDF `docs/DECISIONES DE DESPLIEGUE EN LA NUBE.pdf` documentan el uso de AKS con Ingress, servicios gestionados (PostgreSQL, Blob, Service Bus, Key Vault), integración privada al Hub y Redis opcional.
-- **Selección tecnológica**: `docs/diagrama-componentes.md` y el PDF `docs/DECISIONES DE SELECCIÓN DE TECNOLOGÍAS.pdf` enumeran las tecnologías elegidas (FastAPI, Next.js SSR, Azure Blob con WORM, Azure Service Bus, autenticación local con JWT, observabilidad básica) junto con alternativas y racional.
-- Estos artefactos incluyen el detalle de alternativas evaluadas, justificación y riesgos asociados.
+## 6. Decisiones de Arquitectura para Selección de Tecnologías
+
+- **Racional tecnológico**: [diagrama-componentes.md](./diagrama-componentes.md) y el PDF [DECISIONES DE SELECCIÓN DE TECNOLOGÍAS.pdf](./DECISIONES%20DE%20SELECCIÓN%20DE%20TECNOLOGÍAS.pdf) enumeran las tecnologías elegidas (FastAPI, Next.js SSR, Azure Blob con WORM, Azure Service Bus, autenticación local con JWT, observabilidad básica), explicando alternativas, racional y riesgos asociados.
 
 ---
 
 **Estado**: Información completa según artefactos recopilados (actualizado al 2025-11-08).  
 **Fuentes**: `docs/casos_uso.png`, `docs/diagrama-componentes.md`, `docs/diagramas-secuencia.md`, `docs/Despliegue_microservicios_arquitecturas_avanzadas.png`, `docs/DECISIONES DE DESPLIEGUE EN LA NUBE.pdf`, `docs/DECISIONES DE SELECCIÓN DE TECNOLOGÍAS.pdf`.
+
+---
+
+**Integrantes del equipo**
+
+- Manuel Quistial
+- Jonathan Betancur
+- Laura Zarate
 
