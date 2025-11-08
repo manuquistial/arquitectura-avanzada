@@ -4,6 +4,7 @@
 
 ![Diagrama de Componentes](./img/componentes.png)
 
+
 ## Alcance
 Arquitectura actual expuesta por **Ingress NGINX** (LoadBalancer + Ingress). Microservicios activos: **auth**, **citizen**, **metadata**, **ingestion**, **mintic_client**, **signature**, **notification**, **transfer**.
 
