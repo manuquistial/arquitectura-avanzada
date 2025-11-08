@@ -13,6 +13,7 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
+      citizen_id?: string;
       email: string;
       name: string;
       given_name: string;
@@ -26,6 +27,7 @@ declare module "next-auth" {
 
   interface User {
     id: string;
+    citizen_id?: string;
     email: string;
     name: string;
     given_name: string;

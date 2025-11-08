@@ -1,10 +1,52 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { apiService } from '@/lib/api';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  ArrowDownToLine,
+  FilePlus2,
+  FileText,
+  PenSquare,
+  ShieldCheck,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import { apiService } from "@/lib/api";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { StatTile } from "@/components/ui/StatTile";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableEmpty,
+} from "@/components/ui/Table";
+import { SearchField } from "@/components/ui/SearchField";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 
 interface Document {
   id: string;
@@ -12,7 +54,7 @@ interface Document {
   filename: string;
   content_type: string;
   status: string;
-  state?: string;  // 'SIGNED' or 'UNSIGNED'
+  state?: string;
   worm_locked?: boolean;
   signed_at?: string;
   size_bytes?: number;
@@ -20,14 +62,240 @@ interface Document {
   updated_at: string;
 }
 
+type StatusTone = "info" | "success" | "warning" | "danger" | "default";
+type SignatureType = "PAdES" | "XAdES" | "CAdES";
+
+const statusMap: Record<
+  string,
+  { label: string; tone: StatusTone; badgeStyle: CSSProperties; description?: string }
+> = {
+  signed: {
+    label: 'Firmado',
+    tone: 'success',
+    badgeStyle: {
+      backgroundColor: 'var(--success-200)',
+      color: 'var(--success-700)',
+      borderColor: 'var(--success-300)',
+    },
+  },
+  authenticated: {
+    label: 'Autenticado',
+    tone: 'success',
+    badgeStyle: {
+      backgroundColor: 'var(--success-200)',
+      color: 'var(--success-700)',
+      borderColor: 'var(--success-300)',
+    },
+    description: 'Validado por entidad certificadora',
+  },
+  uploaded: {
+    label: 'Subido',
+    tone: 'info',
+    badgeStyle: {
+      backgroundColor: 'var(--info-200)',
+      color: 'var(--info-700)',
+      borderColor: 'var(--info-300)',
+    },
+  },
+  pending: {
+    label: 'Pendiente',
+    tone: 'warning',
+    badgeStyle: {
+      backgroundColor: 'var(--accent-200)',
+      color: 'var(--accent-600)',
+      borderColor: 'var(--accent-300)',
+    },
+    description: 'Requiere revisión o firma',
+  },
+  processing: {
+    label: 'Procesando',
+    tone: 'info',
+    badgeStyle: {
+      backgroundColor: 'var(--info-100)',
+      color: 'var(--info-600)',
+      borderColor: 'var(--info-200)',
+    },
+    description: 'Estamos preparando tu documento',
+  },
+  in_progress: {
+    label: 'En progreso',
+    tone: 'info',
+    badgeStyle: {
+      backgroundColor: 'var(--info-100)',
+      color: 'var(--info-600)',
+      borderColor: 'var(--info-200)',
+    },
+  },
+  queued: {
+    label: 'En cola',
+    tone: 'info',
+    badgeStyle: {
+      backgroundColor: 'var(--primary-100)',
+      color: 'var(--primary-700)',
+      borderColor: 'var(--primary-200)',
+    },
+  },
+  draft: {
+    label: 'Borrador',
+    tone: 'default',
+    badgeStyle: {
+      backgroundColor: 'var(--surface-muted)',
+      color: 'var(--text-secondary)',
+      borderColor: 'var(--border-subtle)',
+    },
+  },
+  revoked: {
+    label: 'Revocado',
+    tone: 'danger',
+    badgeStyle: {
+      backgroundColor: 'var(--danger-200)',
+      color: 'var(--danger-700)',
+      borderColor: 'var(--danger-300)',
+    },
+  },
+  rejected: {
+    label: 'Rechazado',
+    tone: 'danger',
+    badgeStyle: {
+      backgroundColor: 'var(--danger-200)',
+      color: 'var(--danger-700)',
+      borderColor: 'var(--danger-300)',
+    },
+  },
+  failed: {
+    label: 'Fallido',
+    tone: 'danger',
+    badgeStyle: {
+      backgroundColor: 'var(--danger-200)',
+      color: 'var(--danger-700)',
+      borderColor: 'var(--danger-300)',
+    },
+  },
+  error: {
+    label: 'Error',
+    tone: 'danger',
+    badgeStyle: {
+      backgroundColor: 'var(--danger-200)',
+      color: 'var(--danger-700)',
+      borderColor: 'var(--danger-300)',
+    },
+  },
+  deleted: {
+    label: 'Eliminado',
+    tone: 'default',
+    badgeStyle: {
+      backgroundColor: 'var(--surface-muted)',
+      color: 'var(--text-secondary)',
+      borderColor: 'var(--border-subtle)',
+    },
+  },
+  expired: {
+    label: 'Expirado',
+    tone: 'warning',
+    badgeStyle: {
+      backgroundColor: 'var(--accent-200)',
+      color: 'var(--accent-600)',
+      borderColor: 'var(--accent-300)',
+    },
+  },
+  shared: {
+    label: 'Compartido',
+    tone: 'info',
+    badgeStyle: {
+      backgroundColor: 'var(--info-200)',
+      color: 'var(--info-700)',
+      borderColor: 'var(--info-300)',
+    },
+  },
+};
+
+const fallbackStatus = {
+  label: 'Estado desconocido',
+  tone: 'info' as StatusTone,
+  badgeStyle: {
+    backgroundColor: 'var(--primary-100)',
+    color: 'var(--primary-700)',
+    borderColor: 'var(--primary-200)',
+  },
+};
+
+function normalizeStatus(value?: string | null) {
+  return value ? value.toLowerCase() : undefined;
+}
+
+function getStatus(doc: Document) {
+  if (doc.worm_locked || doc.state === 'SIGNED') {
+    return statusMap.signed;
+  }
+
+  const normalizedStatus = normalizeStatus(doc.status);
+  if (normalizedStatus && statusMap[normalizedStatus]) {
+    return statusMap[normalizedStatus];
+  }
+
+  const normalizedState = normalizeStatus(doc.state);
+  if (normalizedState && statusMap[normalizedState]) {
+    return statusMap[normalizedState];
+  }
+
+  return {
+    ...fallbackStatus,
+    label: doc.status || doc.state || fallbackStatus.label,
+  };
+}
+
 export default function DocumentsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null);
+  const [signatureType, setSignatureType] = useState<SignatureType>("PAdES");
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const signModalRef = useRef<HTMLDivElement | null>(null);
+  const signatureSelectRef = useRef<HTMLSelectElement | null>(null);
+  const [filter, setFilter] = useState<"all" | "pending" | "signed">("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const filterParam = searchParams.get("filter");
+    if (filterParam === "pending" || filterParam === "signed" || filterParam === "all") {
+      if (filterParam !== filter) {
+        setFilter(filterParam as typeof filter);
+      }
+    }
+
+    const uploadParam = searchParams.get("upload");
+    if (uploadParam === "new" && !showUploadModal) {
+      setShowUploadModal(true);
+    }
+  }, [filter, searchParams, showUploadModal]);
+
+  const fetchDocuments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const citizenId = session?.user?.id || "1234567890";
+      const data = await apiService.getDocuments(
+        citizenId,
+        session?.user?.roles
+      );
+      setDocuments(data);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+      setError("Error al cargar los documentos. Intenta nuevamente.");
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?.id, session?.user?.roles]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -36,311 +304,716 @@ export default function DocumentsPage() {
   }, [status, router]);
 
   useEffect(() => {
+    if (session?.user?.id) {
     fetchDocuments();
-  }, [session]);
-
-  const fetchDocuments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Usar un ID por defecto si no hay sesión (para testing)
-      const citizenId = session?.user?.id || '1234567890';
-      
-      const data = await apiService.getDocuments(citizenId, session?.user?.roles);
-      setDocuments(data);
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      setError('Error al cargar los documentos');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [session?.user?.id, fetchDocuments]);
 
-  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleUpload = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setUploading(true);
     
     try {
       const formData = new FormData(event.currentTarget);
-      const file = formData.get('file') as File;
-      const title = formData.get('title') as string;
-      const description = formData.get('description') as string;
+        const file = formData.get("file") as File | null;
+        const title = (formData.get("title") as string) ?? "";
+        const description = (formData.get("description") as string) ?? "";
 
       if (!file || !title) {
-        throw new Error('Archivo y título son requeridos');
+          throw new Error("Archivo y título son requeridos");
       }
 
-      // Upload directly through backend to avoid CORS issues
       await apiService.uploadDocumentDirect(
         file,
-        session?.user?.id || '1',
+          session?.user?.id || "1",
         title,
         description
       );
 
       setShowUploadModal(false);
-      await fetchDocuments(); // Refresh the list
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      setError('Error al subir el documento');
+        await fetchDocuments();
+      } catch (err) {
+        console.error("Error uploading document:", err);
+        setError(
+          "Error al subir el documento. Por favor, intenta nuevamente."
+        );
     } finally {
       setUploading(false);
     }
-  };
+    },
+    [fetchDocuments, session?.user?.id]
+  );
 
-  const handleDownload = async (documentId: string, filename: string) => {
+  const handleDownload = useCallback(async (documentId: string, filename: string) => {
     try {
-      // Use secure proxy endpoint instead of direct blob URL
       await apiService.downloadDocument(documentId, filename);
-    } catch (error) {
-      console.error('Error downloading document:', error);
-      setError('Error al descargar el documento');
+    } catch (err) {
+      console.error("Error downloading document:", err);
+      setError("No pudimos descargar el documento. Intenta más tarde.");
     }
-  };
+  }, []);
 
-  const handleDelete = async (documentId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este documento?')) {
+  const handleDelete = useCallback(
+    async (documentId: string) => {
+      const confirmed = window.confirm(
+        "¿Estás seguro de que quieres eliminar este documento?"
+      );
+      if (!confirmed) return;
+
+      try {
+        await apiService.deleteDocument(documentId, session?.user?.id || "1");
+        await fetchDocuments();
+      } catch (err) {
+        console.error("Error deleting document:", err);
+        setError("No pudimos eliminar el documento. Vuelve a intentarlo.");
+      }
+    },
+    [fetchDocuments, session?.user?.id]
+  );
+
+  const formatFileSize = useCallback((bytes?: number) => {
+    if (!bytes) return "Tamaño desconocido";
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const index = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, index)).toFixed(1)} ${sizes[index]}`;
+  }, []);
+
+  const totalSigned = useMemo(
+    () =>
+      documents.filter(
+        (doc) => doc.state === 'SIGNED' || doc.status === 'signed'
+      ).length,
+    [documents]
+  );
+  const pendingDocuments = useMemo(
+    () =>
+      documents.filter(
+        (doc) => doc.status !== "signed" && doc.state !== "SIGNED" && !doc.worm_locked
+      ),
+    [documents]
+  );
+  const signedDocuments = useMemo(
+    () =>
+      documents.filter((doc) => doc.status === "signed" || doc.state === "SIGNED"),
+    [documents]
+  );
+
+  const filteredDocuments = useMemo(() => {
+    const byStatus = (() => {
+      if (filter === 'all') return documents;
+      if (filter === 'pending') {
+        return documents.filter(
+          (doc) => doc.status !== 'signed' && doc.state !== 'SIGNED' && !doc.worm_locked
+        );
+      }
+      if (filter === 'signed') {
+        return documents.filter(
+          (doc) => doc.status === 'signed' || doc.state === 'SIGNED' || doc.worm_locked
+        );
+      }
+      return documents;
+    })();
+
+    if (!searchTerm.trim()) {
+      return byStatus;
+    }
+
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+    return byStatus.filter((doc) => {
+      const title = (doc.title || '').toLowerCase();
+      const filename = (doc.filename || '').toLowerCase();
+      return title.includes(normalizedTerm) || filename.includes(normalizedTerm);
+    });
+  }, [documents, filter, searchTerm]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchDocuments();
+  }, [session?.user?.id, fetchDocuments]);
+
+  useEffect(() => {
+    if (!showUploadModal) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowUploadModal(false);
+      }
+    };
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    setTimeout(() => {
+      fileInputRef.current?.focus();
+    }, 20);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+      previouslyFocused?.focus();
+    };
+  }, [showUploadModal]);
+
+  const closeModal = useCallback(() => {
+    if (uploading) return;
+    setShowUploadModal(false);
+  }, [uploading]);
+
+  const handleOverlayClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(event.target as Node)
+      ) {
+        closeModal();
+      }
+    },
+    [closeModal]
+  );
+
+  const closeSignModal = useCallback(() => {
+    if (signingDocumentId) return;
+    setShowSignModal(false);
+    setSelectedDocument(null);
+    setSignatureType("PAdES");
+    setError(null);
+  }, [signingDocumentId]);
+
+  const openSignModal = useCallback((doc: Document) => {
+    setSelectedDocument(doc);
+    setSignatureType("PAdES");
+    setShowSignModal(true);
+    setError(null);
+  }, []);
+
+  const handleSignOverlayClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (
+        signModalRef.current &&
+        !signModalRef.current.contains(event.target as Node)
+      ) {
+        closeSignModal();
+      }
+    },
+    [closeSignModal]
+  );
+
+  const handleSignDocument = useCallback(async () => {
+    if (!selectedDocument || !session?.user?.id) {
+      setError("Selecciona un documento válido para firmar.");
       return;
     }
-
+    setSigningDocumentId(selectedDocument.id);
     try {
-      await apiService.deleteDocument(documentId, session?.user?.id || '1');
-      await fetchDocuments(); // Refresh the list
-    } catch (error) {
-      console.error('Error deleting document:', error);
-      setError('Error al eliminar el documento');
+      await apiService.signDocument(selectedDocument.id, {
+        document_id: selectedDocument.id,
+        citizen_id: session.user.id,
+        document_title: selectedDocument.title ?? selectedDocument.filename,
+        signature_type: signatureType,
+      });
+      await fetchDocuments();
+      closeSignModal();
+    } catch (err) {
+      console.error("Error signing document:", err);
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ?? "No pudimos firmar el documento. Inténtalo nuevamente.";
+      setError(message);
+    } finally {
+      setSigningDocumentId(null);
     }
-  };
+  }, [closeSignModal, fetchDocuments, selectedDocument, session?.user?.id, signatureType]);
 
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'N/A';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
-  };
+  useEffect(() => {
+    if (!showSignModal) return;
 
-  const getStatusBadge = (doc: Document) => {
-    // Priority 1: Check state and worm_locked (most reliable indicators)
-    if (doc.state === 'SIGNED' || doc.worm_locked) {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
-    }
-    // Priority 2: Check status field for backward compatibility
-    if (doc.status === 'signed' || doc.status === 'authenticated') {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
-    }
-    // Priority 3: Show status for unsigned documents
-    switch (doc.status) {
-      case 'uploaded':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
-      case 'pending':
-        return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Pendiente</span>;
-      default:
-        // If status is 'authenticated' but state is not SIGNED, show as uploaded
-        if (doc.status === 'authenticated' && doc.state !== 'SIGNED') {
-          return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
-        }
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{doc.status}</span>;
-    }
-  };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeSignModal();
+      }
+    };
 
-  if (status === 'loading' || loading) {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    setTimeout(() => signatureSelectRef.current?.focus(), 24);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+      previousFocus?.focus();
+    };
+  }, [closeSignModal, showSignModal]);
+
+  if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Cargando documentos...</p>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary-100 border-t-primary-500" />
+          <p className="text-sm text-[var(--text-tertiary)]">
+            Recuperando tus documentos...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              📄 Mis Documentos
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Gestiona tus documentos digitales
-            </p>
-          </div>
-          
-          <div className="flex gap-3">
-            <Link
-              href="/documents/search"
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              🔍 Buscar
-            </Link>
-            <Link
-              href="/documents/metadata"
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              📊 Metadata
-            </Link>
-            <Link
-              href="/documents/sign"
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              ✍️ Firmar
-            </Link>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              📤 Subir
-            </button>
-          </div>
+    <>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Documentos' },
+        ]}
+        title="Gestor de documentos"
+        description="Carga, firma y consulta tus documentos oficiales en un solo lugar con la seguridad de Carpeta Ciudadana."
+        actions={[
+          <Button
+            key="metadata"
+            variant="secondary"
+            icon={<FileText className="h-4 w-4" />}
+            href="/documents/metadata"
+          >
+            Metadata
+          </Button>,
+          <Button
+            key="upload"
+            icon={<FilePlus2 className="h-4 w-4" />}
+            onClick={() => setShowUploadModal(true)}
+          >
+            Subir documento
+          </Button>,
+        ]}
+      />
+
+      {error ? (
+        <Card className="border-danger-200 bg-danger-100/40">
+          <CardHeader>
+            <CardTitle className="text-danger-600">Se produjo un error</CardTitle>
+            <CardDescription className="text-danger-500">
+              {error}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="ghost" onClick={fetchDocuments}>
+              Intentar nuevamente
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <StatTile
+          label="Documentos cargados"
+          value={documents.length}
+          icon={<FileText className="h-5 w-5" />}
+          tone="primary"
+          helperText="Total disponibles en tu carpeta"
+        />
+        <StatTile
+          label="Firmados"
+          value={totalSigned}
+          icon={<ShieldCheck className="h-5 w-5" />}
+          tone="success"
+          helperText="Con validez jurídica"
+        />
+        <StatTile
+          label="Pendientes"
+          value={pendingDocuments.length}
+          icon={<FilePlus2 className="h-5 w-5" />}
+          tone="warning"
+          helperText="Requieren acción"
+        />
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-            {error}
+      <Card>
+        <CardHeader className="flex flex-col gap-4 rounded-t-[var(--radius-lg)] bg-white/85 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Mis documentos</CardTitle>
+            <CardDescription>
+              Administra tus archivos digitales y mantén su trazabilidad.
+            </CardDescription>
           </div>
-        )}
-
-        {/* Documents Grid */}
-        {documents.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">📭</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No tienes documentos
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={filter === 'all' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setFilter('all')}
+              >
+                Todos ({documents.length})
+              </Button>
+              <Button
+                variant={filter === 'pending' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setFilter('pending')}
+              >
+                Pendientes ({pendingDocuments.length})
+              </Button>
+              <Button
+                variant={filter === 'signed' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setFilter('signed')}
+              >
+                Firmados ({totalSigned})
+              </Button>
+          </div>
+            <SearchField
+              id="documents-search"
+              label="Buscar documentos"
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Buscar por título o nombre"
+              className="w-full md:w-64"
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {filteredDocuments.length === 0 ? (
+            <TableEmpty>
+              <FilePlus2 className="h-10 w-10 text-primary-400" />
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                {filter === "pending"
+                  ? "No tienes documentos pendientes por firmar"
+                  : filter === "signed"
+                  ? "Aún no tienes documentos firmados"
+                  : "No has subido documentos todavía"}
             </h3>
-            <p className="text-gray-600 mb-6">
-              Sube tu primer documento para comenzar
+              <p className="max-w-md text-sm text-[var(--text-secondary)]">
+                Centraliza tus documentos digitales y firma los que necesites desde un solo lugar.
             </p>
-            <button
+              <Button
+                variant="primary"
+                icon={<FilePlus2 className="h-4 w-4" />}
               onClick={() => setShowUploadModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-            >
-              📤 Subir Primer Documento
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {documents.map((doc) => (
-              <div key={doc.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-3xl">📄</div>
-                  {getStatusBadge(doc)}
+              >
+                Subir mi primer documento
+              </Button>
+            </TableEmpty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Tamaño</TableHead>
+                  <TableHead>Actualizado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDocuments.map((doc) => {
+                  const statusInfo = getStatus(doc);
+                  const updatedAt = new Date(doc.updated_at).toLocaleDateString("es-CO", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  });
+                  const isPendingSignature =
+                    doc.status !== "signed" && doc.state !== "SIGNED" && !doc.worm_locked;
+
+                  return (
+                    <TableRow key={doc.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary-50)] text-[var(--primary-600)] shadow-sm">
+                            <FileText className="h-5 w-5" />
                 </div>
-                
-                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                  {doc.title}
-                </h3>
-                
-                <p className="text-sm text-gray-600 mb-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                              {doc.title || doc.filename}
+                            </p>
+                            <p className="text-xs uppercase tracking-wide text-[var(--text-tertiary)]">
                   {doc.filename}
                 </p>
-                
-                <p className="text-xs text-gray-500 mb-4">
-                  {formatFileSize(doc.size_bytes)} • {new Date(doc.created_at).toLocaleDateString('es-ES')}
-                </p>
-                
-                <div className="flex gap-2">
-                  <button
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={statusInfo.tone === 'default' ? 'secondary' : statusInfo.tone}
+                          style={statusInfo.badgeStyle}
+                        >
+                          {statusInfo.label}
+                        </Badge>
+                        {statusInfo.description ? (
+                          <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                            {statusInfo.description}
+                          </p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium text-[var(--text-primary)]">
+                        {formatFileSize(doc.size_bytes)}
+                      </TableCell>
+                      <TableCell className="text-sm text-[var(--text-secondary)]">
+                        {updatedAt}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Tooltip content="Descargar">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              icon={<ArrowDownToLine className="h-4 w-4" />}
+                              aria-label="Descargar documento"
                     onClick={() => handleDownload(doc.id, doc.filename)}
-                    className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded text-sm font-medium transition-colors"
-                  >
-                    ⬇️ Descargar
-                  </button>
-                  
-                  {doc.status !== 'signed' && doc.state !== 'SIGNED' && !doc.worm_locked && (
-                    <button
-                      onClick={() => router.push(`/documents/sign?document=${doc.id}`)}
-                      className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded text-sm font-medium transition-colors"
-                      title="Firmar documento"
-                    >
-                      ✍️
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={() => handleDelete(doc.id)}
-                    className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded text-sm font-medium transition-colors"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                            >
+                              <span className="sr-only">Descargar</span>
+                            </Button>
+                          </Tooltip>
+                          {isPendingSignature ? (
+                            <Tooltip content="Firmar documento">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                icon={<PenSquare className="h-4 w-4" />}
+                                aria-label="Firmar documento"
+                                onClick={() => openSignModal(doc)}
+                              >
+                                <span className="sr-only">Firmar</span>
+                              </Button>
+                            </Tooltip>
+                          ) : null}
+                          <Tooltip content="Eliminar">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-danger-500 hover:bg-danger-100/60"
+                              icon={<Trash2 className="h-4 w-4" />}
+                              aria-label="Eliminar documento"
+                              onClick={() => handleDelete(doc.id)}
+                            >
+                              <span className="sr-only">Eliminar</span>
+                            </Button>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                📤 Subir Documento
+      {showUploadModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+          role="presentation"
+          onMouseDown={handleOverlayClick}
+        >
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-title"
+            aria-describedby="upload-description"
+            className="relative w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-white p-6 shadow-card focus:outline-none"
+          >
+                  <button
+              type="button"
+              onClick={closeModal}
+              className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--text-tertiary)] transition-colors hover:text-primary-600"
+              aria-label="Cerrar modal de carga"
+              disabled={uploading}
+            >
+              <X className="h-4 w-4" />
+                  </button>
+
+            <div className="mb-6 pr-10">
+              <h2
+                id="upload-title"
+                className="text-2xl font-semibold text-[var(--text-primary)]"
+              >
+                Subir nuevo documento
               </h2>
-              
-              <form onSubmit={handleUpload} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+              <p
+                id="upload-description"
+                className="mt-1 text-sm text-[var(--text-secondary)]"
+              >
+                El archivo se almacenará de forma segura y estará disponible para
+                firmar y compartir.
+              </p>
+            </div>
+
+            <form onSubmit={handleUpload} className="space-y-5">
+              <div className="space-y-2">
+                <label
+                  htmlFor="file"
+                  className="text-sm font-medium text-[var(--text-primary)]"
+                >
                     Archivo
                   </label>
                   <input
+                  ref={fileInputRef}
+                  id="file"
                     type="file"
                     name="file"
                     required
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full rounded-[var(--radius-md)] border border-dashed border-primary-200 bg-primary-25 px-4 py-6 text-sm text-primary-600 transition hover:border-primary-300 file:hidden"
                   />
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Formatos compatibles: PDF, DOCX, PNG, JPG. Tamaño máximo 20 MB.
+                </p>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="space-y-2">
+                <label
+                  htmlFor="title"
+                  className="text-sm font-medium text-[var(--text-primary)]"
+                >
                     Título
                   </label>
                   <input
+                  id="title"
                     type="text"
                     name="title"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Ej: Cédula de Ciudadanía"
+                  placeholder="Ej: Certificado de antecedentes"
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-white px-4 py-2 text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-primary-200"
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="space-y-2">
+                <label
+                  htmlFor="description"
+                  className="text-sm font-medium text-[var(--text-primary)]"
+                >
                     Descripción (opcional)
                   </label>
                   <textarea
+                  id="description"
                     name="description"
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Descripción del documento..."
+                  placeholder="Añade un contexto para recordar la finalidad del documento."
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-white px-4 py-2 text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-primary-200"
                   />
                 </div>
                 
-                <div className="flex gap-3 pt-4">
-                  <button
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                <Button
+                  variant="ghost"
                     type="button"
-                    onClick={() => setShowUploadModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={closeModal}
                     disabled={uploading}
                   >
                     Cancelar
+                </Button>
+                <Button type="submit" isLoading={uploading}>
+                  {uploading ? "Subiendo..." : "Guardar documento"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showSignModal && selectedDocument ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6"
+          onMouseDown={handleSignOverlayClick}
+          role="presentation"
+        >
+          <div
+            ref={signModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sign-modal-title"
+            aria-describedby="sign-modal-description"
+            className="relative w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-white p-6 shadow-card focus:outline-none"
+          >
+            <button
+              type="button"
+              onClick={closeSignModal}
+              className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--text-tertiary)] transition-colors hover:text-primary-600"
+              aria-label="Cerrar modal de firma"
+              disabled={Boolean(signingDocumentId)}
+            >
+              <X className="h-4 w-4" />
                   </button>
                   
-                  <button
-                    type="submit"
-                    disabled={uploading}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {uploading ? 'Subiendo...' : 'Subir'}
-                  </button>
+            <div className="mb-6 pr-10">
+              <h2
+                id="sign-modal-title"
+                className="text-2xl font-semibold text-[var(--text-primary)]"
+              >
+                Firmar documento
+              </h2>
+              <p
+                id="sign-modal-description"
+                className="mt-1 text-sm text-[var(--text-secondary)]"
+              >
+                Confirma el tipo de firma que deseas aplicar al documento seleccionado.
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="text-sm font-medium text-[var(--text-primary)]">
+                  Documento
+                </label>
+                <p className="mt-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                  {selectedDocument.title || selectedDocument.filename}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="signature-type"
+                  className="text-sm font-medium text-[var(--text-primary)]"
+                >
+                  Tipo de firma
+                </label>
+                <select
+                  ref={signatureSelectRef}
+                  id="signature-type"
+                  value={signatureType}
+                  onChange={(event) =>
+                    setSignatureType(event.target.value as SignatureType)
+                  }
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-white px-4 py-2 text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-primary-200"
+                >
+                  <option value="PAdES">
+                    PAdES — Firma avanzada para documentos PDF
+                  </option>
+                  <option value="XAdES">
+                    XAdES — Firma avanzada para contenidos XML
+                  </option>
+                  <option value="CAdES">
+                    CAdES — Firma avanzada basada en CMS
+                  </option>
+                </select>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  PAdES es el estándar recomendado para documentos PDF oficiales.
+                </p>
+              </div>
                 </div>
-              </form>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={closeSignModal}
+                disabled={Boolean(signingDocumentId)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSignDocument}
+                isLoading={signingDocumentId === selectedDocument.id}
+                disabled={Boolean(signingDocumentId)}
+              >
+                {signingDocumentId === selectedDocument.id ? "Firmando..." : "Firmar"}
+              </Button>
             </div>
           </div>
-        )}
       </div>
-    </div>
+      ) : null}
+    </>
   );
 }

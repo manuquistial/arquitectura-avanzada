@@ -1,9 +1,34 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import {
+  ArrowRight,
+  FilePlus2,
+  Mail,
+  ShieldCheck,
+  Share2,
+  Upload,
+  X,
+} from 'lucide-react';
+
 import { apiService } from '@/lib/api';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { StatTile } from '@/components/ui/StatTile';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableEmpty,
+} from '@/components/ui/Table';
+import { SearchField } from '@/components/ui/SearchField';
 
 interface Transfer {
   id: string;
@@ -18,6 +43,13 @@ interface Transfer {
   message?: string;
 }
 
+const statusBadges: Record<Transfer['status'], { label: string; variant: 'info' | 'success' | 'danger' | 'secondary' }> = {
+  pending: { label: 'Pendiente', variant: 'info' },
+  accepted: { label: 'Aceptada', variant: 'success' },
+  rejected: { label: 'Rechazada', variant: 'danger' },
+  expired: { label: 'Expirada', variant: 'secondary' },
+};
+
 export default function TransfersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -27,6 +59,7 @@ export default function TransfersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [activeTab, setActiveTab] = useState<'sent' | 'received'>('sent');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -45,8 +78,7 @@ export default function TransfersPage() {
       setLoading(true);
       setError(null);
       const data = await apiService.getTransfers(session?.user?.id, session?.user?.roles);
-      
-      // Filter transfers based on active tab
+
       if (activeTab === 'sent') {
         setTransfers(data.filter((t: Transfer) => t.from_citizen_id === session?.user?.id));
       } else {
@@ -60,10 +92,10 @@ export default function TransfersPage() {
     }
   };
 
-  const handleCreateTransfer = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateTransfer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setCreating(true);
-    
+
     try {
       const formData = new FormData(event.currentTarget);
       const destinationOperatorId = 'mintic';
@@ -72,11 +104,14 @@ export default function TransfersPage() {
         citizen_id: String(session?.user?.id || ''),
         citizen_email: String(session?.user?.email || ''),
         citizen_name: String(session?.user?.name || ''),
+        document_id: String(formData.get('document_id') || ''),
+        to_email: String(formData.get('to_email') || ''),
+        message: String(formData.get('message') || ''),
       };
 
       await apiService.createTransfer(transferData);
       setShowCreateModal(false);
-      await fetchTransfers(); // Refresh the list
+      await fetchTransfers();
     } catch (error) {
       console.error('Error creating transfer:', error);
       setError('Error al crear la transferencia');
@@ -88,7 +123,7 @@ export default function TransfersPage() {
   const handleAcceptTransfer = async (transferId: string) => {
     try {
       await apiService.acceptTransfer(transferId);
-      await fetchTransfers(); // Refresh the list
+      await fetchTransfers();
     } catch (error) {
       console.error('Error accepting transfer:', error);
       setError('Error al aceptar la transferencia');
@@ -102,281 +137,336 @@ export default function TransfersPage() {
 
     try {
       await apiService.rejectTransfer(transferId);
-      await fetchTransfers(); // Refresh the list
+      await fetchTransfers();
     } catch (error) {
       console.error('Error rejecting transfer:', error);
       setError('Error al rechazar la transferencia');
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">⏳ Pendiente</span>;
-      case 'accepted':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">✅ Aceptada</span>;
-      case 'rejected':
-        return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">❌ Rechazada</span>;
-      case 'expired':
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">⏰ Expirada</span>;
-      default:
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{status}</span>;
+  const filteredTransfers = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return transfers;
     }
-  };
+
+    const term = searchTerm.trim().toLowerCase();
+    return transfers.filter((transfer) => {
+      return (
+        transfer.document_title?.toLowerCase().includes(term) ||
+        transfer.to_email?.toLowerCase().includes(term) ||
+        transfer.from_citizen_id?.toLowerCase().includes(term)
+      );
+    });
+  }, [transfers, searchTerm]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    return new Date(dateString).toLocaleString('es-CO', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Cargando transferencias...</p>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary-100 border-t-primary-500" />
+          <p className="text-sm text-[var(--text-tertiary)]">Cargando transferencias...</p>
         </div>
       </div>
     );
   }
 
+  const sentCount = transfers.filter((t) => t.from_citizen_id === session?.user?.id).length;
+  const receivedCount = transfers.filter((t) => t.to_citizen_id === session?.user?.id).length;
+  const pendingCount = transfers.filter((t) => t.status === 'pending').length;
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              🔄 Transferencias
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Envía y recibe documentos digitales
-            </p>
-          </div>
-          
-          <button
+    <>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Transferencias' },
+        ]}
+        title="Gestor de transferencias"
+        description="Envía y recibe documentos entre operadores de forma segura y con trazabilidad completa."
+        actions={[
+          <Button
+            key="new-transfer"
+            icon={<Share2 className="h-4 w-4" />}
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
-            📤 Nueva Transferencia
-          </button>
-        </div>
+            Nueva transferencia
+          </Button>,
+        ]}
+      />
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-            {error}
+      {error ? (
+        <Card className="border-danger-100 bg-danger-50/80">
+          <CardHeader>
+            <CardTitle className="text-danger-600">Se produjo un error</CardTitle>
+            <CardDescription className="text-danger-500">{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="ghost" onClick={fetchTransfers}>
+              Intentar nuevamente
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Transferencias enviadas"
+          value={sentCount}
+          icon={<Upload className="h-5 w-5" />}
+          tone="primary"
+          helperText="Histórico de envíos"
+        />
+        <StatTile
+          label="Transferencias recibidas"
+          value={receivedCount}
+          icon={<FilePlus2 className="h-5 w-5" />}
+          tone="info"
+          helperText="Documentos recibidos"
+        />
+        <StatTile
+          label="Pendientes"
+          value={pendingCount}
+          icon={<ShieldCheck className="h-5 w-5" />}
+          tone="warning"
+          helperText="Acciones por gestionar"
+        />
+        <StatTile
+          label="Activas"
+          value={filteredTransfers.filter((t) => t.status === 'accepted').length}
+          icon={<ArrowRight className="h-5 w-5" />}
+          tone="success"
+          helperText="Listas para revisión"
+        />
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Historial de transferencias</CardTitle>
+            <CardDescription>Filtra por tipo o estado para encontrar transferencias rápidamente.</CardDescription>
           </div>
-        )}
-
-        {/* Tabs */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant={activeTab === 'sent' ? 'primary' : 'secondary'}
+                size="sm"
                 onClick={() => setActiveTab('sent')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'sent'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
               >
-                📤 Enviadas ({transfers.filter(t => t.from_citizen_id === session?.user?.id).length})
-              </button>
-              <button
+                <span className="inline-flex items-center gap-2">
+                  <Upload className="h-4 w-4" /> Enviadas ({sentCount})
+                </span>
+              </Button>
+              <Button
+                variant={activeTab === 'received' ? 'primary' : 'secondary'}
+                size="sm"
                 onClick={() => setActiveTab('received')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'received'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
               >
-                📥 Recibidas ({transfers.filter(t => t.to_citizen_id === session?.user?.id).length})
-              </button>
-            </nav>
-          </div>
-        </div>
-
-        {/* Transfers List */}
-        {transfers.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">
-              {activeTab === 'sent' ? '📤' : '📥'}
+                <span className="inline-flex items-center gap-2">
+                  <FilePlus2 className="h-4 w-4" /> Recibidas ({receivedCount})
+                </span>
+              </Button>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {activeTab === 'sent' ? 'No has enviado transferencias' : 'No has recibido transferencias'}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {activeTab === 'sent' 
-                ? 'Envía documentos a otros usuarios para comenzar' 
-                : 'Las transferencias que recibas aparecerán aquí'
-              }
-            </p>
-            {activeTab === 'sent' && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                📤 Crear Primera Transferencia
-              </button>
-            )}
+            <SearchField
+              id="transfer-search"
+              label="Buscar transferencias"
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Buscar por documento o correo"
+              className="w-full md:w-72"
+            />
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="divide-y divide-gray-200">
-              {transfers.map((transfer) => (
-                <div key={transfer.id} className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {transfer.document_title}
-                        </h3>
-                        {getStatusBadge(transfer.status)}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">
-                            {activeTab === 'sent' ? 'Para:' : 'De:'}
-                          </span>{' '}
-                          {activeTab === 'sent' ? transfer.to_email : transfer.from_citizen_id}
-                        </div>
-                        
-                        <div>
-                          <span className="font-medium">Creada:</span>{' '}
-                          {formatDate(transfer.created_at)}
-                        </div>
-                        
-                        {transfer.expires_at && (
-                          <div>
-                            <span className="font-medium">Expira:</span>{' '}
-                            {formatDate(transfer.expires_at)}
-                          </div>
-                        )}
-                        
-                        {transfer.message && (
-                          <div className="md:col-span-2">
-                            <span className="font-medium">Mensaje:</span>{' '}
-                            {transfer.message}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 ml-4">
-                      {activeTab === 'received' && transfer.status === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => handleAcceptTransfer(transfer.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            ✅ Aceptar
-                          </button>
-                          <button
-                            onClick={() => handleRejectTransfer(transfer.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            ❌ Rechazar
-                          </button>
-                        </>
-                      )}
-                      
-                      {transfer.status === 'accepted' && (
-                        <button
-                          onClick={() => router.push(`/documents?highlight=${transfer.document_id}`)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          📄 Ver Documento
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        </CardHeader>
+        <CardContent>
+          {filteredTransfers.length === 0 ? (
+            <TableEmpty>
+              <Share2 className="h-10 w-10 text-info-500" />
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                {activeTab === 'sent'
+                  ? 'Aún no has enviado transferencias'
+                  : 'Aún no has recibido transferencias'}
+              </h3>
+              <p className="max-w-md text-sm text-[var(--text-secondary)]">
+                {activeTab === 'sent'
+                  ? 'Selecciona un documento y comparte el acceso con otros operadores o ciudadanos.'
+                  : 'Cuando recibas una transferencia aparecerá aquí para que la aceptes o rechaces.'}
+              </p>
+              {activeTab === 'sent' ? (
+                <Button icon={<Share2 className="h-4 w-4" />} onClick={() => setShowCreateModal(true)}>
+                  Crear mi primera transferencia
+                </Button>
+              ) : null}
+            </TableEmpty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>{activeTab === 'sent' ? 'Destinatario' : 'Remitente'}</TableHead>
+                  <TableHead>Creada</TableHead>
+                  <TableHead>Expira</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTransfers.map((transfer) => {
+                  const statusInfo = statusBadges[transfer.status] ?? {
+                    label: transfer.status,
+                    variant: 'secondary' as const,
+                  };
 
-        {/* Create Transfer Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                📤 Nueva Transferencia
-              </h2>
-              
-              <form onSubmit={handleCreateTransfer} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Documento
-                  </label>
-                  <select
-                    name="document_id"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Selecciona un documento...</option>
-                    {/* TODO: Load user's documents */}
-                    <option value="doc1">Cédula de Ciudadanía</option>
-                    <option value="doc2">Diploma Universitario</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email del destinatario
-                  </label>
+                  return (
+                    <TableRow key={transfer.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary-50)] text-[var(--primary-600)] shadow-sm">
+                            <Share2 className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                              {transfer.document_title || 'Documento sin título'}
+                            </p>
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              ID: {transfer.document_id}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-[var(--text-secondary)]">
+                        {activeTab === 'sent' ? transfer.to_email : transfer.from_citizen_id}
+                      </TableCell>
+                      <TableCell className="text-sm text-[var(--text-secondary)]">
+                        {formatDate(transfer.created_at)}
+                      </TableCell>
+                      <TableCell className="text-sm text-[var(--text-secondary)]">
+                        {transfer.expires_at ? formatDate(transfer.expires_at) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {activeTab === 'received' && transfer.status === 'pending' ? (
+                            <>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleAcceptTransfer(transfer.id)}
+                              >
+                                Aceptar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-danger-500 hover:bg-danger-100/60"
+                                onClick={() => handleRejectTransfer(transfer.id)}
+                              >
+                                Rechazar
+                              </Button>
+                            </>
+                          ) : null}
+
+                          {transfer.status === 'accepted' ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              icon={<ArrowRight className="h-4 w-4" />}
+                              iconPosition="right"
+                              href={`/documents?highlight=${transfer.document_id}`}
+                            >
+                              Ver documento
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {showCreateModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--primary-100)] bg-white p-6 shadow-soft">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-[var(--text-primary)]">Nueva transferencia</h2>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Completa los datos para compartir el documento con otro ciudadano u operador.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                icon={<X className="h-4 w-4" />}
+                aria-label="Cerrar"
+                onClick={() => setShowCreateModal(false)}
+              />
+            </div>
+
+            <form onSubmit={handleCreateTransfer} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-[var(--text-primary)]">Documento</label>
+                <select
+                  name="document_id"
+                  required
+                  className="w-full rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
+                >
+                  <option value="">Selecciona un documento…</option>
+                  <option value="doc1">Cédula de ciudadanía</option>
+                  <option value="doc2">Diploma universitario</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-[var(--text-primary)]">Email del destinatario</label>
+                <div className="relative">
                   <input
                     type="email"
                     name="to_email"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="usuario@ejemplo.com"
+                    className="w-full rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white px-3 py-2 pl-10 text-sm text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
                   />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mensaje (opcional)
-                  </label>
-                  <textarea
-                    name="message"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Mensaje para el destinatario..."
-                  />
-                </div>
-                
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-                    disabled={creating}
-                  >
-                    Cancelar
-                  </button>
-                  
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {creating ? 'Enviando...' : 'Enviar'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-[var(--text-primary)]">Mensaje (opcional)</label>
+                <textarea
+                  name="message"
+                  rows={3}
+                  placeholder="Mensaje para el destinatario…"
+                  className="w-full rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
+                />
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-3 pt-4">
+                <Button variant="ghost" type="button" onClick={() => setShowCreateModal(false)} disabled={creating}>
+                  Cancelar
+                </Button>
+                <Button type="submit" isLoading={creating}>
+                  {creating ? 'Enviando…' : 'Enviar transferencia'}
+                </Button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      ) : null}
+    </>
   );
 }

@@ -1,9 +1,39 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { apiService } from '@/lib/api';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import {
+  Layers,
+  ShieldCheck,
+  Lock,
+  FileClock,
+  Filter,
+  RefreshCcw,
+} from "lucide-react";
+
+import { apiService } from "@/lib/api";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatTile } from "@/components/ui/StatTile";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableEmpty,
+} from "@/components/ui/Table";
+import { SearchField } from "@/components/ui/SearchField";
 
 interface DocumentMetadata {
   id: string;
@@ -31,322 +61,479 @@ interface DocumentMetadata {
   updated_at?: string;
 }
 
+type FilterValue = "all" | "signed" | "unsigned" | "worm_locked";
+type SortField = "created_at" | "updated_at" | "title";
+type SortOrder = "asc" | "desc";
+
 export default function MetadataPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [metadata, setMetadata] = useState<DocumentMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'signed' | 'unsigned' | 'worm_locked'>('all');
-  const [sortBy, setSortBy] = useState<'created_at' | 'updated_at' | 'title'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [quickFilter, setQuickFilter] = useState<
+    "all" | "worm_locked" | "retention" | "legal_hold"
+  >("all");
+  const [sortBy, setSortBy] = useState<SortField>("created_at");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [providerFilter, setProviderFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
+    if (status === "unauthenticated") {
+      router.push("/login");
     }
   }, [status, router]);
+
+  const fetchMetadata = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const citizenId = session?.user?.id || "1234567890";
+      const data = await apiService.getDocumentMetadata(citizenId);
+      const dataArray = Array.isArray(data) ? data : [];
+      setMetadata(dataArray);
+    } catch (err) {
+      console.error("Error fetching metadata:", err);
+      setError("Error al cargar los metadatos");
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (session?.user?.id) {
       fetchMetadata();
     }
-  }, [session, filter, sortBy, sortOrder]);
+  }, [session?.user?.id, fetchMetadata]);
 
-  const fetchMetadata = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const citizenId = session?.user?.id || '1234567890';
-      const data = await apiService.getDocumentMetadata(citizenId);
-      
-      // Ensure data is an array
-      const dataArray = Array.isArray(data) ? data : [];
-      
-      // Filter data
-      let filtered = dataArray;
-      if (filter === 'signed') {
-        filtered = dataArray.filter((doc: DocumentMetadata) => 
-          doc.state === 'SIGNED' || doc.status === 'signed'
-        );
-      } else if (filter === 'unsigned') {
-        filtered = dataArray.filter((doc: DocumentMetadata) => 
-          doc.state !== 'SIGNED' && doc.status !== 'signed'
-        );
-      } else if (filter === 'worm_locked') {
-        filtered = dataArray.filter((doc: DocumentMetadata) => doc.worm_locked);
+  const sortedAndFilteredMetadata = useMemo(() => {
+    const filteredByQuick = metadata.filter((doc) => {
+      if (quickFilter === "worm_locked") {
+        return doc.worm_locked;
       }
-      
-      // Sort data - ensure filtered is an array before sorting
-      if (!Array.isArray(filtered)) {
-        filtered = [];
+      if (quickFilter === "retention") {
+        return Boolean(doc.retention_until);
       }
-      
-      filtered.sort((a: DocumentMetadata, b: DocumentMetadata) => {
-        let aValue: any;
-        let bValue: any;
-        
-        if (sortBy === 'created_at') {
-          aValue = new Date(a.created_at).getTime();
-          bValue = new Date(b.created_at).getTime();
-        } else if (sortBy === 'updated_at') {
-          aValue = new Date(a.updated_at || a.created_at).getTime();
-          bValue = new Date(b.updated_at || b.created_at).getTime();
-        } else {
+      if (quickFilter === "legal_hold") {
+        return doc.legal_hold;
+      }
+      return true;
+    });
+
+    const filteredByProvider = filteredByQuick.filter((doc) => {
+      if (providerFilter === "all") return true;
+      return doc.storage_provider?.toLowerCase() === providerFilter;
+    });
+
+    const filteredByType = filteredByProvider.filter((doc) => {
+      if (typeFilter === "all") return true;
+      return doc.content_type?.toLowerCase() === typeFilter;
+    });
+
+    const filteredBySearch = filteredByType.filter((doc) => {
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.trim().toLowerCase();
+      const title = (doc.title || "").toLowerCase();
+      const filename = (doc.filename || "").toLowerCase();
+      const hash = (doc.sha256_hash || "").toLowerCase();
+      return (
+        title.includes(term) || filename.includes(term) || hash.includes(term)
+      );
+    });
+
+    const sorted = [...filteredBySearch].sort((a, b) => {
+      let aValue: string | number = 0;
+      let bValue: string | number = 0;
+
+      switch (sortBy) {
+        case "title":
           aValue = (a.title || a.filename).toLowerCase();
           bValue = (b.title || b.filename).toLowerCase();
-        }
-        
-        if (sortOrder === 'asc') {
+          break;
+        case "updated_at":
+          aValue = new Date(a.updated_at || a.created_at).getTime();
+          bValue = new Date(b.updated_at || b.created_at).getTime();
+          break;
+        case "created_at":
+        default:
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+      }
+
+      if (sortOrder === "asc") {
           return aValue > bValue ? 1 : -1;
-        } else {
+      }
           return aValue < bValue ? 1 : -1;
-        }
-      });
-      
-      setMetadata(filtered);
-    } catch (error) {
-      console.error('Error fetching metadata:', error);
-      setError('Error al cargar los metadatos');
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+
+    return sorted;
+  }, [metadata, quickFilter, providerFilter, typeFilter, searchTerm, sortBy, sortOrder]);
+
+  const stats = useMemo(() => {
+    const total = metadata.length;
+    const worm = metadata.filter((doc) => doc.worm_locked).length;
+    const retention = metadata.filter((doc) => Boolean(doc.retention_until)).length;
+    const legalHold = metadata.filter((doc) => doc.legal_hold).length;
+
+    return { total, worm, retention, legalHold };
+  }, [metadata]);
+
+  const providerOptions = useMemo(() => {
+    const providers = new Set<string>();
+    metadata.forEach((doc) => {
+      if (doc.storage_provider) {
+        providers.add(doc.storage_provider.toLowerCase());
+      }
+    });
+    return Array.from(providers).sort();
+  }, [metadata]);
+
+  const typeOptions = useMemo(() => {
+    const types = new Set<string>();
+    metadata.forEach((doc) => {
+      if (doc.content_type) {
+        types.add(doc.content_type.toLowerCase());
+      }
+    });
+    return Array.from(types).sort();
+  }, [metadata]);
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'N/A';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+    if (!bytes) return "N/A";
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const index = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, index)).toFixed(1)} ${sizes[index]}`;
   };
 
-  const getStateBadge = (doc: DocumentMetadata) => {
-    // Priority 1: Check if document is signed (state or worm_locked)
-    if (doc.state === 'SIGNED' || doc.worm_locked) {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
+  const getStatusBadge = (doc: DocumentMetadata) => {
+    if (doc.state === "SIGNED" || doc.status === "signed" || doc.status === "authenticated") {
+      return <Badge variant="success">Firmado</Badge>;
     }
-    // Priority 2: Check status field for backward compatibility
-    if (doc.status === 'signed' || doc.status === 'authenticated') {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">✓ Firmado</span>;
+    if (doc.worm_locked) {
+      return <Badge variant="info">Bloqueado (WORM)</Badge>;
     }
-    // Priority 3: Check upload status
     if (!doc.is_uploaded) {
-      return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">⏳ Pendiente</span>;
+      return <Badge variant="warning">Pendiente de carga</Badge>;
     }
-    // Priority 4: Show state
-    switch (doc.state) {
-      case 'UNSIGNED':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
-      default:
-        // If status is uploaded but state is unknown, show as uploaded
-        if (doc.status === 'uploaded') {
-          return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Subido</span>;
-        }
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{doc.state || doc.status}</span>;
-    }
+    return <Badge variant="secondary">{doc.state || doc.status || "Desconocido"}</Badge>;
   };
 
-  if (status === 'loading' || loading) {
+  const filterOptions: Array<{ value: FilterValue; label: string; count: number }> = [
+    { value: "all", label: "Todos", count: stats.total },
+    { value: "signed", label: "Firmados", count: stats.signed },
+    { value: "unsigned", label: "Sin firmar", count: stats.unsigned },
+    { value: "worm_locked", label: "WORM", count: stats.worm },
+  ];
+
+  if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Cargando metadatos...</p>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary-100 border-t-primary-500" />
+          <p className="text-sm text-[var(--text-tertiary)]">Cargando metadatos…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            📊 Metadata de Documentos
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Información detallada de tus documentos digitales
-          </p>
+    <>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Documentos', href: '/documents' },
+          { label: 'Metadatos' },
+        ]}
+        title="Metadatos de documentos"
+        description="Consulta información técnica de cada documento: hashes, retenciones, estados WORM y trazabilidad completa."
+        actions={[
+          <Button key="refresh" variant="ghost" icon={<RefreshCcw className="h-4 w-4" />} onClick={fetchMetadata}>
+            Actualizar
+          </Button>,
+        ]}
+      />
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          label="Documentos indexados"
+          value={stats.total}
+          icon={<Layers className="h-5 w-5" />}
+          tone="primary"
+          helperText="Total de registros con metadatos"
+        />
+        <StatTile
+          label="Bloqueados WORM"
+          value={stats.worm}
+          icon={<Lock className="h-5 w-5" />}
+          tone="info"
+          helperText="No admiten modificaciones"
+        />
+        <StatTile
+          label="Con retención"
+          value={stats.retention}
+          icon={<FileClock className="h-5 w-5" />}
+          tone="warning"
+          helperText="Tienen fecha de custodia"
+        />
+        <StatTile
+          label="Legal hold activo"
+          value={stats.legalHold}
+          icon={<ShieldCheck className="h-5 w-5" />}
+          tone="success"
+          helperText="Sujetos a retención legal"
+        />
         </div>
 
-        {/* Filters and Sort */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-wrap gap-4 items-center">
+      {error ? (
+        <Card className="border-danger-100 bg-danger-50/80">
+          <CardHeader>
+            <CardTitle className="text-danger-600">Se produjo un error</CardTitle>
+            <CardDescription className="text-danger-500">{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="ghost" onClick={fetchMetadata} icon={<RefreshCcw className="h-4 w-4" />}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card className="border-[var(--primary-100)] bg-white/90">
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Filtro
-              </label>
+            <CardTitle>Filtros y orden</CardTitle>
+            <CardDescription>Refina por políticas de retención, proveedor o tipo de contenido.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
+            <Filter className="h-4 w-4" />
+            {sortedAndFilteredMetadata.length} resultados
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "all", label: "Todos", count: stats.total },
+                { value: "worm_locked", label: "Bloqueados WORM", count: stats.worm },
+                { value: "retention", label: "Con retención", count: stats.retention },
+                { value: "legal_hold", label: "Legal hold", count: stats.legalHold },
+              ].map((option) => (
+                <Button
+                  key={option.value}
+                  variant={quickFilter === option.value ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={() => setQuickFilter(option.value as typeof quickFilter)}
+                >
+                  {option.label} ({option.count})
+                </Button>
+              ))}
+            </div>
+            <SearchField
+              id="metadata-search"
+              label="Buscar en metadatos"
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Buscar por título, archivo o hash"
+              className="w-full md:w-72"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                Proveedor de almacenamiento
+              </span>
               <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                value={providerFilter}
+                onChange={(event) => setProviderFilter(event.target.value)}
+                className="rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white/85 px-3 py-2 text-sm text-[var(--text-primary)] shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
               >
                 <option value="all">Todos</option>
-                <option value="signed">Firmados</option>
-                <option value="unsigned">Sin Firmar</option>
-                <option value="worm_locked">WORM Locked</option>
+                {providerOptions.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                Tipo de contenido
+              </span>
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                className="rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white/85 px-3 py-2 text-sm text-[var(--text-primary)] shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
+              >
+                <option value="all">Todos</option>
+                {typeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
                 Ordenar por
-              </label>
+              </span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onChange={(event) => setSortBy(event.target.value as SortField)}
+                className="rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white/85 px-3 py-2 text-sm text-[var(--text-primary)] shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
               >
-                <option value="created_at">Fecha de Creación</option>
-                <option value="updated_at">Fecha de Actualización</option>
+                <option value="created_at">Fecha de creación</option>
+                <option value="updated_at">Última actualización</option>
                 <option value="title">Título</option>
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
                 Orden
-              </label>
+              </span>
               <select
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onChange={(event) => setSortOrder(event.target.value as SortOrder)}
+                className="rounded-[var(--radius-sm)] border border-[var(--primary-100)] bg-white/85 px-3 py-2 text-sm text-[var(--text-primary)] shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--info-200)]"
               >
                 <option value="desc">Descendente</option>
                 <option value="asc">Ascendente</option>
               </select>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-
-        {/* Metadata List */}
-        {metadata.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No hay metadatos disponibles
+      <Card className="border-[var(--primary-100)] bg-white/90">
+        <CardHeader>
+          <CardTitle>Listado de metadatos</CardTitle>
+          <CardDescription>
+            Información técnica y jurídica asociada a cada documento almacenado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sortedAndFilteredMetadata.length === 0 ? (
+            <TableEmpty>
+              <div className="text-5xl">📊</div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                No se encontraron metadatos con los filtros aplicados
             </h3>
-            <p className="text-gray-600">
-              No se encontraron documentos con metadatos
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Documento
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tamaño
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      WORM
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Retención
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fechas
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {metadata.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Ajusta los filtros o verifica que existan documentos registrados.
+              </p>
+            </TableEmpty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Tamaño</TableHead>
+                  <TableHead>WORM</TableHead>
+                  <TableHead>Retención</TableHead>
+                  <TableHead>Trazabilidad</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedAndFilteredMetadata.map((doc) => (
+                  <TableRow key={doc.id}>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
                             {doc.title || doc.filename}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {doc.filename}
-                          </div>
-                          {doc.sha256_hash && (
-                            <div className="text-xs text-gray-400 font-mono">
-                              {doc.sha256_hash.substring(0, 16)}...
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="space-y-1">
-                          {getStateBadge(doc)}
-                          {/* Show additional info only if document is not signed */}
-                          {doc.state !== 'SIGNED' && !doc.worm_locked && (
-                            <div className="text-xs text-gray-500">
-                              {doc.is_uploaded ? '✅ Subido' : '⏳ Pendiente subida'}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatFileSize(doc.size_bytes)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {doc.worm_locked ? (
-                          <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                            🔒 Bloqueado
+                        </span>
+                        <span className="text-xs text-[var(--text-tertiary)]">{doc.filename}</span>
+                        {doc.sha256_hash ? (
+                          <span className="font-mono text-xs text-[var(--text-tertiary)]/80">
+                            SHA-256: {doc.sha256_hash.slice(0, 16)}…
                           </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">No bloqueado</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ) : null}
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="secondary">{doc.content_type || "Tipo desconocido"}</Badge>
+                          <Badge variant="secondary">Blob: {doc.blob_name}</Badge>
+                        </div>
+                            </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-2">
+                        {getStatusBadge(doc)}
+                        {doc.hub_signature_ref ? (
+                          <p className="text-xs text-[var(--text-tertiary)]">
+                            Hub Ref: {doc.hub_signature_ref}
+                          </p>
+                        ) : null}
+                        {doc.is_deleted ? (
+                          <Badge variant="danger">Marcado para eliminación</Badge>
+                        ) : null}
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-[var(--text-secondary)]">
+                        {formatFileSize(doc.size_bytes)}
+                    </TableCell>
+                    <TableCell>
+                        {doc.worm_locked ? (
+                        <Badge variant="danger">Bloqueado</Badge>
+                      ) : (
+                        <Badge variant="secondary">No bloqueado</Badge>
+                      )}
+                      {doc.legal_hold ? (
+                        <p className="text-xs text-[var(--text-tertiary)]">Legal hold activo</p>
+                      ) : null}
+                      {doc.lifecycle_tier ? (
+                        <p className="text-xs text-[var(--text-tertiary)]">
+                          Tier: {doc.lifecycle_tier}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-sm text-[var(--text-secondary)]">
                         {doc.retention_until ? (
                           <div>
-                            <div>Hasta: {formatDate(doc.retention_until)}</div>
-                            {doc.state === 'SIGNED' && (
-                              <div className="text-xs text-green-600">Eterno</div>
-                            )}
+                          <p>Hasta: {formatDate(doc.retention_until)}</p>
+                          {doc.worm_locked ? (
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              Bloqueo indefinido tras la fecha
+                            </p>
+                          ) : null}
                           </div>
                         ) : (
-                          <span className="text-gray-400">Sin retención</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div>Creado: {formatDate(doc.created_at)}</div>
-                        {doc.updated_at && (
-                          <div>Actualizado: {formatDate(doc.updated_at)}</div>
-                        )}
-                        {doc.signed_at && (
-                          <div className="text-green-600">Firmado: {formatDate(doc.signed_at)}</div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+                        <span className="text-[var(--text-tertiary)]">Sin retención</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-[var(--text-secondary)]">
+                      <div className="space-y-1">
+                        <p>Creado: {formatDate(doc.created_at)}</p>
+                        {doc.updated_at ? <p>Actualizado: {formatDate(doc.updated_at)}</p> : null}
+                        {doc.signed_at ? (
+                          <p className="text-success-600">Firmado: {formatDate(doc.signed_at)}</p>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
 

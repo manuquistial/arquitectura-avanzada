@@ -1,281 +1,137 @@
-'use client';
+"use client";
 
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import Link from 'next/link';
+import Link from "next/link";
+import { useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  Cog,
+  ShieldCheck,
+  Shuffle,
+  Users,
+} from "lucide-react";
+
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatTile } from "@/components/ui/StatTile";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
+
+const adminActions = [
+  {
+    title: "Gestión de usuarios",
+    description: "Administra ciudadanos registrados y actualiza sus permisos.",
+    href: "/admin/users",
+    icon: "users",
+  },
+  {
+    title: "Operadores MinTIC",
+    description: "Registra y verifica operadores habilitados en el hub MinTIC.",
+    href: "/admin/mintic-operators",
+    icon: "shield",
+  },
+  {
+    title: "Configuración del sistema",
+    description: "Define Operator ID y parámetros globales de Carpeta Ciudadana.",
+    href: "/admin/system-config",
+    icon: "cog",
+  },
+];
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'loading') return;
-    
+    if (status === "loading") {
+      return;
+    }
     if (!session) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
-    if (!session.user?.roles?.includes('admin') && !session.user?.roles?.includes('mintic')) {
-      router.push('/dashboard');
-      return;
+    const roles = session.user?.roles ?? [];
+    if (!roles.includes("admin") && !roles.includes("mintic")) {
+      router.push("/dashboard");
     }
-  }, [session, status, router]);
+  }, [router, session, status]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary-100 border-t-primary-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="border-4 border-dashed border-gray-200 rounded-lg p-6">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Panel de Administración
-              </h1>
-              <p className="text-lg text-gray-600">
-                Gestiona operadores MinTIC y configuración del sistema
-              </p>
-            </div>
+    <>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Administración' },
+        ]}
+        title="Panel de administración"
+        description="Coordina operadores, usuarios y configuraciones críticas de la Carpeta Ciudadana."
+        actions={[]}
+      />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-              {/* Gestión de Usuarios */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Gestión de Usuarios
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          Administrar usuarios registrados
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
+      <Card className="mt-6 border-[var(--primary-100)] bg-white/90">
+        <CardHeader>
+          <CardTitle>Gestión administrativa</CardTitle>
+          <CardDescription>
+            Accede rápidamente a las áreas más usadas por los administradores y operadores.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {adminActions.map((action) => (
+            <div
+              key={action.title}
+              className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--primary-100)] bg-white/85 p-5 shadow-soft shadow-primary-900/5 transition-transform hover:-translate-y-1 hover:shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm',
+                    action.icon === 'users' && 'bg-[var(--info-500)]',
+                    action.icon === 'shield' && 'bg-[var(--success-500)]',
+                    action.icon === 'cog' && 'bg-[var(--primary-500)]'
+                  )}
+                >
+                  {action.icon === "users" && <Users className="h-5 w-5" />}
+                  {action.icon === "shield" && <ShieldCheck className="h-5 w-5" />}
+                  {action.icon === "cog" && <Cog className="h-5 w-5" />}
                 </div>
-                <div className="bg-gray-50 px-5 py-3">
-                  <div className="text-sm">
-                    <Link
-                      href="/admin/users"
-                      className="font-medium text-blue-600 hover:text-blue-500"
-                    >
-                      Gestionar usuarios
-                    </Link>
-                  </div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{action.title}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{action.description}</p>
                 </div>
               </div>
-
-              {/* Gestión de Operadores MinTIC */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Operadores MinTIC
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          Gestionar operadores en MinTIC Hub
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-5 py-3">
-                  <div className="text-sm">
-                    <Link
-                      href="/admin/mintic-operators"
-                      className="font-medium text-green-600 hover:text-green-500"
-                    >
-                      Gestionar operadores MinTIC
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              {/* Configuración del Sistema */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Configuración del Sistema
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          Configurar Operator ID y Name
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-5 py-3">
-                  <div className="text-sm">
-                    <Link
-                      href="/admin/system-config"
-                      className="font-medium text-purple-600 hover:text-purple-500"
-                    >
-                      Configurar sistema
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              {/* Estadísticas */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Estadísticas
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          Métricas del sistema
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-5 py-3">
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-500">
-                      Próximamente
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Logs del Sistema */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Logs del Sistema
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          Monitoreo y logs
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-5 py-3">
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-500">
-                      Próximamente
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Volver al Dashboard */}
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-gray-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          Dashboard
-                        </dt>
-                        <dd className="text-lg font-medium text-gray-900">
-                          Volver al panel principal
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-5 py-3">
-                  <div className="text-sm">
-                    <Link
-                      href="/dashboard"
-                      className="font-medium text-gray-600 hover:text-gray-500"
-                    >
-                      Ir al dashboard
-                    </Link>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[var(--text-tertiary)]" />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  href={action.href}
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  iconPosition="right"
+                  className="border-none bg-white/70 text-[var(--primary-600)] hover:bg-white"
+                >
+                  Abrir
+                </Button>
               </div>
             </div>
-
-            <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">
-                    Información del Administrador
-                  </h3>
-                  <div className="mt-2 text-sm text-blue-700">
-                    <p>
-                      Como administrador, puedes gestionar operadores MinTIC, validar su existencia y configurar el sistema.
-                      Usa el panel de gestión de operadores MinTIC para registrar nuevos operadores y verificar su estado.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          ))}
+        </CardContent>
+      </Card>
+    </>
   );
 }

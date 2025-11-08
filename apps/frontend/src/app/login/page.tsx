@@ -1,160 +1,185 @@
 "use client";
 
-import { useState } from 'react';
-import { signIn, getProviders } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, useState } from "react";
+import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
+
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button } from "@/components/ui/Button";
+
+const loginSchema = z.object({
+  email: z.string().email("Correo inválido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+});
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const router = useRouter();
+  const [formState, setFormState] = useState({ email: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const handleCredentialsLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('🔐 Starting login process for:', email);
+  const handleChange = (field: "email" | "password") => (value: string) => {
+    setFormState((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+    setError(null);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
     setIsLoading(true);
-    setError('');
+
+    const result = loginSchema.safeParse(formState);
+    if (!result.success) {
+      const errors = result.error.formErrors.fieldErrors;
+      setFieldErrors({
+        email: errors.email?.[0] ?? "",
+        password: errors.password?.[0] ?? "",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
+      const response = await signIn("credentials", {
+        ...formState,
         redirect: false,
       });
 
-      console.log('🔐 Login result:', result);
-
-      if (result?.error) {
-        setError('Credenciales inválidas');
-        console.error('❌ Login error:', result.error);
-      } else if (result?.ok) {
-        console.log('✅ Login successful, redirecting to dashboard...');
-        router.push('/dashboard');
-      } else {
-        setError('Error inesperado en el login');
-        console.error('❌ Unexpected login result:', result);
+      if (response?.error) {
+        setError("Credenciales inválidas. Verifica tu correo y contraseña.");
+        return;
       }
-    } catch (error) {
-      setError('Error al iniciar sesión');
-      console.error('❌ Login exception:', error);
+
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("Login error", err);
+      setError("No pudimos iniciar sesión. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Azure AD B2C Login - REMOVED
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Iniciar Sesión
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Elige tu método de autenticación
-          </p>
-        </div>
-
-        <div className="mt-8 space-y-6">
-          {/* Azure AD B2C Login - REMOVED */}
-
-          {/* Traditional Login */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Iniciar sesión con credenciales
-            </h3>
-            <form onSubmit={handleCredentialsLogin} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="tu@email.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Contraseña
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Tu contraseña"
-                />
-              </div>
-
-              {error && (
-                <div className="text-red-600 text-sm text-center">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                >
-                  {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-                </button>
-              </div>
-            </form>
-
-            {/* Demo Credentials */}
-            <div className="mt-4 p-4 bg-gray-50 rounded-md">
-              <h4 className="text-sm font-medium text-gray-900 mb-2">
-                Credenciales de demostración:
-              </h4>
-              <div className="text-xs text-gray-600 space-y-1">
-                <div><strong>Admin:</strong> admin@carpeta.com / admin123</div>
-                <div><strong>Usuario:</strong> demo@carpeta.com / demo123</div>
-                <div><strong>MinTIC:</strong> mintic@carpeta.com / mintic123</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Register Link */}
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            ¿No tienes una cuenta?{' '}
-            <a
+    <AuthShell
+      breadcrumbs={[
+        { label: "Inicio", href: "/" },
+        { label: "Iniciar sesión" },
+      ]}
+      title="Iniciar sesión"
+      subtitle="Ingresa tus credenciales para acceder a tu Carpeta Ciudadana."
+      footer={
+        <div className="space-y-2 text-center">
+          <p>
+            ¿No tienes cuenta?{" "}
+            <Link
               href="/register"
-              className="font-medium text-blue-600 hover:text-blue-500"
+              className="font-semibold text-primary-600 hover:text-primary-700"
             >
               Regístrate aquí
-            </a>
+            </Link>
           </p>
         </div>
-
-        {/* Back to Home */}
-        <div className="text-center">
-          <a
-            href="/"
-            className="text-sm text-blue-600 hover:text-blue-500"
+      }
+    >
+      <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="email"
+            className="text-sm font-medium text-[var(--text-primary)]"
           >
-            ← Volver al inicio
-          </a>
+            Correo electrónico
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="tuciudadano@correo.com"
+            value={formState.email}
+            onChange={(event) => handleChange("email")(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby={fieldErrors.email ? "email-error" : undefined}
+            className="w-full"
+          />
+          {fieldErrors.email ? (
+            <p id="email-error" className="text-xs text-danger-500">
+              {fieldErrors.email}
+            </p>
+          ) : null}
         </div>
-      </div>
-    </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium text-[var(--text-primary)]"
+            >
+              Contraseña
+            </label>
+            <Link
+              href="/auth/error"
+              className="text-xs font-medium text-primary-600 hover:text-primary-700"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={formState.password}
+            onChange={(event) => handleChange("password")(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.password)}
+            aria-describedby={
+              fieldErrors.password ? "password-error" : undefined
+            }
+            className="w-full"
+          />
+          {fieldErrors.password ? (
+            <p id="password-error" className="text-xs text-danger-500">
+              {fieldErrors.password}
+            </p>
+          ) : null}
+        </div>
+
+        {error ? (
+          <div className="rounded-[var(--radius-md)] border border-danger-200 bg-danger-100/60 px-4 py-3 text-sm text-danger-600">
+            {error}
+          </div>
+        ) : null}
+
+        <Button
+          type="submit"
+          className="w-full"
+          isLoading={isLoading}
+          disabled={isLoading}
+        >
+          {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
+        </Button>
+
+        <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-4 text-xs text-[var(--text-secondary)]">
+          <p className="mb-2 font-semibold text-[var(--text-primary)]">
+            Credenciales de demostración
+          </p>
+          <ul className="space-y-1">
+            <li>
+              <strong>Admin:</strong> admin@carpeta.com / admin123
+            </li>
+            <li>
+              <strong>Usuario:</strong> demo@carpeta.com / demo123
+            </li>
+            <li>
+              <strong>MinTIC:</strong> mintic@carpeta.com / mintic123
+            </li>
+          </ul>
+        </div>
+      </form>
+    </AuthShell>
   );
 }

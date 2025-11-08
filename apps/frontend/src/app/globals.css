@@ -1,10 +1,150 @@
 @import "tailwindcss";
 @reference "tailwindcss";
 
-/* Optimized animations */
+:root {
+  color-scheme: light;
+  --surface-background: #ffffff;
+  --surface-panel: #ffffff;
+  --surface-muted: #f3f6fb;
+  --surface-subtle: #eef3f9;
+  --border-subtle: #d5e1ef;
+  --border-strong: #b4c8db;
+  --text-primary: #0f1f33;
+  --text-secondary: #3f4f67;
+  --text-tertiary: #5e6c82;
+  --focus-ring: #2f7cf6;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --shadow-soft: 0 20px 42px -24px rgba(8, 32, 58, 0.28);
+
+  --primary-25: #f4f8fc;
+  --primary-50: #e9f1f9;
+  --primary-100: #cfe2f1;
+  --primary-200: #a7c9e6;
+  --primary-300: #7db0da;
+  --primary-400: #4f93c8;
+  --primary-500: #0b4c8c;
+  --primary-600: #093f74;
+  --primary-700: #07325c;
+
+  --accent-50: #fff7eb;
+  --accent-100: #ffe7c2;
+  --accent-200: #ffd08a;
+  --accent-300: #ffb953;
+  --accent-400: #fca328;
+  --accent-500: #f39c12;
+  --accent-600: #c77c0e;
+
+  --success-50: #f0fbf6;
+  --success-100: #d4f2e5;
+  --success-200: #a9e5cc;
+  --success-300: #7ad5b3;
+  --success-400: #4dc39a;
+  --success-500: #1e9e74;
+  --success-600: #147e5c;
+
+  --info-50: #eef4ff;
+  --info-100: #d7e5ff;
+  --info-200: #afcbff;
+  --info-300: #86afff;
+  --info-400: #5c94ff;
+  --info-500: #2f7cf6;
+  --info-600: #1e5fd1;
+
+  --danger-50: #ffecee;
+  --danger-100: #ffd1d6;
+  --danger-200: #ffa3ae;
+  --danger-300: #ff7585;
+  --danger-400: #f94f66;
+  --danger-500: #e0223a;
+  --danger-600: #b5162b;
+}
+
+* {
+  @apply antialiased;
+}
+
+html,
+body {
+  width: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--surface-background);
+  color: var(--text-secondary);
+  font-feature-settings: 'ss01' on, 'ss02' on, 'cv10' on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-primary);
+  @apply font-semibold tracking-tight;
+}
+
+p,
+label,
+input,
+textarea,
+select,
+button {
+  color: var(--text-secondary);
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+input,
+textarea,
+select {
+  background-color: #ffffff;
+  padding: 0.5rem 1rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  outline: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: color-mix(in srgb, var(--focus-ring) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 15%, transparent);
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-in-out forwards;
+}
+
 @keyframes slide-in {
   from {
-    transform: translateX(100%);
+    transform: translateX(16px);
     opacity: 0;
   }
   to {
@@ -13,56 +153,20 @@
   }
 }
 
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+.surface-panel {
+  background-color: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
 }
 
-/* Font loading is now handled by Next.js font optimization */
-
-body {
-  @apply bg-gray-50;
-  /* Optimize rendering */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.surface-muted {
+  background-color: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
 }
 
-/* Optimized form inputs */
-input,
-textarea,
-select {
-  @apply bg-white border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500;
-  /* Optimize form rendering */
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-button {
-  @apply px-4 py-2 rounded-md font-medium transition-colors;
-  /* Optimize button rendering */
-  cursor: pointer;
-  user-select: none;
-}
-
-button:disabled {
-  @apply opacity-50 cursor-not-allowed;
-}
-
-/* Optimized button classes */
-.btn-primary {
-  @apply bg-blue-600 text-white hover:bg-blue-700;
-}
-
-.btn-secondary {
-  @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
-}
-
-.btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700;
-}
-
-.card {
-  @apply bg-white rounded-lg shadow-md p-6;
-  /* Optimize card rendering */
-  will-change: transform;
+.ring-focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 35%, transparent);
 }
 

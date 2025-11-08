@@ -376,31 +376,6 @@ minticClient:
   podDisruptionBudget:
     minAvailable: 1
 
-# Read Models Service (CQRS) - Consumidor de eventos
-readModels:
-  enabled: false
-  replicaCount: 1
-  image:
-    repository: carpeta-read_models
-    tag: latest
-  service:
-    type: ClusterIP  # Interno - acceso vía Azure API Management
-    port: 8007
-  resources:
-    requests:
-      memory: "32Mi"   # Further reduced for limited environments
-      cpu: "5m"        # Further reduced for limited environments
-    limits:
-      memory: "64Mi"   # Further reduced for limited environments
-      cpu: "10m"       # Further reduced for limited environments
-  autoscaling:
-    enabled: false      # Habilitado para servicios ligeros
-    minReplicas: 1
-    maxReplicas: 2     # Máximo 2 réplicas para limitaciones de recursos
-    targetCPUUtilizationPercentage: 80
-  podDisruptionBudget:
-    minAvailable: 1
-
 # Auth Service - OIDC Provider + Azure AD B2C
 auth:
   enabled: true

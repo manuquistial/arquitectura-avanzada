@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { PlusCircle, Shield, Users, AlertTriangle, Ban, Trash2 } from 'lucide-react';
+
 import { apiService } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 interface MinTICOperator {
   id: number;
@@ -346,21 +351,34 @@ export default function MinTICOperatorsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(operator.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        {operator.is_active && (
-                          <button
-                            onClick={() => handleDeactivateOperator(operator.id)}
-                            className="text-yellow-600 hover:text-yellow-900"
-                          >
-                            Desactivar
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteOperator(operator.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Eliminar
-                        </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex gap-2">
+                          {operator.is_active ? (
+                            <Tooltip content="Desactivar operador">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                icon={<Ban className="h-4 w-4" />}
+                                aria-label="Desactivar operador"
+                                onClick={() => handleDeactivateOperator(operator.id)}
+                              >
+                                <span className="sr-only">Desactivar</span>
+                              </Button>
+                            </Tooltip>
+                          ) : null}
+                          <Tooltip content="Eliminar operador">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-danger-500 hover:bg-danger-100/60"
+                              icon={<Trash2 className="h-4 w-4" />}
+                              aria-label="Eliminar operador"
+                              onClick={() => handleDeleteOperator(operator.id)}
+                            >
+                              <span className="sr-only">Eliminar</span>
+                            </Button>
+                          </Tooltip>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -6,6 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, X } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { apiService } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -166,20 +167,22 @@ export default function UploadPage() {
 
           {/* Buttons */}
           <div className="flex gap-4">
-            <button
+            <Button
+              variant="ghost"
+              className="flex-1"
               onClick={() => router.back()}
-              className="flex-1 btn-secondary"
               disabled={uploading}
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
+              className="flex-1"
               onClick={handleUpload}
-              className="flex-1 btn-primary"
               disabled={!file || !title || uploading}
+              isLoading={uploading}
             >
               {uploading ? 'Subiendo...' : 'Subir Documento'}
-            </button>
+            </Button>
           </div>
         </div>
       </main>

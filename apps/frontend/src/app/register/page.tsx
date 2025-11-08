@@ -1,230 +1,324 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiService } from '@/lib/api';
+import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
+
+import { apiService } from "@/lib/api";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button } from "@/components/ui/Button";
+
+const registerSchema = z
+  .object({
+    id: z
+      .string()
+      .regex(/^\d{10}$/, "La cédula debe tener 10 dígitos numéricos"),
+    name: z.string().min(3, "Ingresa tu nombre completo"),
+    address: z.string().min(5, "Incluye tu dirección completa"),
+    email: z.string().email("Correo electrónico inválido"),
+    password: z
+      .string()
+      .min(8, "La contraseña debe tener al menos 8 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
+
+type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    id: '',
-    name: '',
-    address: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+
+  const [formState, setFormState] = useState<RegisterForm>({
+    id: "",
+    name: "",
+    address: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof RegisterForm, string>>
+  >({});
+  const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  const remainingDigits = useMemo(() => 10 - formState.id.length, [formState.id]);
 
-    // Validate all fields are filled
-    if (!formData.id.trim() || !formData.name.trim() || !formData.address.trim() || !formData.email.trim() || !formData.password.trim()) {
-      setError('Todos los campos son obligatorios');
-      setLoading(false);
-      return;
-    }
+  const handleChange =
+    (field: keyof RegisterForm) => (value: string) => {
+      setFormState((prev) => ({ ...prev, [field]: value }));
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+      setServerError(null);
+    };
 
-    // Validate password
-    if (formData.password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
-      setLoading(false);
-      return;
-    }
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setServerError(null);
+    setFieldErrors({});
 
-    // Validate password confirmation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Las contraseñas no coinciden');
-      setLoading(false);
-      return;
-    }
-
-    // Validate citizen ID has exactly 10 digits
-    if (formData.id.length !== 10) {
-      setError('El número de cédula debe tener exactamente 10 dígitos');
-      setLoading(false);
-      return;
-    }
-
-    if (!/^\d{10}$/.test(formData.id)) {
-      setError('El número de cédula debe contener solo dígitos');
-      setLoading(false);
-      return;
-    }
-
-    // Validate name and address are not empty
-    if (formData.name.trim().length === 0) {
-      setError('El nombre no puede estar vacío');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.address.trim().length === 0) {
-      setError('La dirección no puede estar vacía');
-      setLoading(false);
+    const result = registerSchema.safeParse(formState);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      setFieldErrors({
+        id: errors.id?.[0],
+        name: errors.name?.[0],
+        address: errors.address?.[0],
+        email: errors.email?.[0],
+        password: errors.password?.[0],
+        confirmPassword: errors.confirmPassword?.[0],
+      });
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      // Register citizen (trim all fields)
-      // operator_id and operator_name are now fetched automatically from system config
       await apiService.registerCitizen({
-        id: formData.id,
-        name: formData.name.trim(),
-        address: formData.address.trim(),
-        email: formData.email.trim(),
-        password: formData.password,
-        // operator_id and operator_name are optional - will be fetched from system config
+        id: formState.id,
+        name: formState.name.trim(),
+        address: formState.address.trim(),
+        email: formState.email.trim(),
+        password: formState.password,
       });
 
       setSuccess(true);
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
-    } catch (err) {
-      const error = err as { response?: { status?: number; data?: { detail?: string } } };
-      const errorDetail = error.response?.data?.detail;
-      
-      // Handle specific error cases
-      if (error.response?.status === 409) {
-        setError(errorDetail || 'Este número de cédula ya está registrado');
-      } else if (error.response?.status === 400) {
-        setError(errorDetail || 'Error de validación. Verifica los datos ingresados');
-      } else if (error.response?.status === 502 || error.response?.status === 503) {
-        setError('El servicio de registro no está disponible. Intenta más tarde');
-      } else {
-        setError(errorDetail || 'Error al registrar ciudadano');
-      }
+      setTimeout(() => router.push("/login"), 1600);
+    } catch (error) {
+      const message =
+        (error as { response?: { data?: { detail?: string }; status?: number } })
+          ?.response?.data?.detail;
+      setServerError(
+        message ??
+          "No pudimos completar el registro en este momento. Intenta de nuevo."
+      );
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900">
-            Registro de Ciudadano
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Completa tus datos para registrarte
+    <AuthShell
+      breadcrumbs={[
+        { label: "Inicio", href: "/" },
+        { label: "Crear cuenta" },
+      ]}
+      title="Crear cuenta ciudadana"
+      subtitle="Completa el formulario con tus datos para acceder a la Carpeta Ciudadana."
+      footer={
+        <div className="space-y-2 text-center">
+          <p>
+            ¿Ya tienes cuenta?{" "}
+            <Link
+              href="/login"
+              className="font-semibold text-primary-600 hover:text-primary-700"
+            >
+              Inicia sesión
+            </Link>
+          </p>
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Tus datos están protegidos según los estándares de seguridad del
+            Gobierno Digital.
           </p>
         </div>
+      }
+    >
+      <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+        {serverError ? (
+          <div className="rounded-[var(--radius-md)] border border-danger-200 bg-danger-100/60 px-4 py-3 text-sm text-danger-600">
+            {serverError}
+          </div>
+        ) : null}
 
-        <form onSubmit={handleSubmit} className="card space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+        {success ? (
+          <div className="rounded-[var(--radius-md)] border border-success-300 bg-success-100/80 px-4 py-3 text-sm text-success-600">
+            Registro exitoso. Te redirigiremos en un momento...
+          </div>
+        ) : null}
 
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-              ¡Registro exitoso! Redirigiendo...
-            </div>
-          )}
-
-          <div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label htmlFor="id" className="text-sm font-medium text-[var(--text-primary)]">
+              Número de cédula
+            </label>
             <input
-              type="text"
-              placeholder="Número de cédula (10 dígitos)"
-              value={formData.id}
-              onChange={(e) => {
-                // Only allow digits and max 10 characters
-                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setFormData({ ...formData, id: value });
-              }}
-              required
+              id="id"
+              name="id"
+              inputMode="numeric"
               maxLength={10}
-              pattern="\d{10}"
+              placeholder="0000000000"
+              value={formState.id}
+              onChange={(event) =>
+                handleChange("id")(event.target.value.replace(/\D/g, "").slice(0, 10))
+              }
+              aria-invalid={Boolean(fieldErrors.id)}
+              aria-describedby={fieldErrors.id ? "id-error" : undefined}
               className="w-full"
             />
-            {formData.id.length > 0 && formData.id.length < 10 && (
-              <p className="text-sm text-gray-500 mt-1">
-                {10 - formData.id.length} dígitos restantes
+            <div className="flex items-center justify-between text-xs text-[var(--text-tertiary)]">
+              <span>
+                {remainingDigits > 0
+                  ? `${remainingDigits} dígitos restantes`
+                  : "10 dígitos completos"}
+              </span>
+              {fieldErrors.id ? (
+                <span id="id-error" className="text-danger-500">
+                  {fieldErrors.id}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="email"
+              className="text-sm font-medium text-[var(--text-primary)]"
+            >
+              Correo electrónico
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="tu@correo.com"
+              value={formState.email}
+              onChange={(event) => handleChange("email")(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? "email-error" : undefined}
+              className="w-full"
+            />
+            {fieldErrors.email ? (
+              <p id="email-error" className="text-xs text-danger-500">
+                {fieldErrors.email}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label
+            htmlFor="name"
+            className="text-sm font-medium text-[var(--text-primary)]"
+          >
+            Nombre completo
+          </label>
+          <input
+            id="name"
+            name="name"
+            placeholder="Tu nombre y apellidos"
+            value={formState.name}
+            onChange={(event) => handleChange("name")(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.name)}
+            aria-describedby={fieldErrors.name ? "name-error" : undefined}
+            className="w-full"
+          />
+          {fieldErrors.name ? (
+            <p id="name-error" className="text-xs text-danger-500">
+              {fieldErrors.name}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <label
+            htmlFor="address"
+            className="text-sm font-medium text-[var(--text-primary)]"
+          >
+            Dirección de residencia
+          </label>
+          <input
+            id="address"
+            name="address"
+            placeholder="Calle, número y ciudad"
+            value={formState.address}
+            onChange={(event) => handleChange("address")(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.address)}
+            aria-describedby={fieldErrors.address ? "address-error" : undefined}
+            className="w-full"
+          />
+          {fieldErrors.address ? (
+            <p id="address-error" className="text-xs text-danger-500">
+              {fieldErrors.address}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium text-[var(--text-primary)]"
+            >
+              Contraseña
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="••••••••"
+              minLength={8}
+              value={formState.password}
+              onChange={(event) => handleChange("password")(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? "password-error" : undefined}
+              className="w-full"
+            />
+            {fieldErrors.password ? (
+              <p id="password-error" className="text-xs text-danger-500">
+                {fieldErrors.password}
+              </p>
+            ) : (
+              <p className="text-xs text-[var(--text-tertiary)]">
+                Debe tener al menos 8 caracteres y combinar letras y números.
               </p>
             )}
           </div>
 
-          <div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="confirmPassword"
+              className="text-sm font-medium text-[var(--text-primary)]"
+            >
+              Confirmar contraseña
+            </label>
             <input
-              type="text"
-              placeholder="Nombre completo"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <input
-              type="text"
-              placeholder="Dirección"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              required
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <input
+              id="confirmPassword"
+              name="confirmPassword"
               type="password"
-              placeholder="Contraseña (mínimo 8 caracteres)"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-              minLength={8}
+              placeholder="Repite tu contraseña"
+              value={formState.confirmPassword}
+              onChange={(event) =>
+                handleChange("confirmPassword")(event.target.value)
+              }
+              aria-invalid={Boolean(fieldErrors.confirmPassword)}
+              aria-describedby={
+                fieldErrors.confirmPassword ? "confirmPassword-error" : undefined
+              }
               className="w-full"
             />
+            {fieldErrors.confirmPassword ? (
+              <p id="confirmPassword-error" className="text-xs text-danger-500">
+                {fieldErrors.confirmPassword}
+              </p>
+            ) : null}
           </div>
+        </div>
 
-          <div>
-            <input
-              type="password"
-              placeholder="Confirmar contraseña"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              required
-              minLength={8}
-              className="w-full"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || success}
-            className="w-full btn-primary"
-          >
-            {loading ? 'Registrando...' : 'Registrarse'}
-          </button>
-
-          <div className="text-center">
-            <a href="/login" className="text-blue-600 hover:text-blue-800">
-              ¿Ya tienes cuenta? Inicia sesión
-            </a>
-          </div>
-        </form>
-      </div>
-    </div>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={isSubmitting || success}
+          isLoading={isSubmitting}
+        >
+          {isSubmitting ? "Registrando..." : "Crear cuenta"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 

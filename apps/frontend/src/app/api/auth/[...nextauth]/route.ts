@@ -168,17 +168,37 @@ const authOptions: NextAuthOptions = {
         token.accessToken = account.access_token;
         token.idToken = account.id_token;
         token.refreshToken = account.refresh_token;
-        
+
+        const profileRecord = profile as Record<string, unknown>;
+
         // Profile specific claims
-        token.sub = profile.sub;
-        token.email = profile.email;
-        token.name = profile.name;
-        token.given_name = (profile as Record<string, unknown>).given_name as string;
-        token.family_name = (profile as Record<string, unknown>).family_name as string;
+        if (typeof profileRecord.sub === 'string') {
+          token.sub = profileRecord.sub;
+        }
+        if (typeof profileRecord.email === 'string') {
+          token.email = profileRecord.email;
+        }
+        if (typeof profileRecord.name === 'string') {
+          token.name = profileRecord.name;
+        }
+        if (typeof profileRecord.given_name === 'string') {
+          token.given_name = profileRecord.given_name;
+        }
+        if (typeof profileRecord.family_name === 'string') {
+          token.family_name = profileRecord.family_name;
+        }
         
         // Custom claims
-        token.roles = (profile as Record<string, unknown>).extension_Role as string[] || [];
-        token.permissions = (profile as Record<string, unknown>).extension_Permissions as string[] || [];
+        if (Array.isArray(profileRecord.extension_Role)) {
+          token.roles = profileRecord.extension_Role as string[];
+        } else {
+          token.roles = [];
+        }
+        if (Array.isArray(profileRecord.extension_Permissions)) {
+          token.permissions = profileRecord.extension_Permissions as string[];
+        } else {
+          token.permissions = [];
+        }
       }
       
       return token;

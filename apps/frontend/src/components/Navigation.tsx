@@ -1,212 +1,221 @@
 "use client";
 
-import { useSession, signOut } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Bell,
+  ChevronDown,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  ShieldCheck,
+  Shuffle,
+  User,
+  Users,
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 import NotificationBell from './NotificationBell';
+
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles?: string[];
+};
+
+const NAV_ITEMS: NavigationItem[] = [
+  { name: 'Panel', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Documentos', href: '/documents', icon: FileText },
+  { name: 'Transferencias', href: '/transfers', icon: Shuffle },
+];
+
+const ADMIN_ITEMS: NavigationItem[] = [
+  { name: 'Administración', href: '/admin', icon: ShieldCheck, roles: ['admin', 'mintic'] },
+];
+
+function allowItem(item: NavigationItem, userRoles?: string[]) {
+  if (!item.roles?.length) return true;
+  return item.roles.some((role) => userRoles?.includes(role));
+}
 
 export default function Navigation() {
   const { data: session, status } = useSession();
-  // const router = useRouter(); // Reserved for future navigation
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Don't show navigation on login page or home page (which is now login)
+  const userRoles = session?.user?.roles ?? [];
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        event.target instanceof Node &&
+        !userMenuRef.current.contains(event.target)
+      ) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [userMenuOpen]);
+
+  const primaryLinks = useMemo(
+    () => NAV_ITEMS.filter((item) => allowItem(item, userRoles)),
+    [userRoles]
+  );
+
+  const adminLinks = useMemo(
+    () => ADMIN_ITEMS.filter((item) => allowItem(item, userRoles)),
+    [userRoles]
+  );
+
   if (pathname === '/login' || pathname === '/' || status === 'loading') {
     return null;
   }
 
-  // Don't show navigation if not authenticated
   if (status === 'unauthenticated') {
     return null;
   }
 
-  const navigationItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-    { name: 'Documentos', href: '/documents', icon: '📄' },
-    { name: 'Transferencias', href: '/transfers', icon: '🔄' },
-    { name: 'Notificaciones', href: '/notifications', icon: '🔔' },
-  ];
+  const isActive = (href: string) =>
+    pathname === href || pathname?.startsWith(`${href}/`);
 
-  // Add admin navigation for mintic users
-  const adminNavigationItems = [
-    { name: 'Administración', href: '/admin', icon: '⚙️' },
-  ];
-
-  const isActive = (href: string) => {
-    return pathname === href || pathname?.startsWith(href + '/');
-  };
+  const initials =
+    session?.user?.name
+      ?.split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || session?.user?.email?.[0]?.toUpperCase() || 'CC';
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo & Main Nav */}
-          <div className="flex">
-            {/* Logo */}
-            <Link href="/dashboard" className="flex items-center">
-              <div className="text-2xl font-bold text-blue-600">
-                📁 Carpeta Ciudadana
-              </div>
-            </Link>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:ml-10 md:flex md:items-center md:space-x-2">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive(item.href)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <span className="mr-1.5">{item.icon}</span>
-                  {item.name}
-                </Link>
-              ))}
-              
-              {/* Admin Navigation */}
-              {(session?.user?.roles?.includes('admin') || session?.user?.roles?.includes('mintic')) && adminNavigationItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive(item.href)
-                      ? 'bg-purple-50 text-purple-700'
-                      : 'text-purple-700 hover:bg-purple-50 hover:text-purple-900'
-                  }`}
-                >
-                  <span className="mr-1.5">{item.icon}</span>
-                  {item.name}
-                </Link>
-              ))}
+    <header className="sticky top-0 z-40 border-b border-[var(--primary-100)] bg-gradient-to-r from-white/95 via-white/95 to-[var(--primary-25)]/80 shadow-sm backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-8">
+          <Link href="/dashboard" className="flex items-center gap-3 text-[var(--primary-600)] transition-colors hover:text-[var(--primary-500)]">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+                Carpeta Ciudadana
+              </span>
             </div>
-          </div>
+          </Link>
 
-          {/* Right Side */}
-          <div className="flex items-center gap-4">
-            {/* Notifications */}
+          <nav className="hidden items-center gap-1 lg:flex">
+            {primaryLinks.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'group inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[0.95rem] font-semibold transition-all',
+                    active
+                      ? 'bg-[var(--primary-50)] text-[var(--primary-700)] shadow-sm border border-[var(--primary-200)]'
+                      : 'text-[var(--text-tertiary)] hover:bg-[var(--primary-25)] hover:text-[var(--primary-600)]'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-4.5 w-4.5 transition-colors',
+                      active ? 'text-[var(--primary-500)]' : 'text-slate-400 group-hover:text-[var(--primary-500)]'
+                    )}
+                  />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-3 md:flex">
             <NotificationBell />
-
-            {/* Settings */}
-            <Link
-              href="/settings"
-              className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/settings')
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              ⚙️ Configuración
-            </Link>
-
-            {/* User Menu */}
-            <div className="hidden md:flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-sm font-medium text-gray-900">
-                  {session?.user?.name || 'Usuario'}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {session?.user?.email}
-                </div>
-              </div>
-
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                {session?.user?.name?.charAt(0) || 'U'}
-              </div>
-
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                🚪 Salir
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
-            >
-              {mobileMenuOpen ? '✕' : '☰'}
-            </button>
           </div>
+
+          <div className="relative hidden items-center md:flex" ref={userMenuRef}>
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              className="inline-flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--primary-100)] bg-white/80 px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--primary-200)] hover:shadow-sm"
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white">
+                {initials}
+              </span>
+              <span className="flex flex-col items-start">
+                <span>{session?.user?.name ?? 'Usuario'}</span>
+                <span className="text-xs text-[var(--text-tertiary)]">{session?.user?.email}</span>
+              </span>
+              <ChevronDown className={cn('h-4 w-4 transition-transform', userMenuOpen && 'rotate-180')} />
+            </button>
+
+            {userMenuOpen ? (
+              <div className="absolute right-0 top-full mt-2 w-60 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-white shadow-soft">
+                <div className="px-4 py-3">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {session?.user?.name ?? 'Usuario'}
+                  </p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{session?.user?.email}</p>
+                </div>
+                <div className="border-t border-[var(--border-subtle)] px-2 py-2 text-sm">
+                  <Link
+                    href="/account"
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-[var(--text-secondary)] transition-colors hover:bg-primary-25"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <User className="h-4 w-4 text-primary-500" />
+                    Mi cuenta
+                  </Link>
+                  {adminLinks.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                      <p className="px-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                        Administración
+                      </p>
+                      {adminLinks.map((item) => (
+                <Link
+                          key={`admin-${item.href}`}
+                  href={item.href}
+                          className="flex items-center gap-2 rounded-md px-3 py-2 text-[var(--text-secondary)] transition-colors hover:bg-primary-25"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <item.icon className="h-4 w-4 text-primary-500" />
+                  {item.name}
+                </Link>
+              ))}
+            </div>
+                  ) : null}
+                </div>
+                <div className="border-t border-[var(--border-subtle)] px-2 py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-danger-500 hover:bg-danger-100/60"
+                    icon={<LogOut className="h-4 w-4" />}
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      signOut({ callbackUrl: '/login' });
+                    }}
+                  >
+                    Cerrar sesión
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
         </div>
       </div>
-
-      {/* Mobile Navigation */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-200">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors ${
-                  isActive(item.href)
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span className="mr-2">{item.icon}</span>
-                {item.name}
-              </Link>
-            ))}
-            
-            {/* Admin Navigation for Mobile */}
-            {(session?.user?.roles?.includes('admin') || session?.user?.roles?.includes('mintic')) && adminNavigationItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors ${
-                  isActive(item.href)
-                    ? 'bg-purple-50 text-purple-700'
-                    : 'text-purple-700 hover:bg-purple-50'
-                }`}
-              >
-                <span className="mr-2">{item.icon}</span>
-                {item.name}
-              </Link>
-            ))}
-
-            <Link
-              href="/settings"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors ${
-                isActive('/settings')
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              ⚙️ Configuración
-            </Link>
-
-            <div className="border-t border-gray-200 mt-3 pt-3">
-              <div className="px-4 py-2">
-                <div className="text-sm font-medium text-gray-900">
-                  {session?.user?.name || 'Usuario'}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {session?.user?.email}
-                </div>
-              </div>
-
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="w-full text-left px-4 py-3 text-base font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                🚪 Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </nav>
+    </header>
   );
 }
 
