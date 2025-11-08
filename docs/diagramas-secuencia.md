@@ -5,7 +5,8 @@
 ---
 
 ## Registro de ciudadano
-![Registro de Ciudadano](./img/seq_registro_ciudadano.png)
+<img width="6260" height="4572" alt="Registro de Ciudadano" src="https://github.com/user-attachments/assets/7f7d137b-2a57-4b9f-a88f-173c0b0b7434" />
+
 
 **Participantes**  
 Operador (Admin), Portal Web (UI), Ingress NGINX, Citizen Service, MinTIC Client Service, MinTIC Hub API (GovCarpeta), Citizen DB (PostgreSQL), Auth Service, Event Bus (Service Bus, cola `citizen-events`)
@@ -28,7 +29,8 @@ Operador (Admin), Portal Web (UI), Ingress NGINX, Citizen Service, MinTIC Client
 ---
 
 ## Autenticación de ciudadano (login)
-![Autenticación de Ciudadano](./img/seq_auth_ciudadano.png)
+<img width="3874" height="3592" alt="Autenticación de Ciudadano" src="https://github.com/user-attachments/assets/6dfccc57-cf83-4e17-88d1-5e66c8d97cea" />
+
 
 **Participantes**  
 Ciudadano, Portal Web (UI), Ingress NGINX, Auth Service (FastAPI), User DB (PostgreSQL), Redis (session cache)
@@ -49,7 +51,8 @@ Ciudadano, Portal Web (UI), Ingress NGINX, Auth Service (FastAPI), User DB (Post
 ---
 
 ## Carga de documento
-![Carga de Documento](./img/seq_carga_documento.png)
+<img width="5994" height="4454" alt="Carga de Documento" src="https://github.com/user-attachments/assets/09673c56-f6f9-491a-8a2d-f0e722c3321e" />
+
 
 **Participantes**  
 Ciudadano, Portal Web (UI), Ingress NGINX, Ingestion Service, Metadata Service, Azure Blob Storage, PostgreSQL, Service Bus, Notification Service, Transfer Service
@@ -72,7 +75,8 @@ Ciudadano, Portal Web (UI), Ingress NGINX, Ingestion Service, Metadata Service, 
 ---
 
 ## Autenticación de documento
-![Autenticación de Documento](./img/seq_auth_documento.png)
+<img width="9501" height="5750" alt="Firma de Documento" src="https://github.com/user-attachments/assets/b8c4c4cb-6c0c-4c99-9453-90305f636a61" />
+
 
 **Participantes**  
 Ciudadano, Portal Web (UI), Ingress NGINX, Signature Service, Ingestion Service, Metadata Service, MinTIC Client Service, MinTIC Hub API, Azure Blob Storage, PostgreSQL, Service Bus, Notification Service, Transfer Service, Key Vault
@@ -95,7 +99,8 @@ Ciudadano, Portal Web (UI), Ingress NGINX, Signature Service, Ingestion Service,
 ---
 
 ## Publicación y manejo de eventos
-![Publicación y Manejo de Eventos](./img/seq_eventos.png)
+<img width="4362" height="2722" alt="Manejo de Eventos" src="https://github.com/user-attachments/assets/9eebbb47-b854-4136-bc3d-2a0131a3aa10" />
+
 
 **Participantes**  
 Citizen Service (publisher), Service Bus (topic/subscriptions), Notification Service (subscriber), Transfer Service (subscriber), Email/SMS Provider, Dead-letter queue (DLQ)
