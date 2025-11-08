@@ -53,7 +53,7 @@ class AuthMiddleware:
             user_id_str = str(user_id)  # Ensure it's always a string
             result = await db.execute(
                 text("""
-                    SELECT id, email, name, given_name, family_name, 
+                    SELECT id, email, name, given_name, family_name, citizen_id,
                            roles, permissions, is_active, is_verified,
                            created_at, updated_at
                     FROM users
@@ -77,6 +77,7 @@ class AuthMiddleware:
                 id=row.id,
                 email=row.email,
                 name=row.name if hasattr(row, 'name') else None,
+                citizen_id=row.citizen_id if hasattr(row, 'citizen_id') else None,
                 given_name=row.given_name if hasattr(row, 'given_name') else None,
                 family_name=row.family_name if hasattr(row, 'family_name') else None,
                 roles=row.roles if hasattr(row, 'roles') and row.roles else [],

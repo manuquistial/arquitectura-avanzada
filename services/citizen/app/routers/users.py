@@ -53,6 +53,7 @@ class UserResponse(BaseModel):
     id: str
     email: str
     name: Optional[str]
+    citizen_id: Optional[str]
     given_name: Optional[str]
     family_name: Optional[str]
     roles: List[str]
@@ -380,6 +381,7 @@ async def list_users(
             'id': user_id,
             'email': getattr(row, 'email', ''),
             'name': getattr(row, 'name', None),
+            'citizen_id': getattr(row, 'citizen_id', None),
             'given_name': getattr(row, 'given_name', None),
             'family_name': getattr(row, 'family_name', None),
             'roles': roles,

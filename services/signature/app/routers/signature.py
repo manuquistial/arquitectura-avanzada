@@ -96,6 +96,21 @@ async def _resolve_citizen_document_id(
         if citizen_val:
             citizen_val = str(citizen_val).strip()
             if citizen_val.isdigit() and len(citizen_val) == 10:
+            # Ensure users table persists the resolved citizen_id
+            try:
+                await db.execute(
+                    text(
+                        """
+                        UPDATE users
+                        SET citizen_id = :cid
+                        WHERE CAST(id AS TEXT) = CAST(:uid AS TEXT)
+                        """
+                    ),
+                    {"cid": citizen_val, "uid": identifier},
+                )
+                await db.commit()
+            except Exception as update_error:
+                logger.debug(f"Could not persist citizen_id for user {identifier}: {update_error}")
                 logger.info(
                     f"✅ Resolved user identifier '{identifier}' to citizen.id '{citizen_val}'"
                 )
@@ -105,7 +120,25 @@ async def _resolve_citizen_document_id(
                     f"⚠️  User {identifier} is linked to citizen_id '{citizen_val}' "
                     "which is not a 10-digit document. Attempting recursive resolution..."
                 )
-                return await _resolve_citizen_document_id(db, citizen_val)
+                resolved_id, issue = await _resolve_citizen_document_id(db, citizen_val)
+                if resolved_id and resolved_id.isdigit() and len(resolved_id) == 10:
+                    try:
+                        await db.execute(
+                            text(
+                                """
+                                UPDATE users
+                                SET citizen_id = :cid
+                                WHERE CAST(id AS TEXT) = CAST(:uid AS TEXT)
+                                """
+                            ),
+                            {"cid": resolved_id, "uid": identifier},
+                        )
+                        await db.commit()
+                    except Exception as update_error:
+                        logger.debug(
+                            f"Could not persist resolved citizen_id for user {identifier}: {update_error}"
+                        )
+                return resolved_id, issue
 
         email_val = getattr(user_row, "email", None)
         if email_val:
@@ -126,6 +159,22 @@ async def _resolve_citizen_document_id(
                     logger.info(
                         f"✅ Resolved user '{identifier}' via email to citizen.id '{email_row.id}'"
                     )
+                    try:
+                        await db.execute(
+                            text(
+                                """
+                                UPDATE users
+                                SET citizen_id = :cid
+                                WHERE CAST(id AS TEXT) = CAST(:uid AS TEXT) OR email = :email
+                                """
+                            ),
+                            {"cid": str(email_row.id), "uid": identifier, "email": email_val},
+                        )
+                        await db.commit()
+                    except Exception as update_error:
+                        logger.debug(
+                            f"Could not persist citizen_id for user {identifier} via email: {update_error}"
+                        )
                     return str(email_row.id), None
             except Exception as e:
                 logger.warning(f"⚠️  Failed resolving citizen via email lookup: {e}")

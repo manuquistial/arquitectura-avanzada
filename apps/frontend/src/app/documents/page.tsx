@@ -264,6 +264,16 @@ function DocumentsPageContent() {
   const signatureSelectRef = useRef<HTMLSelectElement | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "signed">("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [citizenDocumentId, setCitizenDocumentId] = useState<string | null>(
+    session?.user?.citizen_id ?? null
+  );
+  const [resolvingCitizenId, setResolvingCitizenId] = useState(false);
+  const userRoles = useMemo(() => session?.user?.roles ?? [], [session?.user?.roles]);
+  const isAdmin = useMemo(() => userRoles.includes("admin"), [userRoles]);
+  const effectiveCitizenId = useMemo(
+    () => citizenDocumentId ?? session?.user?.citizen_id ?? null,
+    [citizenDocumentId, session?.user?.citizen_id]
+  );
 
   useEffect(() => {
     const filterParam = searchParams.get("filter");
@@ -279,15 +289,60 @@ function DocumentsPageContent() {
     }
   }, [filter, searchParams, showUploadModal]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCitizenId = async () => {
+      if (!session?.user?.id) {
+        setCitizenDocumentId(null);
+        return;
+      }
+
+      setResolvingCitizenId(true);
+      try {
+        const profile = await apiService.getCurrentUser();
+        if (!cancelled) {
+          const resolvedId = profile?.citizen_id ?? session.user?.citizen_id ?? null;
+          setCitizenDocumentId(resolvedId);
+        }
+      } catch (err) {
+        console.error("Error fetching current user profile:", err);
+        if (!cancelled) {
+          setCitizenDocumentId(session?.user?.citizen_id ?? null);
+        }
+      } finally {
+        if (!cancelled) {
+          setResolvingCitizenId(false);
+        }
+      }
+    };
+
+    resolveCitizenId();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id, session?.user?.citizen_id]);
+
   const fetchDocuments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const citizenId = session?.user?.id || "1234567890";
+      const targetCitizenId =
+        effectiveCitizenId ?? (isAdmin ? "1234567890" : null);
+
+      if (!targetCitizenId) {
+        setDocuments([]);
+        setError(
+          "Tu cuenta no tiene un ciudadano asociado. Solicita a un administrador que complete la vinculación antes de gestionar documentos."
+        );
+        return;
+      }
+
       const data = await apiService.getDocuments(
-        citizenId,
-        session?.user?.roles
+        targetCitizenId,
+        userRoles
       );
       setDocuments(data);
     } catch (err) {
@@ -296,7 +351,7 @@ function DocumentsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id, session?.user?.roles]);
+  }, [effectiveCitizenId, isAdmin, userRoles]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -305,10 +360,17 @@ function DocumentsPageContent() {
   }, [status, router]);
 
   useEffect(() => {
-    if (session?.user?.id) {
-    fetchDocuments();
+    if (!session?.user?.id) {
+      return;
     }
-  }, [session?.user?.id, fetchDocuments]);
+    if (resolvingCitizenId) {
+      return;
+    }
+    if (!effectiveCitizenId && !isAdmin) {
+      return;
+    }
+    fetchDocuments();
+  }, [session?.user?.id, resolvingCitizenId, effectiveCitizenId, isAdmin, fetchDocuments]);
 
   const handleUpload = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -325,9 +387,14 @@ function DocumentsPageContent() {
           throw new Error("Archivo y título son requeridos");
       }
 
+      const citizenIdForUpload = effectiveCitizenId ?? session?.user?.citizen_id ?? null;
+      if (!citizenIdForUpload) {
+        throw new Error("Tu cuenta no tiene un ciudadano asociado para subir documentos.");
+      }
+
       await apiService.uploadDocumentDirect(
         file,
-          session?.user?.id || "1",
+        citizenIdForUpload,
         title,
         description
       );
@@ -343,7 +410,7 @@ function DocumentsPageContent() {
       setUploading(false);
     }
     },
-    [fetchDocuments, session?.user?.id]
+    [effectiveCitizenId, fetchDocuments, session?.user?.citizen_id]
   );
 
   const handleDownload = useCallback(async (documentId: string, filename: string) => {
@@ -363,14 +430,18 @@ function DocumentsPageContent() {
       if (!confirmed) return;
 
       try {
-        await apiService.deleteDocument(documentId, session?.user?.id || "1");
+        const citizenIdForDelete = effectiveCitizenId ?? session?.user?.citizen_id ?? null;
+        if (!citizenIdForDelete) {
+          throw new Error("Tu cuenta no tiene un ciudadano asociado. No se puede eliminar el documento.");
+        }
+        await apiService.deleteDocument(documentId, citizenIdForDelete);
         await fetchDocuments();
       } catch (err) {
         console.error("Error deleting document:", err);
         setError("No pudimos eliminar el documento. Vuelve a intentarlo.");
       }
     },
-    [fetchDocuments, session?.user?.id]
+    [effectiveCitizenId, fetchDocuments, session?.user?.citizen_id]
   );
 
   const formatFileSize = useCallback((bytes?: number) => {
@@ -503,15 +574,20 @@ function DocumentsPageContent() {
   );
 
   const handleSignDocument = useCallback(async () => {
-    if (!selectedDocument || !session?.user?.id) {
+    if (!selectedDocument) {
       setError("Selecciona un documento válido para firmar.");
+      return;
+    }
+    const citizenIdForSign = effectiveCitizenId ?? session?.user?.citizen_id ?? null;
+    if (!citizenIdForSign) {
+      setError("Tu cuenta no tiene un ciudadano asociado. No es posible firmar documentos.");
       return;
     }
     setSigningDocumentId(selectedDocument.id);
     try {
       await apiService.signDocument(selectedDocument.id, {
         document_id: selectedDocument.id,
-        citizen_id: session.user.id,
+        citizen_id: citizenIdForSign,
         document_title: selectedDocument.title ?? selectedDocument.filename,
         signature_type: signatureType,
       });
@@ -526,7 +602,7 @@ function DocumentsPageContent() {
     } finally {
       setSigningDocumentId(null);
     }
-  }, [closeSignModal, fetchDocuments, selectedDocument, session?.user?.id, signatureType]);
+  }, [closeSignModal, effectiveCitizenId, fetchDocuments, selectedDocument, session?.user?.citizen_id, signatureType]);
 
   useEffect(() => {
     if (!showSignModal) return;
@@ -550,7 +626,7 @@ function DocumentsPageContent() {
     };
   }, [closeSignModal, showSignModal]);
 
-  if (status === "loading" || loading) {
+  if (status === "loading" || loading || resolvingCitizenId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -741,7 +817,7 @@ function DocumentsPageContent() {
                         >
                           {statusInfo.label}
                         </Badge>
-                        {statusInfo.description ? (
+                        {"description" in statusInfo && statusInfo.description ? (
                           <p className="mt-1 text-xs text-[var(--text-tertiary)]">
                             {statusInfo.description}
                           </p>

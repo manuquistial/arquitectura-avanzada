@@ -229,6 +229,7 @@ async def register_citizen(
                         })
                         if result.rowcount > 0:
                             logger.info(f"✅ User {auth_user_id} linked to citizen {citizen.id}")
+                            await db.commit()
                         else:
                             logger.warning(f"⚠️  User {auth_user_id} not found in users table to link to citizen")
                 elif auth_response.status_code == 400:
