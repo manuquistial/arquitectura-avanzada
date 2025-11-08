@@ -1,5 +1,15 @@
 # Arquitectura de Carpeta Ciudadana
 
+## 0. Estado Actual (noviembre 2025)
+
+- **Exposición HTTP**: `frontend` se publica con un `Service` tipo LoadBalancer y un `Ingress` NGINX sin TLS; no hay Azure Front Door ni gateway dedicado en este entorno.
+- **Autenticación**: el servicio `auth` gestiona registro/login con base de datos propia y emite JWT HS256; la integración con Azure AD B2C está deshabilitada.
+- **Persistencia**: Azure PostgreSQL Flexible Server y Azure Blob Storage están habilitados; Redis y Service Bus se inyectan vía secretos pero se operan en modo mínimo.
+- **Servicios activos**: `frontend`, `auth`, `citizen`, `ingestion`, `metadata`, `signature`, `transfer`, `notification` y `mintic_client` se despliegan con 1 réplica y sin autoscaling.
+- **Migrations/DevOps**: los `jobs` de migraciones Alembic están desactivados (`migrations.enabled = false`); se requiere ejecución manual antes de releases.
+- **Seguridad y observabilidad**: TLS, headers HSTS/CSP, OpenTelemetry y cert-manager permanecen apagados. Las políticas de red están habilitadas con denegación por defecto.
+- **Notificaciones**: `notification` se despliega, pero el envío real depende de que existan secretos válidos de Mailjet; por defecto opera en modo “solo registrar eventos”.
+
 ## 1. Contexto y Objetivos
 
 El ecosistema **Carpeta Ciudadana** permite a los ciudadanos colombianos administrar documentos personales digitales y acceder a servicios estatales a través de operadores certificados. La solución está compuesta por microservicios desplegados en Azure Kubernetes Service (AKS) y sigue patrones event-driven con alta seguridad y cumplimiento.
@@ -55,7 +65,7 @@ Operador --> (CU5 Recibir notificaciones de eventos)
 - **Postcondiciones:** Ciudadano creado en `citizen` (PostgreSQL), sincronizado con Hub MinTIC, evento `citizen.registered` publicado.
 - **Flujo principal:**
   1. Operador captura datos del ciudadano desde el portal.
-  2. Frontend invoca `gateway` → `citizen` (`POST /api/citizens/register`).
+  2. Frontend invoca `citizen` (`POST /api/citizens/register`) mediante el `Ingress` NGINX.
   3. `citizen` valida datos y consulta duplicados.
   4. `citizen` registra ciudadano localmente y llama a `mintic_client`.
   5. `mintic_client` registra ciudadano en Hub MinTIC.
@@ -67,16 +77,16 @@ Operador --> (CU5 Recibir notificaciones de eventos)
 
 **CU2 Autenticarse en el operador**
 - **Actor primario:** Ciudadano.
-- **Precondiciones:** Cuenta creada en Azure AD B2C; operador activo.
-- **Postcondiciones:** Sesión válida en Frontend; token JWT emitido por `auth`; sesión registrada en Redis.
+- **Precondiciones:** Cuenta creada en el servicio `auth`; operador activo.
+- **Postcondiciones:** Sesión válida en Frontend; token JWT HS256 emitido por `auth`; sesión registrada en PostgreSQL/Redis.
 - **Flujo principal:**
   1. Ciudadano navega al portal e inicia login (OIDC).
-  2. Frontend delega a Azure AD B2C para credenciales.
-  3. AD B2C redirige con token; frontend canjea token vía `auth`.
-  4. `auth` valida credenciales, genera tokens firmados RS256.
+  2. Frontend llama a `auth` (`POST /api/auth/login`) vía Ingress.
+  3. `auth` valida credenciales contra su base PostgreSQL.
+  4. `auth` genera JWT HS256 y sesión; retorna tokens al frontend.
   5. Frontend almacena sesión (NextAuth) y habilita menú del ciudadano.
-- **Flujos alternos:** Credenciales inválidas → `auth` retorna `401`; usuario bloqueado → flujo de recaptcha/reset.
-- **Reglas:** MFA opcional; sesiones expiran a las 12h; revocación inmediata en logout.
+- **Flujos alternos:** Credenciales inválidas → `auth` retorna `401`; usuario bloqueado → estado `is_active = false`.
+- **Reglas:** Sesiones expiran a las 24h; revocación inmediata en logout.
 
 **CU3 Cargar documentos**
 - **Actor primario:** Ciudadano.
@@ -130,11 +140,10 @@ _Scenario: Registro exitoso_
 _Scenario: Autenticación con MFA habilitado_
 1. Luis ingresa a `carpeta-ciudadana.gov.co`.
 2. Presiona `Iniciar sesión`.
-3. Azure AD B2C solicita usuario y contraseña.
-4. Luis ingresa código MFA SMS.
-5. AD B2C devuelve token OIDC al frontend.
-6. Frontend intercambia token con `auth` para recibir JWT.
-7. Luis accede al dashboard personal.
+3. El frontend muestra el formulario local y envía usuario/contraseña a `auth`.
+4. `auth` valida la contraseña y genera JWT HS256 (MFA no disponible en este entorno).
+5. El frontend registra la sesión y persiste las cookies.
+6. Luis accede al dashboard personal.
 
 **HU3 - Carga de documentos**
 - **Como** ciudadano autenticado  
@@ -175,10 +184,10 @@ _Scenario: Autenticación exitosa_
 flowchart LR
   subgraph ExperienciaUsuario
     UI[Portal Ciudadano\n(Next.js)]
-    Gateway[API Gateway\nLímites, CORS, AuthZ]
+    Ingress[Ingress NGINX\nRouting HTTP]
   end
   subgraph GestionIdentidad
-    Auth[Auth Service\nOIDC, JWT]
+    Auth[Auth Service\nOIDC local + JWT]
     Citizen[Citizen Service\nGestión de perfiles]
   end
   subgraph GestionDocumental
@@ -188,20 +197,26 @@ flowchart LR
   end
   subgraph Integraciones
     Mintic[MinTIC Client\nProxy oficial]
-    Notification[Notification Service\nEmail/Webhook]
-    Transfer[Transfer Saga\nIntercambio docs]
+    Notification[Notification Service\nEventos → Mailjet]
+    Transfer[Transfer Service\nSagas/Compensaciones]
   end
-  UI --> Gateway
-  Gateway --> Auth
-  Gateway --> Citizen
-  Gateway --> Ingestion
-  Gateway --> Signature
+  EventBus[(Azure Service Bus\nEventos)]
+  UI -->|HTTP| Ingress
+  Ingress --> Auth
+  Ingress --> Citizen
+  Ingress --> Ingestion
+  Ingress --> Signature
+  Ingress --> Transfer
+  Ingress --> Notification
   Ingestion --> Metadata
   Signature --> Metadata
   Signature --> Mintic
-  Gateway --> Notification
-  Signature --> Notification
   Citizen --> Mintic
+  Citizen --> EventBus
+  Ingestion --> EventBus
+  Signature --> EventBus
+  Transfer --> EventBus
+  EventBus --> Notification
 ```
 
 ### 3.2 Componentes Técnicos (microservicios y data stores)
@@ -209,50 +224,58 @@ flowchart LR
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 graph TD
+  Browser["Usuarios / Operadores"]
   subgraph AKS["Azure Kubernetes Service"]
+    IngressNGINX["NGINX Ingress\nHTTP (sin TLS)"]
     Frontend["frontend (Next.js)"]
-    GatewayMS["gateway (FastAPI + Redis)"]
-    CitizenMS["citizen (FastAPI + PostgreSQL)"]
-    AuthMS["auth (FastAPI + Redis)"]
-    IngestionMS["ingestion (FastAPI + Blob SDK)"]
-    MetadataMS["metadata (FastAPI + PostgreSQL)"]
+    AuthMS["auth (FastAPI)"]
+    CitizenMS["citizen (FastAPI)"]
+    IngestionMS["ingestion (FastAPI)"]
+    MetadataMS["metadata (FastAPI)"]
     SignatureMS["signature (FastAPI + Crypto)"]
-    MinticMS["mintic_client (FastAPI + CircuitBreaker)"]
-    NotificationMS["notification (FastAPI + Mailjet/Webhooks)"]
-    TransferMS["transfer (FastAPI + Saga)"]
-    TransferWorker["transfer_worker (Async worker via KEDA)"]
-    CommonLib[":common library (Pydantic utils)"]
+    MinticMS["mintic_client (FastAPI)"]
+    NotificationMS["notification (FastAPI)"]
+    TransferMS["transfer (FastAPI)"]
+    CommonLib[":common library (Python utils)"]
   end
 
   PostgreSQL[(Azure PostgreSQL Flexible Server)]
-  Redis[(Azure Cache for Redis)]
   Blob[(Azure Blob Storage)]
   ServiceBus[(Azure Service Bus)]
   KeyVault[(Azure Key Vault)]
-  AppInsights[(Azure Application Insights)]
-  ADB2C[(Azure AD B2C)]
+  Redis[(Azure Cache for Redis\n(opcional))]
   MinTIC[(Hub MinTIC API)]
 
-  Frontend --> GatewayMS
-  GatewayMS --> AuthMS
-  GatewayMS --> CitizenMS
-  GatewayMS --> IngestionMS
-  GatewayMS --> SignatureMS
+  Browser --> IngressNGINX
+  IngressNGINX --> Frontend
+  IngressNGINX --> AuthMS
+  IngressNGINX --> CitizenMS
+  IngressNGINX --> IngestionMS
+  IngressNGINX --> SignatureMS
+  IngressNGINX --> MetadataMS
+  IngressNGINX --> NotificationMS
+  IngressNGINX --> TransferMS
   CitizenMS --> PostgreSQL
+  AuthMS --> PostgreSQL
   MetadataMS --> PostgreSQL
   SignatureMS --> PostgreSQL
-  IngestionMS --> Blob
   IngestionMS --> PostgreSQL
+  IngestionMS --> Blob
   SignatureMS --> Blob
-  AuthMS --> Redis
-  GatewayMS --> Redis
-  TransferMS --> ServiceBus
+  CitizenMS --> ServiceBus
+  IngestionMS --> ServiceBus
   SignatureMS --> ServiceBus
-  NotificationMS --> ServiceBus
-  GatewayMS --> KeyVault
-  AuthMS --> ADB2C
-  SignatureMS --> MinTIC
-  AllMS["Microservicios"] --> AppInsights
+  TransferMS --> ServiceBus
+  ServiceBus --> NotificationMS
+  AuthMS --> Redis
+  CitizenMS --> KeyVault
+  IngestionMS --> KeyVault
+  SignatureMS --> KeyVault
+  MetadataMS --> KeyVault
+  NotificationMS --> KeyVault
+  TransferMS --> KeyVault
+  SignatureMS --> MinticMS
+  MinticMS --> MinTIC
 ```
 
 ## 4. Diagramas de Secuencia de Operaciones
@@ -263,28 +286,28 @@ graph TD
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant UI as Portal Ciudadano
-    participant GW as Gateway API
+    participant ING as Ingress NGINX
     participant CT as Citizen Service
     participant MC as MinTIC Client
     participant HUB as Hub MinTIC
     participant DB as PostgreSQL
     participant SB as Azure Service Bus
 
-    UI->>GW: POST /citizens/register
-    GW->>CT: POST /api/citizens/register
+    UI->>ING: POST /api/citizens/register
+    ING->>CT: POST /api/citizens/register
     CT->>DB: INSERT ciudadano
     alt Ciudad ya existe
         DB-->>CT: Constraint error
-        CT-->>GW: 409 Conflict
-        GW-->>UI: Error duplicado
+        CT-->>ING: 409 Conflict
+        ING-->>UI: Error duplicado
     else Registro válido
         CT->>MC: POST /mintic/register
         MC->>HUB: POST /citizen
         HUB-->>MC: 200 OK
         MC-->>CT: Confirmación
         CT->>SB: Publicar citizen.registered
-        CT-->>GW: 201 Created
-        GW-->>UI: Éxito
+        CT-->>ING: 201 Created
+        ING-->>UI: Éxito
     end
 ```
 
@@ -294,22 +317,25 @@ sequenceDiagram
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant User as Ciudadano
-    participant B2C as Azure AD B2C
     participant FE as Frontend
+    participant ING as Ingress NGINX
     participant AUTH as Auth Service
-    participant Redis as Cache Redis
+    participant DB as PostgreSQL
 
     User->>FE: Accede /login
-    FE->>B2C: Redirect OAuth2 authorize
-    B2C-->>User: Pantalla credenciales
-    User->>B2C: Envia usuario/MFA
-    B2C-->>FE: Authorization Code
-    FE->>AUTH: POST /callback (code)
-    AUTH->>B2C: Token exchange
-    B2C-->>AUTH: id_token + access_token
-    AUTH->>Redis: Store session + nonce
-    AUTH-->>FE: JWT + refresh token
-    FE-->>User: Dashboard autenticado
+    FE->>ING: POST /api/auth/login
+    ING->>AUTH: POST /api/auth/login
+    AUTH->>DB: SELECT usuario + verificación password
+    alt Credenciales inválidas
+        DB-->>AUTH: Usuario no encontrado o contraseña inválida
+        AUTH-->>ING: 401 Unauthorized
+        ING-->>FE: Error login
+        FE-->>User: Mensaje de error
+    else Login válido
+        AUTH-->>ING: JWT HS256 + datos perfil
+        ING-->>FE: Tokens + perfil
+        FE-->>User: Dashboard autenticado
+    end
 ```
 
 ### 4.3 Carga de documentos (CU3)
@@ -318,25 +344,25 @@ sequenceDiagram
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant UI as Frontend
-    participant GW as Gateway API
-    participant ING as Ingestion Service
+    participant ING as Ingress NGINX
+    participant INGSRV as Ingestion Service
     participant BLOB as Azure Blob Storage
     participant DB as PostgreSQL
     participant SB as Service Bus
 
-    UI->>GW: Solicita upload URL
-    GW->>ING: POST /documents/upload-url
-    ING->>BLOB: Genera SAS PUT
-    ING-->>GW: SAS + document_id
-    GW-->>UI: SAS + instructions
+    UI->>ING: Solicita upload URL
+    ING->>INGSRV: POST /api/documents/upload-url
+    INGSRV->>BLOB: Genera SAS PUT
+    INGSRV-->>ING: SAS + document_id
+    ING-->>UI: SAS + instrucciones
     UI->>BLOB: PUT archivo (SAS HTTPS)
-    UI->>GW: POST confirm-upload
-    GW->>ING: confirm-upload
-    ING->>BLOB: Verifica existencia
-    ING->>DB: Guarda metadatos + hash
-    ING->>SB: Publicar document.uploaded
-    ING-->>GW: 200 processed
-    GW-->>UI: Documento disponible
+    UI->>ING: POST confirm-upload
+    ING->>INGSRV: confirm-upload
+    INGSRV->>BLOB: Verifica existencia
+    INGSRV->>DB: Guarda metadatos + hash
+    INGSRV->>SB: Publicar document.uploaded
+    INGSRV-->>ING: 200 processed
+    ING-->>UI: Documento disponible
 ```
 
 ### 4.4 Autenticación Gov (CU4)
@@ -345,7 +371,7 @@ sequenceDiagram
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant UI as Frontend
-    participant GW as Gateway
+    participant ING as Ingress NGINX
     participant SIG as Signature Service
     participant BLOB as Azure Blob
     participant CRY as Crypto Service
@@ -354,8 +380,8 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant SB as Service Bus
 
-    UI->>GW: POST /signature/sign
-    GW->>SIG: Solicitud autenticar
+    UI->>ING: POST /api/signature/authenticate
+    ING->>SIG: Solicitud autenticar
     SIG->>BLOB: GET documento (SAS)
     SIG->>CRY: Calcular SHA256 y firma RSA
     SIG->>BLOB: Generar SAS GET 15min
@@ -365,8 +391,8 @@ sequenceDiagram
     MINTIC-->>SIG: Respuesta autenticación
     SIG->>DB: Guarda SignatureRecord + WORM
     SIG->>SB: Publicar document.authenticated
-    SIG-->>GW: Firma + certificado
-    GW-->>UI: Documento autenticado
+    SIG-->>ING: Firma + certificado
+    ING-->>UI: Documento autenticado
 ```
 
 ## 5. Diagrama de Despliegue
@@ -374,71 +400,69 @@ sequenceDiagram
 ```mermaid
 %%{init: {'theme': 'neutral', 'flowchart': {'useMaxWidth': false}}}%%
 graph LR
-  subgraph Usuario["Internet / Ciudadanos"]
+  subgraph Usuarios["Internet / Ciudadanos"]
     Browser["Navegador / App Móvil"]
   end
 
-  Browser -- HTTPS (TLS 1.3, JSON) --> FrontDoor
-
-  subgraph AzureEdge["Azure Front Door + WAF"]
-    FrontDoor["Front Door\nCDN, WAF, DDoS"]
-  end
-
-  FrontDoor -- HTTPS (TLS 1.3) --> AGW
+  Browser -- HTTP (sin TLS) --> AzureLB["Azure Load Balancer Público"]
 
   subgraph AKSCluster["Azure Kubernetes Service (AKS)"]
-    AGW["Nginx Ingress Controller"]
-    subgraph NodePools["Node Pools"]
-      NPSystem["System Pool\n3 nodes"]
-      NPUser["User Pool\n3-10 nodes"]
-      NPSpot["Spot Pool\n0-30 nodes"]
-    end
-    FrontendPod["frontend Deployment\nNode.js 20\nHTTP/2"]
-    GatewayPod["gateway Deployment\nFastAPI + Redis client"]
-    CitizenPod["citizen Service\nFastAPI"]
+    IngressPod["NGINX Ingress Controller\nHTTP (sin TLS)"]
+    FrontendPod["frontend Deployment\nNext.js"]
     AuthPod["auth Service\nFastAPI"]
+    CitizenPod["citizen Service\nFastAPI"]
     IngestionPod["ingestion Service\nFastAPI"]
     MetadataPod["metadata Service\nFastAPI"]
     SignaturePod["signature Service\nFastAPI"]
-    MinticPod["mintic_client\nFastAPI\nCircuit Breaker"]
+    MinticPod["mintic_client\nFastAPI"]
     NotificationPod["notification Service\nFastAPI"]
-    TransferPod["transfer & worker\nFastAPI + Celery"]
+    TransferPod["transfer Service\nFastAPI"]
   end
 
-  AGW --> FrontendPod
-  AGW --> GatewayPod
-  GatewayPod --> CitizenPod
-  GatewayPod --> AuthPod
-  GatewayPod --> IngestionPod
-  GatewayPod --> SignaturePod
-  GatewayPod --> NotificationPod
+  AzureLB --> IngressPod
+  IngressPod --> FrontendPod
+  IngressPod --> AuthPod
+  IngressPod --> CitizenPod
+  IngressPod --> IngestionPod
+  IngressPod --> MetadataPod
+  IngressPod --> SignaturePod
+  IngressPod --> NotificationPod
+  IngressPod --> TransferPod
 
-  subgraph ManagedServices["Servicios Gestionados Azure"]
-    Postgres["Azure PostgreSQL\nTLS, JSON/SQL"]
-    Redis["Azure Cache for Redis\nTLS"]
-    Blob["Azure Blob Storage\nHTTPS, Binary"]
+  subgraph ManagedServices["Servicios gestionados Azure"]
+    Postgres["Azure PostgreSQL\nTLS requerido"]
+    Blob["Azure Blob Storage\nHTTPS"]
     ServiceBus["Azure Service Bus\nAMQP 1.0 / JSON"]
-    KeyVault["Azure Key Vault\nREST, TLS"]
-    Monitor["Azure Monitor + Application Insights"]
+    KeyVault["Azure Key Vault\nREST"]
+    Redis["Azure Cache for Redis\n(opcional)"]
   end
 
+  AuthPod --> Postgres
   CitizenPod --> Postgres
+  IngestionPod --> Postgres
   MetadataPod --> Postgres
   SignaturePod --> Postgres
-  AuthPod --> Redis
-  GatewayPod --> Redis
   IngestionPod --> Blob
   SignaturePod --> Blob
-  AllPods["Pods"] --> KeyVault
-  AllPods --> ServiceBus
-  AllPods --> Monitor
+  CitizenPod --> ServiceBus
+  IngestionPod --> ServiceBus
+  SignaturePod --> ServiceBus
+  TransferPod --> ServiceBus
+  ServiceBus --> NotificationPod
+  AuthPod --> Redis
+  CitizenPod --> KeyVault
+  IngestionPod --> KeyVault
+  SignaturePod --> KeyVault
+  MetadataPod --> KeyVault
+  NotificationPod --> KeyVault
+  TransferPod --> KeyVault
 
-  MinticPod -- REST/JSON + MTLS --> HubAPI["VPN/Private Endpoint -> Hub MinTIC"]
-  NotificationPod -- HTTPS --> ExternalServices["Mailjet / Notificaciones"]
+  MinticPod -- REST/JSON --> HubAPI["Hub MinTIC (VPN/Private Endpoint)"]
+  NotificationPod -- HTTPS (opcional) --> Mailjet["Mailjet / Webhooks externos"]
 ```
 
 **Protocolos y formatos**
-- Frontera externa: `HTTPS (TLS 1.3)` + `JSON`.
+- Frontera externa (estado actual): `HTTP` sin TLS (cert-manager y certificados deshabilitados). Requiere túnel seguro externo si se expone a producción.
 - Mensajería interna: `AMQP 1.0` (Service Bus), `JSON` eventos.
 - Persistencia: `PostgreSQL` (SQL, JSONB), `Redis` (Key/Value), `Blob` (binario + metadata).
 - Secrets: `CSI driver` monta desde `Key Vault`.
@@ -447,51 +471,50 @@ graph LR
 
 | ID | Decisión | Alternativas | Racional | Implicaciones |
 |----|----------|--------------|----------|---------------|
-| AD-01 | **Despliegue primario en Azure AKS** | On-prem Kubernetes, VM scale sets | Necesidad de elasticidad (KEDA/HPA), integración nativa con servicios Azure (Blob, Service Bus) y menores costos operativos | Requiere gestión de cluster AKS; dependencia cloud provider |
-| AD-02 | **Eventos con Azure Service Bus** | Kafka, RabbitMQ | Garantiza orden FIFO por sesión, soporte nativo en Azure, integración con KEDA para autoescalado | Contrato AMQP; costos por mensaje |
+| AD-01 | **Exposición directa con NGINX Ingress + LoadBalancer** | Azure Front Door + API Gateway, Kong, APIM | Reduce costos y complejidad mientras el entorno es experimental; permite enrutar tráfico HTTP a cada servicio | No hay WAF ni TLS; responsabilidad del equipo proteger endpoints y limitar IPs |
+| AD-02 | **Eventos con Azure Service Bus** | Kafka, RabbitMQ | Garantiza orden y reintentos nativos; integra con los SDK Python existentes | Requiere mantener secretos; sin KEDA el consumo es manual (1 réplica) |
 | AD-03 | **Storage documental en Azure Blob + WORM** | Filesystem on-prem, S3 | SAS URLs y políticas WORM, integración compliance gubernamental | Necesario gestionar expiración SAS y redundancia Geo-RA |
-| AD-04 | **Autenticación OIDC con Azure AD B2C** | Keycloak, Auth0 | Requisito gobierno colombiano, integra MFA, soporte identidad ciudadana | Debe configurarse tenant y sincronizar usuarios |
+| AD-04 | **Autenticación local en servicio `auth`** | Azure AD B2C, Auth0, Keycloak | Permite operar sin costos externos y mantener control durante pruebas | No hay MFA ni federación; las contraseñas residen en la misma plataforma |
 | AD-05 | **Base de datos transaccional PostgreSQL** | MySQL, Cosmos DB | Soporta JSONB, replicación, ACID; madurez en Python (SQLAlchemy) | Administrar backups y high availability (zona múltiple) |
 | AD-06 | **Microservicios en Python FastAPI** | .NET, Spring Boot | Cohesión equipo, velocidad de desarrollo, interoperabilidad con libs existentes | Controlar performance (uvicorn/gunicorn) |
 | AD-07 | **Frontend Next.js SSR** | Angular, React SPA | SSR + SEO + compatibilidad con NextAuth; rehidratación rápida y control de rutas | Necesita Node.js 20 en build pipeline |
-| AD-08 | **Criterios nube vs on-prem** | Mixed | Componentes con requisitos de elasticidad, seguridad y compliance se alojan en Azure; solo servicios de firma privada podrían evaluarse on-prem con HSM dedicado. Se mantiene posibilidad híbrida usando VPN/ExpressRoute para integraciones legadas. | Latencia dependiente de red; contratos de servicio; CAPEX reducido |
+| AD-08 | **Observabilidad básica (logs) sin OpenTelemetry** | App Insights + OTEL, Prometheus | Evita costos adicionales; se confía en logs estructurados enviados a stdout | Trazas y métricas avanzadas no disponibles; debugging más manual |
 
 ## 7. Microservicios y Responsabilidades
 
 | Servicio | Responsabilidades principales | Dependencias |
 |----------|------------------------------|--------------|
-| `gateway` | Enrutamiento, rate limiting, validación de tokens, CORS, versionamiento API | `auth`, `redis`, `citizen`, `ingestion`, `signature` |
-| `frontend` | UI portal ciudadanos/operadores, NextAuth, flujos SSR | `gateway`, Azure AD B2C |
-| `auth` | Proveedor OIDC, emisión JWT, gestión sesiones, MFA | Azure AD B2C, `redis`, `postgres` (usuarios del sistema) |
+| `frontend` | UI portal ciudadanos/operadores, NextAuth, flujos SSR | `auth`, `citizen`, `ingestion`, `signature`, `metadata`, `transfer`, `notification` (vía Ingress) |
+| `auth` | Registro/login local, emisión JWT HS256/RS256, sesiones | `postgres`, `redis` (opcional) |
 | `citizen` | CRUD ciudadanos, sincronización Hub MinTIC, eventos `citizen.*` | `postgres`, `mintic_client`, Service Bus |
 | `ingestion` | SAS URLs, validación uploads, metadatos, antivirus/OCR | Azure Blob, `metadata`, `postgres`, Service Bus |
 | `metadata` | Catálogo de documentos, índices de búsqueda, retención | `postgres`, `ingestion`, `signature` |
 | `signature` | Firma digital, autenticación Hub, WORM, auditoría | Azure Blob, `postgres`, `mintic_client`, Service Bus |
 | `mintic_client` | Gateway seguro hacia Hub MinTIC, circuit breaker, logging legal | VPN/ExpressRoute, Hub API |
-| `notification` | Emails, webhooks, colas push, plantillas regulatorias | Service Bus, Mailjet (REST API) |
-| `transfer` + `transfer_worker` | Orquestación de intercambios P2P, sagas, compensaciones | Service Bus, `citizen`, `metadata`, `notification` |
+| `notification` | Consumo de eventos y envío opcional de correos | Service Bus, Mailjet (REST API, requiere secretos) |
+| `transfer` | Orquestación de intercambios P2P, sagas y compensaciones | Service Bus, `citizen`, `metadata`, `notification` |
 | `common` | Librería compartida: validaciones, modelos Pydantic, utilidades | Consumido por todos los servicios Python |
 
 ### 7.1 Mailjet (Email transaccional)
 
 - **Credenciales**: se administran vía `Key Vault` con el secreto `mailjet` (creado por Terraform cuando `mailjet_enabled = true`). Requiere `mailjet_api_key`, `mailjet_secret_key`, `mailjet_from_email`, nombre opcional y `mailjet_template_id` si se usa plantilla transaccional.
 - **Terraform**: definir los valores en `infra/terraform/layers/application/terraform.tfvars` y ejecutar `terraform apply` en la capa `application` para propagar los secretos a Kubernetes mediante `ExternalSecret` (`mailjet-secrets`).
-- **Helm**: en `deploy/helm/carpeta-ciudadana/values.yaml` (o overrides por ambiente), activar `notification.mailjet.enabled = true` y ajustar remitente/nombre/plantilla. El `Deployment` del servicio inyecta automáticamente las variables `MAILJET_*`.
-- **Servicio notification**: utiliza la API REST v3.1 de Mailjet; valida que las variables estén presentes y envía correos al recibir `citizen.registered`. Errores de Mailjet registran `RuntimeError` para observabilidad.
+- **Helm**: en `deploy/helm/carpeta-ciudadana/values.yaml` (o overrides por ambiente), `notification.mailjet.enabled = true` por defecto pero depende de que `mailjet-secrets` exista; sin él el servicio permanece en modo “solo log”.
+- **Servicio notification**: utiliza la API REST v3.1 de Mailjet; valida que las variables estén presentes y envía correos al recibir `citizen.registered`. En el estado actual no se envían correos reales y se registran advertencias para observabilidad.
 
 ## 8. Implementación de Flujos Solicitados
 
 ### 8.1 Registro de ciudadano
-- **Endpoint:** `POST /api/citizens/register` (orquestado por `gateway`).
+- **Endpoint:** `POST /api/citizens/register` expuesto vía Ingress → `citizen`.
 - **Validaciones:** longitud cédula, email RFC 5322, idempotencia.
 - **Persistencia:** tabla `citizens` en PostgreSQL.
 - **Eventos:** `citizen.registered` (Service Bus) para notificar a `notification` y `transfer`.
-- **Observabilidad:** Métrica `citizen_registrations_total`, trazas en App Insights.
+- **Observabilidad:** Logs estructurados enviados a stdout; métricas manuales (sin OTEL habilitado).
 
 ### 8.2 Autenticación (login)
-- **Flujo:** Azure AD B2C ↔ `auth` ↔ `frontend`.
-- **Tokens:** ID token (B2C) → JWT RS256 firmado localmente, refresh token en Redis.
-- **Seguridad:** rotación cada 24 h, introspección de scopes para ABAC.
+- **Flujo:** `frontend` ↔ `auth` (login/password).
+- **Tokens:** JWT HS256 generado por `auth` (fallback RS256 opcional), refresh token no persistido.
+- **Seguridad:** Contraseñas hash en PostgreSQL; la rotación depende de re-emisión manual.
 
 ### 8.3 Carga de documentos
 - **Servicios:** `ingestion`, `metadata`, `notification`.
@@ -507,21 +530,21 @@ graph LR
 
 ## 9. Consideraciones de Seguridad y Cumplimiento
 
-- **Cifrado en tránsito:** TLS 1.3 extremo a extremo; MTLS opcional entre microservicios sensibles.
+- **Cifrado en tránsito:** HTTP sin TLS en la frontera actual; TLS interno solo cuando los SDK de Azure lo requieren (PostgreSQL, Blob, Service Bus).
 - **Cifrado en reposo:** Blob Storage y PostgreSQL cifrados por defecto, claves en Key Vault.
 - **Políticas de acceso:** ABAC para ciudadanos vs operadores; RBAC para administración.
-- **Auditoría:** Logs estructurados (`service`, `action`, `correlation_id`) sincronizados con Azure Monitor.
-- **Continuidad:** Backups automáticos, runbooks de recuperación, pruebas de caos trimestrales.
+- **Auditoría:** Logs estructurados (`service`, `action`, `correlation_id`) enviados a stdout; integración con Azure Monitor pendiente.
+- **Continuidad:** Backups automáticos de PostgreSQL habilitados por servicio gestionado; procesos manuales para restauración.
 
 ## 10. Roadmap y Riesgos
 
 - **Riesgos:** Dependencia de disponibilidad del Hub MinTIC; manejo de picos de carga (campañas masivas); cumplimiento WORM multi-región.
-- **Mitigaciones:** Circuit breakers (`mintic_client`), colas de reintentos, KEDA para escalar workers, replicación GRS y retención legal.
-- **Roadmap corto plazo:** Integrar motor de búsqueda (Azure Cognitive Search), habilitar app móvil, automatizar clasificación de documentos con IA.
+- **Mitigaciones:** Circuit breakers (`mintic_client`), colas de reintentos, tareas manuales de escalamiento (sin KEDA), replicación GRS configurada en Blob y políticas legales.
+- **Roadmap corto plazo:** Habilitar TLS + HSTS en Ingress, reactivar migraciones automatizadas, integrar Azure AD B2C, desplegar observabilidad (OTEL) y, posteriormente, incorporar motor de búsqueda y app móvil.
 
 ---
 
-**Última actualización:** 2025-11-07  
+**Última actualización:** 2025-11-08  
 **Preparado por:** GPT-5 Codex (Cursor Assistant)
 
 

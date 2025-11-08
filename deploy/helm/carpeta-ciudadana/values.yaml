@@ -69,6 +69,7 @@ m2mAuth:
 frontend:
   enabled: true
   replicaCount: 1  # Reducido para ahorrar recursos
+  publicBaseUrl: "http://172.193.163.188"
   image:
     repository: carpeta-frontend
     tag: latest

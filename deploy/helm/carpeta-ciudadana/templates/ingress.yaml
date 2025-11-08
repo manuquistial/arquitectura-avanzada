@@ -102,6 +102,20 @@ spec:
             name: {{ include "carpeta-ciudadana.fullname" $ }}-ingestion
             port:
               number: 8000
+      - path: /api/metadata
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-metadata
+            port:
+              number: 8000
+      - path: /api/notifications
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "carpeta-ciudadana.fullname" $ }}-notification
+            port:
+              number: 8000
       - path: /api/signature
         pathType: Prefix
         backend:
