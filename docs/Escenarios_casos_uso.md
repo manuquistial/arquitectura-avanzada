@@ -649,158 +649,865 @@ Dado que Luis Fernando es un ciudadano registrado
 entonces accede a https://carpeta-ciudadana.gov.co
 Cuando Luis hace clic en "Iniciar Sesión"
 
-Entonces el frontend redirige a Azure AD B2C:
+Entonces el frontend muestra el formulario de login:
 ```typescript
 // File: apps/frontend/src/app/api/auth/[...nextauth]/route.ts
+// File: apps/frontend/src/app/login/page.tsx
+'use client'
+
+import { useState } from 'react'
+import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      // Autenticación con servicio auth interno
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false
+      })
+
+      if (result?.error) {
+        setError('Email o contraseña incorrectos')
+        setLoading(false)
+        return
+      }
+
+      // Redireccionar al dashboard
+      router.push('/dashboard')
+    } catch (err) {
+      setError('Error al iniciar sesión. Intenta de nuevo.')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+        <div>
+          <h2 className="text-center text-3xl font-bold text-gray-900">
+            Carpeta Ciudadana
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Inicia sesión con tu cuenta
+          </p>
+        </div>
+
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-blue-600 rounded"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                Recordarme
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <a href="/reset-password" className="text-blue-600 hover:text-blue-500">
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
+          >
+            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+          </button>
+
+          <div className="text-center text-sm">
+            <span className="text-gray-600">¿No tienes cuenta? </span>
+            <a href="/register" className="text-blue-600 hover:text-blue-500">
+              Regístrate aquí
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+```
+Cuando Luis ingresa sus credenciales:
+
+Email: luis.fernando@gmail.com
+Password: MiPassword123!
+Y hace clic en "Iniciar sesión"
+
+Entonces NextAuth.js envía las credenciales al provider custom:
+```typescript
+// File: apps/frontend/src/app/api/auth/[...nextauth]/route.ts
+import NextAuth, { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { JWT } from "next-auth/jwt"
+
 export const authOptions: NextAuthOptions = {
   providers: [
-    {
-      id: 'azure-ad-b2c',
-      name: 'Azure AD B2C',
-      type: 'oauth',
-      wellKnown: `https://${process.env.AZURE_AD_B2C_TENANT_NAME}.b2clogin.com/${process.env.AZURE_AD_B2C_TENANT_NAME}.onmicrosoft.com/v2.0/.well-known/openid-configuration?p=${process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW}`,
-      authorization: {
-        params: {
-          scope: 'openid profile email offline_access',
-          response_type: 'code'
+    CredentialsProvider({
+      id: 'credentials',
+      name: 'Credentials',
+      credentials: {
+        email: { 
+          label: "Email", 
+          type: "email", 
+          placeholder: "tu@email.com" 
+        },
+        password: { 
+          label: "Password", 
+          type: "password" 
         }
       },
-      clientId: process.env.AZURE_AD_B2C_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_B2C_CLIENT_SECRET!
-    }
-  ],
-  callbacks: {
-    async jwt({ token, account, profile }) {
-      if (account && profile) {
-        token.accessToken = account.access_token
-        token.idToken = account.id_token
-        token.oid = profile.oid
+      
+      async authorize(credentials, req) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Email y contraseña son requeridos')
+        }
+
+        try {
+          // Llamar al servicio auth interno
+          const response = await fetch(`${process.env.AUTH_SERVICE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password
+            })
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.detail || 'Credenciales inválidas')
+          }
+
+          const data = await response.json()
+
+          // Retornar usuario con tokens
+          return {
+            id: data.user.citizen_id,
+            email: data.user.email,
+            name: data.user.full_name,
+            tier: data.user.tier,
+            roles: data.user.roles,
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token
+          }
+        } catch (error) {
+          console.error('Error en authorize:', error)
+          return null
+        }
       }
-      return token
+    })
+  ],
+
+  callbacks: {
+    async jwt({ token, user, account }) {
+      // Primera vez que el usuario inicia sesión
+      if (user) {
+        token.accessToken = user.accessToken
+        token.refreshToken = user.refreshToken
+        token.citizen_id = user.id
+        token.email = user.email
+        token.name = user.name
+        token.tier = user.tier
+        token.roles = user.roles
+        token.accessTokenExpires = Date.now() + 12 * 60 * 60 * 1000 // 12 horas
+      }
+
+      // Token todavía válido
+      if (Date.now() < token.accessTokenExpires) {
+        return token
+      }
+
+      // Token expirado, intentar refresh
+      return refreshAccessToken(token)
     },
+
     async session({ session, token }) {
-      // Validar con backend
-      const response = await fetch(`${process.env.AUTH_SERVICE_URL}/validate`, {
-        method: 'POST',
-        body: JSON.stringify({
-          id_token: token.idToken,
-          access_token: token.accessToken
-        })
-      })
+      session.user = {
+        ...session.user,
+        citizen_id: token.citizen_id,
+        email: token.email,
+        name: token.name,
+        tier: token.tier,
+        roles: token.roles
+      }
       
-      const data = await response.json()
-      session.user.citizen_id = data.user.citizen_id
-      session.user.tier = data.user.tier
-      session.accessToken = data.access_token
-      
+      session.accessToken = token.accessToken
+      session.error = token.error
+
       return session
+    }
+  },
+
+  pages: {
+    signIn: '/login',
+    error: '/auth/error',
+    signOut: '/login'
+  },
+
+  session: {
+    strategy: 'jwt',
+    maxAge: 12 * 60 * 60, // 12 horas
+  },
+
+  secret: process.env.NEXTAUTH_SECRET,
+}
+
+async function refreshAccessToken(token: JWT) {
+  try {
+    const response = await fetch(`${process.env.AUTH_SERVICE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refresh_token: token.refreshToken
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Refresh token inválido')
+    }
+
+    const data = await response.json()
+
+    return {
+      ...token,
+      accessToken: data.access_token,
+      accessTokenExpires: Date.now() + 12 * 60 * 60 * 1000,
+      refreshToken: data.refresh_token ?? token.refreshToken
+    }
+  } catch (error) {
+    console.error('Error refreshing token:', error)
+    return {
+      ...token,
+      error: 'RefreshAccessTokenError'
     }
   }
 }
-```
-Cuando Luis ingresa sus credenciales
-Y Azure AD B2C valida exitosamente
 
-Entonces redirige con authorization code
-Y el frontend intercambia el code por tokens:
-```bash
-POST https://carpetaciudadana.b2clogin.com/.../oauth2/v2.0/token
-grant_type=authorization_code
-&code=0.AXEA...
-&client_id={CLIENT_ID}
-&client_secret={CLIENT_SECRET}
+const handler = NextAuth(authOptions)
+export { handler as GET, handler as POST }
 ```
-y recibe tokens:
-```json
-{
-  "token_type": "Bearer",
-  "expires_in": 3600,
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "id_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh_token": "0.AXEA..."
-}
-```
-Y el servicio auth valida y genera tokens internos:
+Y el servicio auth recibe y valida las credenciales:
 
 ```typescript
 # File: services/auth/app/routers/auth.py
-@router.post("/validate")
-async def validate_oidc_token(
-    token_data: dict,
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from typing import Optional
+import bcrypt
+import jwt
+from uuid import uuid4
+
+from ..database import get_db
+from ..models import User, LoginAttempt
+from ..config import settings
+from carpeta_common.audit_logger import audit_logger
+from carpeta_common.observability import telemetry_client
+from carpeta_common.redis_client import get_redis
+from redis import Redis
+
+router = APIRouter()
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "Bearer"
+    expires_in: int = 43200  # 12 horas
+    user: dict
+
+@router.post("/login", response_model=LoginResponse)
+async def login(
+    login_data: LoginRequest,
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis)
 ):
-    # 1. Decodificar id_token
-    decoded = jwt.decode(
-        token_data["id_token"],
-        key=get_jwks_key(),
-        algorithms=["RS256"],
-        audience=settings.AZURE_AD_B2C_CLIENT_ID
-    )
+    """
+    Autentica un usuario con email y contraseña
     
-    user_email = decoded.get("emails")[0]
-    user_oid = decoded.get("oid")
+    Flujo:
+    1. Verificar si la cuenta está bloqueada (rate limiting)
+    2. Buscar usuario por email
+    3. Verificar contraseña con bcrypt
+    4. Generar JWT access token (RS256)
+    5. Generar refresh token
+    6. Crear sesión en Redis
+    7. Registrar login exitoso en auditoría
+    8. Enviar telemetría
+    """
     
-    # 2. Buscar o crear usuario
+    start_time = datetime.now()
+    
+    # 1. Verificar bloqueo de cuenta (5 intentos fallidos = 15 min bloqueado)
+    lock_key = f"account_locked:{login_data.email}"
+    is_locked = await redis.get(lock_key)
+    
+    if is_locked:
+        await audit_logger.log_event(
+            event_type="LOGIN_BLOCKED",
+            user_id=login_data.email,
+            details={
+                "reason": "too_many_attempts",
+                "locked_until": (datetime.now() + timedelta(minutes=15)).isoformat()
+            }
+        )
+        
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "account_locked",
+                "message": "Cuenta bloqueada por múltiples intentos fallidos. Intenta en 15 minutos.",
+                "locked_until": (datetime.now() + timedelta(minutes=15)).isoformat()
+            }
+        )
+    
+    # 2. Buscar usuario
     user = db.query(User).filter(
-        (User.email == user_email) | (User.azure_oid == user_oid)
+        User.email == login_data.email.lower()
     ).first()
     
     if not user:
-        user = User(
-            citizen_id=generate_citizen_id(),
-            email=user_email,
-            azure_oid=user_oid,
-            tier="FREE",
-            roles=["CITIZEN"]
+        # Usuario no existe - registrar intento fallido
+        await record_failed_attempt(login_data.email, "user_not_found", redis, db)
+        
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email o contraseña incorrectos"
         )
-        db.add(user)
-        db.commit()
     
-    # 3. Generar JWT interno
-    internal_jwt = create_access_token(
-        data={
-            "sub": user.citizen_id,
-            "email": user.email,
-            "roles": user.roles,
-            "tier": user.tier
-        },
-        expires_delta=timedelta(hours=12)
+    # Verificar que el usuario está activo
+    if user.status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "account_inactive",
+                "message": f"Tu cuenta está {user.status}. Contacta a soporte.",
+                "status": user.status
+            }
+        )
+    
+    # 3. Verificar contraseña con bcrypt
+    password_valid = bcrypt.checkpw(
+        login_data.password.encode('utf-8'),
+        user.password_hash.encode('utf-8')
     )
     
-    # 4. Crear sesión en Redis
+    if not password_valid:
+        # Contraseña incorrecta - registrar intento fallido
+        await record_failed_attempt(login_data.email, "invalid_password", redis, db)
+        
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email o contraseña incorrectos"
+        )
+    
+    # 4. Generar JWT access token (RS256 para validación distribuida)
+    access_token_payload = {
+        "sub": user.citizen_id,  # Subject: ID del ciudadano
+        "email": user.email,
+        "name": user.full_name,
+        "roles": user.roles,
+        "tier": user.tier,
+        "type": "access",
+        "iat": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(hours=12),
+        "iss": "carpeta-ciudadana-auth",
+        "aud": ["carpeta-ciudadana-services", "carpeta-ciudadana-frontend"]
+    }
+    
+    # Firmar con clave privada RSA desde Key Vault
+    private_key = load_private_key_from_keyvault()
+    access_token = jwt.encode(
+        access_token_payload,
+        private_key,
+        algorithm="RS256"
+    )
+    
+    # 5. Generar refresh token (UUID opaco guardado en DB)
+    refresh_token_id = str(uuid4())
+    refresh_token_payload = {
+        "sub": user.citizen_id,
+        "type": "refresh",
+        "jti": refresh_token_id,  # JWT ID único
+        "iat": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(days=30),
+        "iss": "carpeta-ciudadana-auth"
+    }
+    
+    refresh_token = jwt.encode(
+        refresh_token_payload,
+        private_key,
+        algorithm="RS256"
+    )
+    
+    # Guardar refresh token en DB para poder revocarlo
+    from ..models import RefreshToken
+    db_refresh_token = RefreshToken(
+        token_id=refresh_token_id,
+        citizen_id=user.citizen_id,
+        expires_at=datetime.utcnow() + timedelta(days=30),
+        created_at=datetime.utcnow(),
+        is_revoked=False
+    )
+    db.add(db_refresh_token)
+    
+    # 6. Crear sesión en Redis (12 horas TTL)
     session_id = str(uuid4())
     session_key = f"session:{user.citizen_id}:{session_id}"
     
+    session_data = {
+        "citizen_id": user.citizen_id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "roles": user.roles,
+        "tier": user.tier,
+        "session_id": session_id,
+        "created_at": datetime.now().isoformat(),
+        "last_activity": datetime.now().isoformat(),
+        "ip_address": request.client.host,
+        "user_agent": request.headers.get("User-Agent", "unknown")
+    }
+    
     await redis.setex(
         session_key,
-        43200,  # 12 horas
-        json.dumps({
-            "citizen_id": user.citizen_id,
-            "email": user.email,
-            "roles": user.roles,
-            "tier": user.tier
-        })
+        43200,  # 12 horas en segundos
+        json.dumps(session_data)
     )
     
-    # 5. Auditoría
+    # Actualizar último login del usuario
+    user.last_login = datetime.now()
+    user.last_login_ip = request.client.host
+    
+    db.commit()
+    
+    # 7. Registrar login exitoso en auditoría
     await audit_logger.log_event(
         event_type="USER_LOGIN",
         user_id=user.citizen_id,
         details={
-            "auth_method": "azure_ad_b2c",
-            "ip_address": request.client.host
+            "email": user.email,
+            "full_name": user.full_name,
+            "ip_address": request.client.host,
+            "user_agent": request.headers.get("User-Agent"),
+            "session_id": session_id,
+            "login_time": datetime.now().isoformat(),
+            "tier": user.tier
+        }
+    )
+    
+    # Resetear contador de intentos fallidos
+    attempts_key = f"login_attempts:{login_data.email}"
+    await redis.delete(attempts_key)
+    
+    # 8. Enviar telemetría a Application Insights
+    login_duration = (datetime.now() - start_time).total_seconds() * 1000
+    
+    telemetry_client.track_event(
+        "UserLogin",
+        properties={
+            "citizen_id": user.citizen_id,
+            "email": user.email,
+            "tier": user.tier,
+            "roles": ",".join(user.roles),
+            "ip_address": request.client.host,
+            "success": True
+        },
+        measurements={
+            "login_duration_ms": login_duration
         }
     )
     
     return {
-        "access_token": internal_jwt,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "Bearer",
+        "expires_in": 43200,
         "user": {
             "citizen_id": user.citizen_id,
             "email": user.email,
-            "tier": user.tier
+            "full_name": user.full_name,
+            "tier": user.tier,
+            "roles": user.roles
         }
     }
+
+
+async def record_failed_attempt(
+    email: str, 
+    reason: str, 
+    redis: Redis, 
+    db: Session
+):
+    """
+    Registra un intento de login fallido y bloquea cuenta si excede límite
+    """
+    attempts_key = f"login_attempts:{email}"
+    
+    # Incrementar contador de intentos
+    attempts = await redis.incr(attempts_key)
+    
+    if attempts == 1:
+        # Primera vez, establecer TTL de 15 minutos
+        await redis.expire(attempts_key, 900)
+    
+    # Registrar en base de datos
+    login_attempt = LoginAttempt(
+        email=email,
+        attempt_time=datetime.now(),
+        success=False,
+        failure_reason=reason,
+        ip_address=request.client.host,
+        user_agent=request.headers.get("User-Agent")
+    )
+    db.add(login_attempt)
+    db.commit()
+    
+    # Si llega a 5 intentos, bloquear cuenta
+    if attempts >= 5:
+        lock_key = f"account_locked:{email}"
+        await redis.setex(lock_key, 900, "locked")  # 15 minutos
+        
+        await audit_logger.log_event(
+            event_type="ACCOUNT_LOCKED",
+            user_id=email,
+            details={
+                "reason": "too_many_failed_attempts",
+                "attempts": attempts,
+                "locked_for_minutes": 15
+            }
+        )
+    
+    # Registrar auditoría
+    await audit_logger.log_event(
+        event_type="LOGIN_FAILED",
+        user_id=email,
+        details={
+            "reason": reason,
+            "attempts_count": attempts,
+            "ip_address": request.client.host,
+            "user_agent": request.headers.get("User-Agent")
+        }
+    )
+
+
+@router.post("/refresh")
+async def refresh_token(
+    refresh_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Genera un nuevo access token usando refresh token válido
+    """
+    refresh_token = refresh_data.get("refresh_token")
+    
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="refresh_token es requerido"
+        )
+    
+    try:
+        # Decodificar refresh token
+        public_key = load_public_key_from_keyvault()
+        payload = jwt.decode(
+            refresh_token,
+            public_key,
+            algorithms=["RS256"],
+            issuer="carpeta-ciudadana-auth"
+        )
+        
+        # Verificar que sea refresh token
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido"
+            )
+        
+        # Verificar que no esté revocado
+        from ..models import RefreshToken
+        db_token = db.query(RefreshToken).filter(
+            RefreshToken.token_id == payload["jti"]
+        ).first()
+        
+        if not db_token or db_token.is_revoked:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token revocado"
+            )
+        
+        # Buscar usuario
+        user = db.query(User).filter(
+            User.citizen_id == payload["sub"]
+        ).first()
+        
+        if not user or user.status != "ACTIVE":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario inválido"
+            )
+        
+        # Generar nuevo access token
+        private_key = load_private_key_from_keyvault()
+        new_access_token = jwt.encode(
+            {
+                "sub": user.citizen_id,
+                "email": user.email,
+                "name": user.full_name,
+                "roles": user.roles,
+                "tier": user.tier,
+                "type": "access",
+                "iat": datetime.utcnow(),
+                "exp": datetime.utcnow() + timedelta(hours=12),
+                "iss": "carpeta-ciudadana-auth",
+                "aud": ["carpeta-ciudadana-services", "carpeta-ciudadana-frontend"]
+            },
+            private_key,
+            algorithm="RS256"
+        )
+        
+        return {
+            "access_token": new_access_token,
+            "token_type": "Bearer",
+            "expires_in": 43200
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expirado"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token inválido"
+        )
+
+
+@router.post("/logout")
+async def logout(
+    current_user = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
+    db: Session = Depends(get_db)
+):
+    """
+    Cierra sesión del usuario revocando tokens
+    """
+    # Eliminar todas las sesiones del usuario en Redis
+    pattern = f"session:{current_user.citizen_id}:*"
+    async for key in redis.scan_iter(match=pattern):
+        await redis.delete(key)
+    
+    # Revocar todos los refresh tokens activos
+    from ..models import RefreshToken
+    db.query(RefreshToken).filter(
+        RefreshToken.citizen_id == current_user.citizen_id,
+        RefreshToken.is_revoked == False
+    ).update({"is_revoked": True})
+    db.commit()
+    
+    # Auditoría
+    await audit_logger.log_event(
+        event_type="USER_LOGOUT",
+        user_id=current_user.citizen_id,
+        details={
+            "email": current_user.email,
+            "logout_time": datetime.now().isoformat()
+        }
+    )
+    
+    return {"message": "Sesión cerrada exitosamente"}
+
+
+def load_private_key_from_keyvault():
+    """Carga la clave privada RSA desde Azure Key Vault"""
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
+    from cryptography.hazmat.primitives import serialization
+    
+    credential = DefaultAzureCredential()
+    client = SecretClient(
+        vault_url=settings.AZURE_KEYVAULT_URL,
+        credential=credential
+    )
+    
+    secret = client.get_secret("jwt-private-key")
+    private_key = serialization.load_pem_private_key(
+        secret.value.encode(),
+        password=None
+    )
+    
+    return private_key
+
+
+def load_public_key_from_keyvault():
+    """Carga la clave pública RSA desde Azure Key Vault"""
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
+    from cryptography.hazmat.primitives import serialization
+    
+    credential = DefaultAzureCredential()
+    client = SecretClient(
+        vault_url=settings.AZURE_KEYVAULT_URL,
+        credential=credential
+    )
+    
+    secret = client.get_secret("jwt-public-key")
+    public_key = serialization.load_pem_public_key(
+        secret.value.encode()
+    )
+    
+    return public_key
 ```
-Entonces Luis es redirigido a /dashboard
-Y ve su panel con opciones de ver sus documentos, cargar documentos, etc.
+
+Y el modelo de User en la base de datos:
+
+```typescript
+
+# File: services/auth/app/models.py
+from sqlalchemy import Column, String, DateTime, Boolean, JSON, Text
+from sqlalchemy.dialects.postgresql import ARRAY
+from datetime import datetime
+from .database import Base
+
+class User(Base):
+    __tablename__ = "users"
+    
+    citizen_id = Column(String(10), primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(Text, nullable=False)
+    full_name = Column(String(255), nullable=False)
+    
+    # Roles: ["CITIZEN", "OPERATOR", "ADMIN"]
+    roles = Column(ARRAY(String), default=["CITIZEN"])
+    
+    # Tier: "FREE", "BASIC", "PREMIUM"
+    tier = Column(String(20), default="FREE")
+    
+    # Estado: "ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"
+    status = Column(String(30), default="PENDING_VERIFICATION")
+    
+    last_login = Column(DateTime, nullable=True)
+    last_login_ip = Column(String(45), nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Metadata adicional
+    metadata = Column(JSON, default={})
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    
+    token_id = Column(String(36), primary_key=True)  # UUID
+    citizen_id = Column(String(10), nullable=False, index=True)
+    
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    
+    is_revoked = Column(Boolean, default=False, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    
+    # Metadata: IP, User-Agent del dispositivo
+    metadata = Column(JSON, default={})
+
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+    
+    id = Column(String(36), primary_key=True)
+    email = Column(String(255), nullable=False, index=True)
+    
+    attempt_time = Column(DateTime, default=datetime.now, nullable=False)
+    success = Column(Boolean, nullable=False)
+    
+    failure_reason = Column(String(100), nullable=True)  # user_not_found, invalid_password
+    
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+
+```
+Entonces Luis recibe la respuesta exitosa:
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJsdWlzLmZlcm5hbmRvQGdtYWlsLmNvbSIsIm5hbWUiOiJMdWlzIEZlcm5hbmRvIEdvbnphbGV6Iiwicm9sZXMiOlsiQ0lUSVpFTiJdLCJ0aWVyIjoiUFJFTUlVTSIsInR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3MzExMDAwMDAsImV4cCI6MTczMTE0MzIwMCwiaXNzIjoiY2FycGV0YS1jaXVkYWRhbmEtYXV0aCIsImF1ZCI6WyJjYXJwZXRhLWNpdWRhZGFuYS1zZXJ2aWNlcyIsImNhcnBldGEtY2l1ZGFkYW5hLWZyb250ZW5kIl19.signature_here",
+  "refresh_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidHlwZSI6InJlZnJlc2giLCJqdGkiOiJhMWIyYzNkNC1lNWY2LTc4OTAtYWJjZC1lZjEyMzQ1Njc4OTAiLCJpYXQiOjE3MzExMDAwMDAsImV4cCI6MTczMzcwMDAwMCwiaXNzIjoiY2FycGV0YS1jaXVkYWRhbmEtYXV0aCJ9.signature_here",
+  "token_type": "Bearer",
+  "expires_in": 43200,
+  "user": {
+    "citizen_id": "1234567890",
+    "email": "luis.fernando@gmail.com",
+    "full_name": "Luis Fernando Gonzalez",
+    "tier": "PREMIUM",
+    "roles": ["CITIZEN"]
+  }
+}
+```
+Y NextAuth.js guarda los tokens en el JWT de sesión
+Y redirige a Luis al dashboard /dashboard
+Y Luis ve su panel personalizado con el que puede interactuar
+
