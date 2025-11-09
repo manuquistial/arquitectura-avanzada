@@ -2,8 +2,14 @@
 
 # Local values for auto-detection
 locals {
-  # Auto-detect frontend URL - use provided URL or placeholder
-  frontend_url_auto = var.frontend_url != "" ? var.frontend_url : "http://LOADBALANCER-IP-PENDING"
+  # Auto-detect frontend URL - prefer explicit values, fall back to domain or placeholder
+  frontend_url_auto = (
+    var.frontend_url != "" ? var.frontend_url :
+    var.domain_name != "" ? "https://${var.domain_name}" :
+    var.frontdoor_frontend_hostname != "" ? "https://${var.frontdoor_frontend_hostname}" :
+    "http://LOADBALANCER-IP-PENDING"
+  )
+  frontend_lb_ip = try(data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip, "")
 }
 
 # Namespace debe crearse primero antes que los secrets y el Helm release
@@ -62,7 +68,7 @@ resource "helm_release" "carpeta_ciudadana" {
   # Ingress configuration
   set {
     name  = "ingress.hosts[0].host"
-    value = var.domain_name
+    value = ""
   }
 
   # Esperar a que el namespace esté creado antes de desplegar el Helm release
@@ -94,14 +100,19 @@ resource "null_resource" "update_frontend_url" {
   count = var.frontend_url == "" ? 1 : 0
 
   triggers = {
-    service_ready = data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip
+    service_ready = local.frontend_lb_ip
   }
 
   provisioner "local-exec" {
     command = <<-EOT
-      echo "Frontend URL: http://${data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip}"
-      echo "Update your terraform.tfvars with:"
-      echo "frontend_url = \"http://${data.kubernetes_service.frontend_lb.status.0.load_balancer.0.ingress.0.ip}\""
+      if [ -z "${local.frontend_lb_ip}" ]; then
+        echo "El servicio frontend aún no tiene IP asignada por el LoadBalancer."
+        echo "Actualiza tu terraform.tfvars manualmente cuando la IP esté disponible."
+      else
+        echo "Frontend URL: http://${local.frontend_lb_ip}"
+        echo "Update your terraform.tfvars with:"
+        echo "frontend_url = \"http://${local.frontend_lb_ip}\""
+      fi
     EOT
   }
 }

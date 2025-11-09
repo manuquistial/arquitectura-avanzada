@@ -33,7 +33,11 @@ const authOptions: NextAuthOptions = {
 
         try {
           // Llamar al servicio de autenticación backend
-          const authServiceUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || 'http://localhost:8001';
+          const authServiceUrl =
+            process.env.AUTH_SERVICE_URL ||
+            process.env.AUTH_URL ||
+            process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ||
+            'http://localhost:8001';
           console.log('🌐 Auth service URL:', authServiceUrl);
           
           if (!authServiceUrl) {

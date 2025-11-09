@@ -88,3 +88,4 @@ async def close_redis_client() -> None:
         _redis_client = None
 
 
+

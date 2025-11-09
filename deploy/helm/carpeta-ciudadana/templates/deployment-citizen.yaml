@@ -88,6 +88,31 @@ spec:
               name: database-credentials
               key: DB_SSLMODE
               optional: true
+        # Redis configuration (fetched from Azure Key Vault via External Secrets)
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_HOST
+              optional: true
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_PORT
+              optional: true
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_PASSWORD
+              optional: true
+        - name: REDIS_SSL
+          valueFrom:
+            secretKeyRef:
+              name: azure-secrets
+              key: REDIS_SSL
+              optional: true
         # JWT Configuration
         - name: JWT_SECRET_KEY
           valueFrom:
